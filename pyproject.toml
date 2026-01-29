@@ -1,0 +1,118 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ciberwebscan"
+version = "0.0.1"
+description = "Hybrid tool for passive reconnaissance, attack surface analysis, structured extraction and security assessment of web applications."
+readme = "README.md"
+license = {file = "LICENSE"}
+authors = [{name = "HC-ONLINE", email = "henriquezandres856@gmail.com"}]
+keywords = ["passive-reconnaissance", "attack-surface", "fingerprinting", "web-security", "web-scraping", "structured-extraction", "cli", "selenium", "beautifulsoup"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Security",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "beautifulsoup4>=4.13.4",
+    "Flask>=3.1.1",
+    "Flask-Session>=0.8.0",
+    "httpx[http2]>=0.27.0",
+    "selenium>=4.33.0",
+    "lxml>=5.3.0",
+    "vulners>=2.2.1",
+    "pyOpenSSL>=24.0.0",
+    "cryptography>=42.0.5",
+    "python-dotenv>=1.1.1",
+    "typer>=0.17.4",
+    "rich>=13.0.0",
+    "pyyaml>=6.0.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.5",
+    "pytest-cov>=5.0.0",
+    "pytest-mock>=3.14.0",
+    "pytest-html>=4.1.1",
+    "black",
+    "isort",
+    "pyright",
+    "pre-commit",
+]
+
+[project.urls]
+Homepage = "https://github.com/HC-ONLINE/CiberWebScan"
+
+[project.scripts]
+ciberwebscan = "ciberwebscan.cli.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["ciberwebscan*"]
+exclude = ["tests*"]
+
+[tool.setuptools.package-data]
+ciberwebscan = [
+    "core/analyzers/fingerprint/*.json",
+    "core/attacks/*.json",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--cov=src/ciberwebscan",
+    "--cov-report=html",
+    "--cov-report=term-missing",
+    "--cov-report=xml",
+]
+markers = [
+    "slow: slow running tests",
+    "integration: integration tests",
+    "unit: unit tests",
+]
+
+[tool.coverage.run]
+source = ["src/ciberwebscan"]
+omit = ["*/tests/*", "*/__pycache__/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "@(abc\\.)?abstractmethod",
+]
+
+[tool.black]
+line-length = 88
+target-version = ['py310']
+
+[tool.isort]
+profile = "black"
+line_length = 88
+known_first_party = ["ciberwebscan"]
+src_paths = ["src", "tests"]
+
+[tool.pyright]
+include = ["src/ciberwebscan"]
+exclude = ["**/__pycache__"]
+pythonVersion = "3.10"
+typeCheckingMode = "basic"
