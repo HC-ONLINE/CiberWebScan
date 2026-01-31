@@ -125,7 +125,7 @@ class PaginationConfig(BaseModel):
 
 
 class DynamicScrapingConfig(BaseModel):
-    """Selenium/dynamic scraping settings."""
+    """playwright/dynamic scraping settings."""
 
     enabled: bool = False
     wait_timeout: Annotated[float, Field(ge=1.0, le=120.0)] = 10.0

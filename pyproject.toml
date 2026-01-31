@@ -9,7 +9,7 @@ description = "Hybrid tool for passive reconnaissance, attack surface analysis, 
 readme = "README.md"
 license = {file = "LICENSE"}
 authors = [{name = "HC-ONLINE", email = "henriquezandres856@gmail.com"}]
-keywords = ["passive-reconnaissance", "attack-surface", "fingerprinting", "web-security", "web-scraping", "structured-extraction", "cli", "selenium", "beautifulsoup"]
+keywords = ["passive-reconnaissance", "attack-surface", "fingerprinting", "web-security", "web-scraping", "structured-extraction", "cli", "playwright", "beautifulsoup"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -30,7 +30,7 @@ dependencies = [
     "Flask>=3.1.1",
     "Flask-Session>=0.8.0",
     "httpx[http2]>=0.27.0",
-    "selenium>=4.33.0",
+    "playwright>=1.58.0",
     "lxml>=5.3.0",
     "vulners>=2.2.1",
     "pyOpenSSL>=24.0.0",

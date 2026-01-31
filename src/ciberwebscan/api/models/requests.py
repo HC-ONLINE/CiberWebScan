@@ -21,7 +21,7 @@ class ScrapeRequest(BaseModel):
     url: HttpUrl
     dynamic: bool = Field(
         default=False,
-        description="Use Selenium for JavaScript-rendered pages",
+        description="Use playwright for JavaScript-rendered pages",
     )
     wait_for_selector: str | None = Field(
         None,
