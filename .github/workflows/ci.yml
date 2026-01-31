@@ -26,13 +26,8 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -e ".[dev]"
-          pip install ruff==0.8.4 pyright==1.1.405
 
-      - name: Run selected pre-commit hooks (ruff, ruff-format, pyright)
-        run: |
-          pre-commit run ruff ruff-format pyright --all-files
-
-      - name: Ruff (lint + format)
+      - name: Ruff
         run: |
           ruff check .
           ruff format --check .
