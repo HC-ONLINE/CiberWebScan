@@ -39,6 +39,7 @@ dependencies = [
     "typer>=0.17.4",
     "rich>=13.0.0",
     "pyyaml>=6.0.2",
+    "pydantic>=2.0.0",
 ]
 
 [project.optional-dependencies]
@@ -47,9 +48,8 @@ dev = [
     "pytest-cov>=5.0.0",
     "pytest-mock>=3.14.0",
     "pytest-html>=4.1.1",
-    "black",
-    "isort",
-    "pyright",
+    "ruff>=0.8.0",
+    "pyright>=1.1.405",
     "pre-commit",
 ]
 
@@ -101,15 +101,33 @@ exclude_lines = [
     "@(abc\\.)?abstractmethod",
 ]
 
-[tool.black]
+[tool.ruff]
 line-length = 88
-target-version = ['py310']
+target-version = "py310"
+src = ["src", "tests"]
 
-[tool.isort]
-profile = "black"
-line_length = 88
-known_first_party = ["ciberwebscan"]
-src_paths = ["src", "tests"]
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+]
+ignore = [
+    "E501", # line too long (handled by formatter)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["ciberwebscan"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
 
 [tool.pyright]
 include = ["src/ciberwebscan"]
