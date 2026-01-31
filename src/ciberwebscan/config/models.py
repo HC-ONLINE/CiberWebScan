@@ -12,7 +12,6 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, HttpUrl, field_validator
 
-
 # =============================================================================
 # HTTP Client Configuration
 # =============================================================================
@@ -71,7 +70,6 @@ class HTTPConfig(BaseModel):
 # =============================================================================
 # User Agent Configuration
 # =============================================================================
-
 
 
 # Default user agents for rotation (can be overridden in config.yaml)
@@ -139,7 +137,9 @@ class DynamicScrapingConfig(BaseModel):
 class ScrapingConfig(BaseModel):
     """Complete scraping configuration."""
 
-    dynamic: DynamicScrapingConfig = Field(default_factory=lambda: DynamicScrapingConfig())
+    dynamic: DynamicScrapingConfig = Field(
+        default_factory=lambda: DynamicScrapingConfig()
+    )
     pagination: PaginationConfig = Field(default_factory=lambda: PaginationConfig())
     extract_links: bool = True
     extract_images: bool = True
@@ -179,7 +179,9 @@ class CVEConfig(BaseModel):
 
     enabled: bool = True
     api: Literal["nvd", "vulners", "circl", "all"] = "all"
-    nvd_api_key: str | None = Field(default=None, description="NVD API key for higher rate limits")
+    nvd_api_key: str | None = Field(
+        default=None, description="NVD API key for higher rate limits"
+    )
     vulners_api_key: str | None = Field(default=None, description="Vulners API key")
     cache_ttl: Annotated[int, Field(ge=60)] = 86400  # 24 hours
 
@@ -204,7 +206,9 @@ class AnalysisConfig(BaseModel):
     ssl: SSLAnalysisConfig = Field(default_factory=lambda: SSLAnalysisConfig())
     fingerprint: FingerprintConfig = Field(default_factory=lambda: FingerprintConfig())
     cve: CVEConfig = Field(default_factory=lambda: CVEConfig())
-    headers: HeadersAnalysisConfig = Field(default_factory=lambda: HeadersAnalysisConfig())
+    headers: HeadersAnalysisConfig = Field(
+        default_factory=lambda: HeadersAnalysisConfig()
+    )
 
 
 # =============================================================================

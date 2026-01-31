@@ -10,7 +10,6 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, HttpUrl, field_validator
 
-
 # =============================================================================
 # Scrape Requests
 # =============================================================================

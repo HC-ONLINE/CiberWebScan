@@ -199,7 +199,7 @@ def sanitize_proxy_for_display(proxy: str) -> str:
     # Remove protocol
     for protocol in ("http://", "https://", "socks5://"):
         if proxy.startswith(protocol):
-            proxy = proxy[len(protocol):]
+            proxy = proxy[len(protocol) :]
             break
 
     return proxy
@@ -207,7 +207,7 @@ def sanitize_proxy_for_display(proxy: str) -> str:
 
 async def check_proxy_connectivity(
     proxy: str,
-    client: "HTTPClient",
+    client: HTTPClient,
     test_url: str = "https://httpbin.org/ip",
     timeout: float = 5.0,
 ) -> bool:

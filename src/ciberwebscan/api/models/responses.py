@@ -19,7 +19,6 @@ from ciberwebscan.export.models import (
     FingerprintResult,
     HeadersResult,
     ScrapeResult,
-    Severity,
     SSLResult,
 )
 
@@ -93,7 +92,7 @@ class PaginatedResponse(BaseModel, Generic[T]):
         page: int,
         page_size: int,
         total: int,
-    ) -> "PaginatedResponse[T]":
+    ) -> PaginatedResponse[T]:
         """Factory method to create paginated response."""
         total_pages = (total + page_size - 1) // page_size
         return cls(

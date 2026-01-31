@@ -65,10 +65,14 @@ class TestParseProxy:
     def test_local_proxy_allowed_when_enabled(self):
         """Local proxies should work when allow_local=True and allow_private=True."""
         # localhost is both local and private, so need both flags
-        result = parse_proxy("http://localhost:8080", allow_local=True, allow_private=True)
+        result = parse_proxy(
+            "http://localhost:8080", allow_local=True, allow_private=True
+        )
         assert result == "http://localhost:8080"
 
-        result = parse_proxy("http://127.0.0.1:8080", allow_local=True, allow_private=True)
+        result = parse_proxy(
+            "http://127.0.0.1:8080", allow_local=True, allow_private=True
+        )
         assert result == "http://127.0.0.1:8080"
 
     def test_private_ip_blocked_by_default(self):

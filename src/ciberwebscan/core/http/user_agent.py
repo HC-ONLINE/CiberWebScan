@@ -149,7 +149,7 @@ class UserAgentProvider:
         self._rotator = UserAgentRotator(agents) if agents else None
 
     @classmethod
-    def from_config(cls, config: "UserAgentConfig") -> "UserAgentProvider":
+    def from_config(cls, config: UserAgentConfig) -> UserAgentProvider:
         """
         Create a UserAgentProvider from configuration.
 

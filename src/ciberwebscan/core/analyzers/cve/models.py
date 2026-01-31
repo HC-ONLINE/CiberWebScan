@@ -34,7 +34,7 @@ class CVESeverity(str, Enum):
     UNKNOWN = "unknown"
 
     @classmethod
-    def from_cvss_score(cls, score: float | None) -> "CVESeverity":
+    def from_cvss_score(cls, score: float | None) -> CVESeverity:
         """Determine severity from CVSS score."""
         if score is None:
             return cls.UNKNOWN
@@ -287,9 +287,7 @@ class AggregatedCVEResult:
         """Count high severity CVEs."""
         return sum(1 for e in self.entries if e.severity == CVESeverity.HIGH)
 
-    def filter_by_severity(
-        self, min_severity: CVESeverity
-    ) -> list[CVEEntry]:
+    def filter_by_severity(self, min_severity: CVESeverity) -> list[CVEEntry]:
         """Filter entries by minimum severity."""
         severity_order = [
             CVESeverity.NONE,
