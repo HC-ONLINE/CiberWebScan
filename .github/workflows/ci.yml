@@ -26,7 +26,11 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -e ".[dev]"
-          pip install ruff pyright
+          pip install ruff==0.8.4 pyright==1.1.405
+
+      - name: Run selected pre-commit hooks (ruff, ruff-format, pyright)
+        run: |
+          pre-commit run ruff ruff-format pyright --all-files
 
       - name: Ruff (lint + format)
         run: |
@@ -37,4 +41,5 @@ jobs:
         run: pyright
 
       - name: Pytest
-        run: pytest --cov --cov-report=xml --cov-report=term
+        run: |
+          PYTHONPATH=src pytest --cov --cov-report=xml --cov-report=term
