@@ -96,10 +96,7 @@ class AffectedProduct:
     def matches_version(self, version: str) -> bool:
         """Check if a specific version is affected."""
         # Simple version comparison (can be extended with packaging.version)
-        if self.version_exact and self.version_exact == version:
-            return True
-        # For range matching, would need proper version parsing
-        return False
+        return bool(self.version_exact and self.version_exact == version)
 
 
 @dataclass
@@ -147,10 +144,12 @@ class CVEEntry:
         product_lower = product.lower()
 
         for affected in self.affected_products:
-            if affected.vendor.lower() == vendor_lower:
-                if affected.product.lower() == product_lower:
-                    if not version or affected.matches_version(version):
-                        return True
+            if (
+                affected.vendor.lower() == vendor_lower
+                and affected.product.lower() == product_lower
+                and (not version or affected.matches_version(version))
+            ):
+                return True
         return False
 
 

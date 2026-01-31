@@ -188,9 +188,8 @@ class TestHTTPClient:
         """Test that retry can be disabled per request."""
         mock_request.side_effect = httpx.TimeoutException("Timeout")
 
-        with HTTPClient(max_retries=3) as client:
-            with pytest.raises(httpx.TimeoutException):
-                client.get("https://example.com", retry=False)
+        with HTTPClient(max_retries=3) as client, pytest.raises(httpx.TimeoutException):
+            client.get("https://example.com", retry=False)
 
         # Should only try once when retry=False
         assert mock_request.call_count == 1

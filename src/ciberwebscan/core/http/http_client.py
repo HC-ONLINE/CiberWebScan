@@ -199,15 +199,18 @@ class HTTPClient:
                 response = self._client.request(method, url, **kwargs)
 
                 # Check if we should retry based on status code
-                if retry and response.status_code in self.RETRYABLE_STATUS_CODES:
-                    if attempt < max_attempts - 1:
-                        wait_time = self._calculate_backoff(attempt, response)
-                        logger.warning(
-                            f"Retryable status {response.status_code} from {url}, "
-                            f"attempt {attempt + 1}/{max_attempts}, waiting {wait_time:.2f}s"
-                        )
-                        time.sleep(wait_time)
-                        continue
+                if (
+                    retry
+                    and response.status_code in self.RETRYABLE_STATUS_CODES
+                    and attempt < max_attempts - 1
+                ):
+                    wait_time = self._calculate_backoff(attempt, response)
+                    logger.warning(
+                        f"Retryable status {response.status_code} from {url}, "
+                        f"attempt {attempt + 1}/{max_attempts}, waiting {wait_time:.2f}s"
+                    )
+                    time.sleep(wait_time)
+                    continue
 
                 # Success - log and return
                 self._log_request(method, url, response.status_code, start_time)

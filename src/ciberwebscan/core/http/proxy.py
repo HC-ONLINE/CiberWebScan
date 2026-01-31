@@ -61,11 +61,7 @@ def is_private_ip(host: str) -> bool:
     if host in {"localhost", "127.0.0.1", "0.0.0.0", "::1"}:
         return True
 
-    for pattern in PRIVATE_IP_PATTERNS:
-        if pattern.match(host):
-            return True
-
-    return False
+    return any(pattern.match(host) for pattern in PRIVATE_IP_PATTERNS)
 
 
 def parse_proxy(
