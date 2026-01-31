@@ -13,7 +13,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-
 # =============================================================================
 # Common Types
 # =============================================================================
@@ -236,9 +235,7 @@ class SSLResult(BaseModel):
     chain_valid: bool | None = None
     ocsp_stapling: bool | None = None
     findings: list[SSLFinding] = Field(default_factory=list)
-    grade: str | None = Field(
-        None, description="Overall grade: A+, A, B, C, D, F"
-    )
+    grade: str | None = Field(None, description="Overall grade: A+, A, B, C, D, F")
 
 
 # =============================================================================
