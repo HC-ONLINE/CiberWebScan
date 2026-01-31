@@ -48,7 +48,7 @@ class ExtractionSchema:
     root_selector: str | None = None
 
     @classmethod
-    def from_dict(cls, schema_dict: dict[str, Any]) -> "ExtractionSchema":
+    def from_dict(cls, schema_dict: dict[str, Any]) -> ExtractionSchema:
         """
         Create schema from dictionary.
 
@@ -187,7 +187,7 @@ class DataExtractor:
     def _extract_by_selector(self, element: Tag, config: FieldConfig) -> Any:
         """Extract value using CSS selector."""
         assert config.selector is not None  # Caller ensures this
-        
+
         if config.multiple:
             # Extract multiple values
             elements = element.select(config.selector)
