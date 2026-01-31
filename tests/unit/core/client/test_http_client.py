@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from ciberwebscan.core.http import HTTPClient, RateLimiter
+from ciberwebscan.core.client import HTTPClient, RateLimiter
 
 
 class TestRateLimiter:

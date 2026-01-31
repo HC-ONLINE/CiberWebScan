@@ -5,7 +5,7 @@ Unit tests for User-Agent utilities.
 import pytest
 
 from ciberwebscan.config.models import DEFAULT_USER_AGENTS, UserAgentConfig
-from ciberwebscan.core.http import (
+from ciberwebscan.core.client import (
     UserAgentProvider,
     UserAgentRotator,
     get_default_user_agents,

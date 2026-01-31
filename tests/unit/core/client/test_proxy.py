@@ -4,7 +4,7 @@ Unit tests for proxy utilities.
 
 import pytest
 
-from ciberwebscan.core.http import (
+from ciberwebscan.core.client import (
     ProxyRotator,
     ProxyValidationError,
     parse_proxy,

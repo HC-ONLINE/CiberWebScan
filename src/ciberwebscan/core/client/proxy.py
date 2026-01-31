@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 if TYPE_CHECKING:
-    from ciberwebscan.core.http.http_client import HTTPClient
+    from ciberwebscan.core.client.http_client import HTTPClient
 
 logger = logging.getLogger(__name__)
 
@@ -221,7 +221,7 @@ async def check_proxy_connectivity(
     """
     try:
         # Create a new client with this proxy
-        from ciberwebscan.core.http.http_client import HTTPClient
+        from ciberwebscan.core.client.http_client import HTTPClient
 
         test_client = HTTPClient(
             timeout=timeout,
