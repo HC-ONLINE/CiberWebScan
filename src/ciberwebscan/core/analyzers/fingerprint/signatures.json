@@ -1,0 +1,472 @@
+{
+  "_comment": "This file contains signatures for identifying various web technologies.",
+  "cms_signatures": {
+    "Ghost": {
+      "headers": [
+        ["x-powered-by", "Ghost"],
+        ["x-ghost-request-id", ""]
+      ],
+      "meta_tags": ["generator"],
+      "content_patterns": ["ghost", "ghost-admin", "ghost\\/assets"],
+      "script_patterns": ["ghost-sdk", "ghost\\/public"]
+    },
+    "Shopify": {
+      "headers": [
+        ["x-shopid", ""],
+        ["x-shopify-stage", ""],
+        ["x-shopify-shop", ""]
+      ],
+      "content_patterns": [
+        "shopify",
+        "cdn\\.shopify\\.com",
+        "shopify_\\w+",
+        "checkout\\.shopify\\.com"
+      ],
+      "script_patterns": [
+        "shopify\\.js",
+        "shopify_common\\.js",
+        "shopify_digital_download"
+      ]
+    },
+    "WordPress": {
+      "headers": [
+        ["x-powered-by", "WordPress"],
+        ["link", ".*?<([^>]+)>; rel=\\\"https://api\\.w\\.org/\\\""]
+      ],
+      "meta_tags": ["generator"],
+      "version_patterns": [
+        "WordPress ([0-9.]+)",
+        "wp-includes/js/dist/([0-9.]+)/",
+        "wp-includes/js/tinymce[\\s\\\"]+([0-9.]+)",
+        "wp-includes/js/jquery/jquery-migrate\\.min\\.js\\?ver=([0-9.]+)",
+        "wp-includes/js/jquery/jquery\\.js\\?ver=([0-9.]+)",
+        "wp-includes/css/dist/block-library/style\\.min\\.css\\?ver=([0-9.]+)",
+        "wp-content/themes/twenty[^/]+/style\\.css.*?Version: ([0-9.]+)",
+        "wp-content/plugins/akismet/_inc/.*?ver=([0-9.]+)"
+      ],
+      "content_patterns": [
+        "wp-content",
+        "wp-includes",
+        "wp-admin",
+        "wordpress",
+        "wp-json",
+        "wp-content/plugins/",
+        "wp-content/themes/"
+      ],
+      "script_patterns": [
+        "wp-content/themes/",
+        "wp-content/plugins/",
+        "wp\\.js",
+        "wp-includes/js/"
+      ]
+    },
+    "Drupal": {
+      "headers": [
+        ["x-generator", "Drupal ([0-9]+)\\s*\\([^)]+\\)"],
+        ["x-drupal-cache-tags", ""]
+      ],
+      "meta_tags": ["generator"],
+      "version_patterns": [
+        "Drupal ([0-9]+)\\s*\\([^)]+\\)",
+        "Drupal ([0-9.]+)",
+        "misc/drupal\\.js\\?([0-9a-z]+)",
+        "core/misc/drupal\\.js\\?([0-9a-z]+)",
+        "sites/all/modules/.*?\\.info\\.yml.*?version:\\s*([0-9.]+)",
+        "core/misc/drupal\\.settings.*?\"ajaxPageState\":\\\"([^\\\"]+)\\\","
+      ],
+      "content_patterns": [
+        "drupal",
+        "sites/default",
+        "modules/",
+        "themes/",
+        "core/misc/drupal\\.js",
+        "core/assets/vendor"
+      ],
+      "script_patterns": [
+        "drupal\\.js",
+        "misc/drupal",
+        "core/misc/drupal",
+        "core/assets/vendor"
+      ]
+    },
+    "Joomla": {
+      "headers": [
+        ["x-content-encoded-by", "Joomla!"],
+        ["x-powered-by", "Joomla! ([0-9.]+)"]
+      ],
+      "meta_tags": ["generator"],
+      "version_patterns": [
+        "Joomla! ([0-9.]+)",
+        "Joomla!_([0-9.]+)",
+        "media/system/js/mootools-core\\.js\\?([0-9a-f]+)",
+        "media/jui/js/jquery\\.min\\.js\\?([0-9a-f]+)",
+        "media/system/js/core\\.js\\?([0-9a-f]+)",
+        "templates/.*?/css/template\\.css\\?([0-9a-f]+)",
+        "media/system/css/system\\.css\\?([0-9a-f]+)",
+        "media/jui/css/bootstrap\\.min\\.css\\?([0-9a-f]+)"
+      ],
+      "content_patterns": [
+        "joomla",
+        "components/",
+        "modules/",
+        "plugins/",
+        "media/system/",
+        "media/jui/"
+      ],
+      "script_patterns": [
+        "media/system/js/",
+        "media/jui/js/",
+        "media/system/js/mootools-core\\.js",
+        "media/jui/js/jquery\\.min\\.js",
+        "media/system/js/core\\.js"
+      ]
+    },
+    "Magento": {
+      "headers": [
+        ["x-powered-by", "Magento"],
+        ["x-magento-cache-control", ""],
+        ["x-magento-cache-debug", ""],
+        ["x-magento-debug", ""]
+      ],
+      "meta_tags": ["generator"],
+      "version_patterns": [
+        "Magento_([0-9._]+)",
+        "Magento\\\\s*([0-9.]+)",
+        "mage/cookies\\.js\\?([0-9a-f]+)",
+        "js/prototype/prototype\\.js\\?([0-9a-f]+)",
+        "skin/frontend/.*?/css/styles-m\\.css\\?([0-9a-f]+)",
+        "Magento_Theme/template/.*?\\.phtml"
+      ],
+      "content_patterns": ["magento", "media/", "skin/", "app/"],
+      "script_patterns": ["js/mage/", "prototype/"]
+    }
+  },
+  "framework_signatures": {
+    "Ruby on Rails": {
+      "headers": [
+        ["x-powered-by", "Ruby on Rails"],
+        ["x-request-id", ""],
+        ["x-runtime", ""]
+      ],
+      "content_patterns": [
+        "<meta name=\"csrf-param\" content=\"authenticity_token\"",
+        "data-turbo=\"true\"",
+        "rails-ujs"
+      ],
+      "script_patterns": ["rails-ujs", "actioncable", "activestorage"]
+    },
+    "Spring": {
+      "headers": [
+        ["x-application-context", ""],
+        ["x-powered-by", "Spring"]
+      ],
+      "content_patterns": [
+        "<input type=\"hidden\" name=\"_csrf\"",
+        "org\\.springframework",
+        "springframework"
+      ],
+      "script_patterns": [
+        "spring\\.js",
+        "spring-version: ([\\d.]+)",
+        "spring-([\\d.]+)"
+      ]
+    },
+    "Next.js": {
+      "content_patterns": [
+        "__next",
+        "next/dist",
+        "next/static",
+        "_next/static"
+      ],
+      "script_patterns": ["_next/static/chunks", "next\\.js"]
+    },
+    "Nuxt.js": {
+      "content_patterns": ["__nuxt", "nuxt-link", "nuxt/dist", "_nuxt/"],
+      "script_patterns": ["_nuxt/", "nuxt\\.js"]
+    },
+    "Gatsby": {
+      "content_patterns": ["___gatsby", "gatsby-image", "gatsby-script"],
+      "script_patterns": ["gatsby-runtime", "gatsby\\.js"]
+    },
+    "Svelte": {
+      "content_patterns": ["svelte-", "__svelte"],
+      "script_patterns": ["svelte\\.js", "svelte-"]
+    },
+    "Astro": {
+      "content_patterns": ["astro-island", "astro:page", "astro:html"],
+      "script_patterns": ["astro\\.js", "astro-"]
+    },
+    "Laravel": {
+      "headers": [["x-powered-by", "Laravel"]],
+      "content_patterns": ["laravel", "csrf-token", "_token"]
+    },
+    "Django": {
+      "headers": [["x-framework", "Django"]],
+      "content_patterns": ["csrfmiddlewaretoken", "__admin__", "static/admin/"]
+    },
+    "Rails": {
+      "headers": [["x-powered-by", "Ruby on Rails"]],
+      "content_patterns": ["rails", "csrf-token", "actionpack"]
+    },
+    "Express.js": {
+      "headers": [["x-powered-by", "Express"]],
+      "content_patterns": ["express", "node_modules"]
+    },
+    "ASP.NET": {
+      "headers": [
+        ["x-aspnet-version", ""],
+        ["x-aspnetmvc-version", ""]
+      ],
+      "content_patterns": ["__VIEWSTATE", "__EVENTVALIDATION", "aspnet"]
+    }
+  },
+  "server_signatures": {
+    "Apache": {
+      "headers": [
+        ["server", "Apache/([0-9.]+)"],
+        ["server", "Apache/([0-9.]+)\\s+\\(([^)]+)\\)"],
+        ["x-powered-by", "Apache/([0-9.]+)"]
+      ],
+      "version_patterns": [
+        "Apache/([0-9.]+)",
+        "Apache/([0-9.]+)\\s+\\(([^)]+)\\)",
+        "Apache/([0-9.]+)\\s+([^\\s]+)",
+        "Apache-([0-9.]+)"
+      ],
+      "patterns": [
+        "Apache/([0-9.]+)",
+        "Apache/([0-9.]+)\\s+\\(([^)]+)\\)",
+        "Apache-Coyote/([0-9.]+)",
+        "Apache/([0-9.]+)\\s+([^\\s]+)",
+        "Apache-([0-9.]+)",
+        "Apache"
+      ]
+    },
+    "Nginx": {
+      "headers": [
+        ["server", "nginx/([0-9.]+)"],
+        ["server", "nginx/([0-9.]+)\\s+\\(([^)]+)\\)"],
+        ["x-powered-by", "nginx/([0-9.]+)"]
+      ],
+      "version_patterns": [
+        "nginx/([0-9.]+)",
+        "nginx/([0-9.]+)\\s+\\(([^)]+)\\)",
+        "nginx/([0-9.]+)\\s+([^\\s]+)",
+        "nginx-([0-9.]+)"
+      ],
+      "patterns": [
+        "nginx/([0-9.]+)",
+        "nginx/([0-9.]+)\\s+\\(([^)]+)\\)",
+        "nginx/([0-9.]+)\\s+([^\\s]+)",
+        "nginx-([0-9.]+)",
+        "nginx"
+      ]
+    },
+    "IIS": {
+      "headers": [
+        ["server", "Microsoft-IIS/([0-9.]+)"],
+        ["x-powered-by", "IIS/([0-9.]+)"],
+        ["x-aspnet-version", "([0-9.]+)"]
+      ],
+      "version_patterns": [
+        "Microsoft-IIS/([0-9.]+)",
+        "IIS/([0-9.]+)",
+        "Microsoft-IIS\\s+([0-9.]+)",
+        "IIS\\s+([0-9.]+)",
+        "IIS-([0-9.]+)"
+      ],
+      "patterns": [
+        "Microsoft-IIS/([0-9.]+)",
+        "IIS/([0-9.]+)",
+        "Microsoft-IIS\\s+([0-9.]+)",
+        "IIS\\s+([0-9.]+)",
+        "IIS-([0-9.]+)",
+        "Microsoft-IIS",
+        "IIS"
+      ]
+    },
+    "LiteSpeed": {
+      "headers": [["server", ""]],
+      "patterns": ["LiteSpeed"]
+    },
+    "Caddy": {
+      "headers": [
+        ["server", "Caddy"],
+        ["x-powered-by", "Caddy"]
+      ],
+      "patterns": ["Caddy"]
+    },
+    "Tomcat": {
+      "headers": [
+        ["server", "Apache-Coyote"],
+        ["x-powered-by", "Apache Tomcat"],
+        ["x-powered-by", "JSP"]
+      ],
+      "patterns": ["Apache Tomcat/([\\d.]+)", "Tomcat-([\\d.]+)"]
+    }
+  },
+  "js_library_signatures": {
+    "jQuery": {
+      "script_patterns": [
+        "jquery[.-]([\\d\\.]+)?",
+        "jquery\\.js",
+        "jquery\\.min\\.js"
+      ],
+      "global_vars": ["jQuery", "$"]
+    },
+    "React": {
+      "script_patterns": [
+        "react[.-]([\\d\\.]+)?",
+        "react\\.js",
+        "react\\.min\\.js",
+        "react\\.production\\.min\\.js"
+      ],
+      "global_vars": ["React"]
+    },
+    "Vue.js": {
+      "script_patterns": ["vue[.-]([\\d\\.]+)?", "vue\\.js", "vue\\.min\\.js"],
+      "global_vars": ["Vue"]
+    },
+    "Angular": {
+      "script_patterns": [
+        "angular[.-]([\\d\\.]+)?",
+        "angular\\.js",
+        "angular\\.min\\.js"
+      ],
+      "global_vars": ["angular"]
+    },
+    "Bootstrap": {
+      "script_patterns": [
+        "bootstrap[.-]([\\d\\.]+)?",
+        "bootstrap\\.js",
+        "bootstrap\\.min\\.js"
+      ],
+      "css_patterns": [
+        "bootstrap[.-]([\\d\\.]+)?",
+        "bootstrap\\.css",
+        "bootstrap\\.min\\.css"
+      ]
+    },
+    "Font Awesome": {
+      "css_patterns": [
+        "font-awesome[.-]([\\d\\.]+)?",
+        "fontawesome[.-]([\\d\\.]+)?",
+        "font-awesome",
+        "fontawesome"
+      ]
+    },
+    "Alpine.js": {
+      "script_patterns": [
+        "alpine[.-]([\\d\\.]+)?",
+        "alpinejs[.-]([\\d\\.]+)?",
+        "alpine\\.js",
+        "alpine\\.min\\.js"
+      ],
+      "global_vars": ["Alpine"]
+    },
+    "Tailwind CSS": {
+      "css_patterns": [
+        "tailwind[.-]([\\d\\.]+)?",
+        "tailwindcss[.-]([\\d\\.]+)?",
+        "tailwind\\.css",
+        "tailwind\\.min\\.css"
+      ]
+    },
+    "Chart.js": {
+      "script_patterns": [
+        "chart[.-]([\\d\\.]+)?",
+        "chartjs[.-]([\\d\\.]+)?",
+        "chart\\.js",
+        "chart\\.min\\.js"
+      ],
+      "global_vars": ["Chart"]
+    },
+    "GSAP": {
+      "script_patterns": [
+        "gsap[.-]([\\d\\.]+)?",
+        "gsap\\.js",
+        "gsap\\.min\\.js",
+        "gsap\\.core[.-]([\\d\\.]+)?",
+        "gsap\\.core\\.js",
+        "gsap\\.core\\.min\\.js"
+      ],
+      "global_vars": ["gsap"]
+    },
+    "Lodash": {
+      "script_patterns": [
+        "lodash[.-]([\\d\\.]+)?",
+        "lodash\\.js",
+        "lodash\\.min\\.js",
+        "lodash-core"
+      ],
+      "global_vars": ["_", "lodash"]
+    },
+    "Moment.js": {
+      "script_patterns": [
+        "moment[.-]([\\d\\.]+)?",
+        "moment\\.js",
+        "moment\\.min\\.js",
+        "moment-with-locales"
+      ],
+      "global_vars": ["moment"]
+    }
+  },
+  "cdn_paas_signatures": {
+    "Cloudflare": {
+      "headers": [
+        ["server", "cloudflare"],
+        ["cf-ray", ""],
+        ["cf-cache-status", ""]
+      ],
+      "content_patterns": ["cloudflare"]
+    },
+    "CloudFront": {
+      "headers": [
+        ["server", "CloudFront"],
+        ["x-amz-cf-pop", ""],
+        ["x-cache", ""]
+      ],
+      "content_patterns": ["cloudfront\\.net"]
+    },
+    "Vercel": {
+      "headers": [
+        ["x-vercel-id", ""],
+        ["x-vercel-cache", ""],
+        ["x-vercel-deployment-url", ""]
+      ],
+      "content_patterns": ["_vercel/insights", "_next/static/chunks/vercel"]
+    },
+    "Netlify": {
+      "headers": [
+        ["server", "Netlify"],
+        ["x-nf-request-id", ""],
+        ["x-nf-edge-ip", ""]
+      ],
+      "content_patterns": ["_next/static/chunks/netlify"]
+    },
+    "AWS S3": {
+      "headers": [
+        ["server", "AmazonS3"],
+        ["x-amz-bucket-region", ""],
+        ["x-amz-request-id", ""]
+      ],
+      "content_patterns": ["<Error><Code>NoSuchKey</code>"]
+    },
+    "Google Cloud Storage": {
+      "headers": [
+        ["server", "UploadServer"],
+        ["x-guploader-uploadid", ""],
+        ["x-goog-hash", ""]
+      ],
+      "content_patterns": ["google\\.com/storage"]
+    },
+    "Azure Blob Storage": {
+      "headers": [
+        ["server", "Windows-Azure-Blob"],
+        ["x-ms-request-id", ""],
+        ["x-ms-version", ""]
+      ],
+      "content_patterns": ["windows\\.net/"]
+    }
+  }
+}
