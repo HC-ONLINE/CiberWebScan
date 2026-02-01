@@ -94,8 +94,8 @@ try:
         BrowserType,
         DynamicScrapeConfig,
         DynamicScrapePagesResult,
-        DynamicScrapeResult,
         DynamicScraper,
+        DynamicScrapeResult,
         WaitStrategy,
         scrape_dynamic,
         scrape_dynamic_sync,
@@ -104,7 +104,7 @@ try:
     _PLAYWRIGHT_AVAILABLE = True
 except ImportError:
     _PLAYWRIGHT_AVAILABLE = False
-    
+
     # Set to None when not available - users should check is_playwright_available()
     BrowserType = None  # type: ignore[assignment, misc]
     DynamicScrapeConfig = None  # type: ignore[assignment, misc]

@@ -9,8 +9,9 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Generator
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Generator
+from typing import TYPE_CHECKING, Any
 
 from bs4 import BeautifulSoup
 
@@ -368,10 +369,7 @@ class StaticScraper:
 
         if config.schema:
             # Use structured extraction
-            return [
-                self._extractor.extract(el, config.schema)
-                for el in elements
-            ]
+            return [self._extractor.extract(el, config.schema) for el in elements]
         elif config.attributes:
             # Use attribute extraction
             return process_elements(elements, attributes=config.attributes)
@@ -466,6 +464,7 @@ def scrape_static(
     # Create client if not provided
     if http_client is None:
         from ciberwebscan.core.client.http_client import HTTPClient
+
         http_client = HTTPClient()
 
     scraper = StaticScraper(http_client)

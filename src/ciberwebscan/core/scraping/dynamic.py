@@ -11,9 +11,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, AsyncGenerator
+from typing import TYPE_CHECKING, Any
 
 from bs4 import BeautifulSoup
 
@@ -27,8 +28,9 @@ from ciberwebscan.core.scraping.helpers import (
 )
 
 if TYPE_CHECKING:
-    from playwright.async_api import Browser, BrowserContext, Page
     from playwright._impl._api_structures import SetCookieParam
+    from playwright.async_api import Browser, BrowserContext, Page
+
     from ciberwebscan.core.client.http_client import HTTPClient
     from ciberwebscan.core.client.proxy import ProxyRotator
     from ciberwebscan.core.client.user_agent import UserAgentProvider
@@ -219,7 +221,7 @@ class DynamicScraper:
         self._playwright = None
         self._browser: Browser | None = None
 
-    async def __aenter__(self) -> "DynamicScraper":
+    async def __aenter__(self) -> DynamicScraper:
         """Async context manager entry."""
         await self._start_browser()
         return self
@@ -337,6 +339,8 @@ class DynamicScraper:
                 data = self._extract_data(soup, config)
 
                 elapsed = time.time() - start_time
+                if elapsed == 0.0:
+                    elapsed = 1e-6
 
                 return DynamicScrapeResult(
                     url=url,
@@ -351,6 +355,8 @@ class DynamicScraper:
 
         except Exception as e:
             elapsed = time.time() - start_time
+            if elapsed == 0.0:
+                elapsed = 1e-6
             logger.exception("Error scraping %s dynamically", url)
             return DynamicScrapeResult(
                 url=url,
@@ -435,7 +441,7 @@ class DynamicScraper:
         self,
         config: DynamicScrapeConfig,
         target_url: str | None = None,
-    ) -> "BrowserContext":
+    ) -> BrowserContext:
         """Create a browser context with configuration."""
         context_options = {
             "viewport": {
@@ -468,7 +474,7 @@ class DynamicScraper:
 
     async def _set_cookies_for_context(
         self,
-        context: "BrowserContext",
+        context: BrowserContext,
         cookies: dict[str, str],
         target_url: str | None = None,
     ) -> None:
@@ -486,7 +492,7 @@ class DynamicScraper:
             domain = "localhost"
 
         # Convert to Playwright cookie format
-        playwright_cookies: list["SetCookieParam"] = [
+        playwright_cookies: list[SetCookieParam] = [
             {
                 "name": k,
                 "value": v,
@@ -495,12 +501,12 @@ class DynamicScraper:
             }
             for k, v in cookies.items()
         ]
-        
+
         await context.add_cookies(playwright_cookies)
 
     async def _setup_page(
         self,
-        page: "Page",
+        page: Page,
         config: DynamicScrapeConfig,
     ) -> None:
         """Set up page with request interception if needed."""
@@ -524,7 +530,7 @@ class DynamicScraper:
 
     async def _scroll_to_bottom(
         self,
-        page: "Page",
+        page: Page,
         delay: float,
     ) -> None:
         """Scroll to the bottom of the page for infinite scroll."""
@@ -550,10 +556,7 @@ class DynamicScraper:
         elements = soup.select(config.selector)
 
         if config.schema:
-            return [
-                self._extractor.extract(el, config.schema)
-                for el in elements
-            ]
+            return [self._extractor.extract(el, config.schema) for el in elements]
         elif config.attributes:
             return process_elements(elements, attributes=config.attributes)
         else:
