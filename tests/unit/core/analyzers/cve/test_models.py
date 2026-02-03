@@ -306,7 +306,7 @@ class TestCVESearchResult:
             error="API rate limit exceeded",
         )
         assert result.has_error is True
-        assert "rate limit" in result.error.lower()
+        assert result.error is not None and "rate limit" in result.error.lower()
 
 
 class TestAggregatedCVEResult:
