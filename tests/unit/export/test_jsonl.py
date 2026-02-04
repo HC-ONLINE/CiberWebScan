@@ -299,7 +299,7 @@ class TestReadJsonl:
     def test_read_jsonl_skips_empty_lines(self, tmp_path: Path):
         """Test reading JSONL skips empty lines."""
         jsonl_file = tmp_path / "test.jsonl"
-        jsonl_file.write_text('{"id": 1}\n' "\n" '{"id": 2}\n' "   \n" '{"id": 3}\n')
+        jsonl_file.write_text('{"id": 1}\n\n{"id": 2}\n   \n{"id": 3}\n')
 
         items = list(read_jsonl(jsonl_file))
 
@@ -308,7 +308,7 @@ class TestReadJsonl:
     def test_read_jsonl_handles_invalid_json(self, tmp_path: Path, caplog):
         """Test reading JSONL handles invalid JSON gracefully."""
         jsonl_file = tmp_path / "test.jsonl"
-        jsonl_file.write_text('{"id": 1}\n' "invalid json line\n" '{"id": 2}\n')
+        jsonl_file.write_text('{"id": 1}\ninvalid json line\n{"id": 2}\n')
 
         items = list(read_jsonl(jsonl_file))
 
