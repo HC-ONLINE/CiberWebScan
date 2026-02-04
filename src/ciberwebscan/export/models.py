@@ -7,11 +7,17 @@ analysis reports, CVE findings, and attack simulation results.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, Field
+
+
+def _utc_now() -> datetime:
+    """Return current UTC datetime (timezone-aware)."""
+    return datetime.now(timezone.utc)
+
 
 # =============================================================================
 # Common Types
@@ -46,7 +52,7 @@ class ExportMeta(BaseModel):
     """Metadata included in every export."""
 
     version: str = Field(default="2.0.0", description="CiberWebScan version")
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=_utc_now)
     target_url: str
     duration_seconds: float = 0.0
     total_requests: int = 0
