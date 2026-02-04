@@ -47,3 +47,4 @@ repos:
           - beautifulsoup4
           - pyyaml
           - cryptography
+          - orjson
