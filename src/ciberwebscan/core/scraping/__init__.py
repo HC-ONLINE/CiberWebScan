@@ -61,6 +61,8 @@ Examples:
         })
 """
 
+from typing import TYPE_CHECKING, Any
+
 from .extractor import (
     DataExtractor,
     ExtractionSchema,
@@ -88,6 +90,18 @@ from .static import (
     scrape_static,
 )
 
+if TYPE_CHECKING:
+    from .dynamic import (
+        BrowserType,
+        DynamicScrapeConfig,
+        DynamicScrapePagesResult,
+        DynamicScraper,
+        DynamicScrapeResult,
+        WaitStrategy,
+        scrape_dynamic,
+        scrape_dynamic_sync,
+    )
+
 # Dynamic scraper imports (optional - requires playwright)
 try:
     from .dynamic import (
@@ -106,14 +120,14 @@ except ImportError:
     _PLAYWRIGHT_AVAILABLE = False
 
     # Set to None when not available - users should check is_playwright_available()
-    BrowserType = None  # type: ignore[assignment, misc]
-    DynamicScrapeConfig = None  # type: ignore[assignment, misc]
-    DynamicScrapePagesResult = None  # type: ignore[assignment, misc]
-    DynamicScrapeResult = None  # type: ignore[assignment, misc]
-    DynamicScraper = None  # type: ignore[assignment, misc]
-    WaitStrategy = None  # type: ignore[assignment, misc]
-    scrape_dynamic = None  # type: ignore[assignment]
-    scrape_dynamic_sync = None  # type: ignore[assignment]
+    BrowserType: Any = None
+    DynamicScrapeConfig: Any = None
+    DynamicScrapePagesResult: Any = None
+    DynamicScrapeResult: Any = None
+    DynamicScraper: Any = None
+    WaitStrategy: Any = None
+    scrape_dynamic: Any = None
+    scrape_dynamic_sync: Any = None
 
 
 def is_playwright_available() -> bool:

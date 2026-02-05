@@ -428,7 +428,7 @@ class SSLAnalyzer:
             valid_protocols = [p for p in protocols_to_test if p is not None]
 
             # Test each protocol
-            for protocol_name, protocol_constant in valid_protocols:  # type: ignore[misc]
+            for protocol_name, protocol_constant in valid_protocols:
                 try:
                     context = ssl.SSLContext(protocol_constant)
                     context.check_hostname = False
