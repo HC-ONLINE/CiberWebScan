@@ -186,7 +186,7 @@ class TechnologyMatch(BaseModel):
         description="Evidence that led to detection (header, cookie, etc.)",
     )
     website: str | None = None
-    cpe: str | None = Field(None, description="CPE identifier for CVE lookup")
+    cpe: str | None = Field(default=None, description="CPE identifier for CVE lookup")
 
 
 class FingerprintResult(BaseModel):
