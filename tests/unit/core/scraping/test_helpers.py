@@ -16,80 +16,80 @@ from ciberwebscan.core.scraping.helpers import (
     extract_attribute,
     extract_text,
     find_next_page_url,
+    is_safe_url,
     parse_cookie_string,
     parse_set_cookie_headers,
     process_elements,
-    validate_url,
 )
 
 
-class TestValidateUrl:
-    """Tests for validate_url function."""
+class TestIsSafeUrl:
+    """Tests for is_safe_url function."""
 
     def test_valid_http_url(self):
         """Test valid HTTP URL."""
-        assert validate_url("http://example.com") is True
+        assert is_safe_url("http://example.com") is True
 
     def test_valid_https_url(self):
         """Test valid HTTPS URL."""
-        assert validate_url("https://example.com/path?query=1") is True
+        assert is_safe_url("https://example.com/path?query=1") is True
 
     def test_empty_url(self):
         """Test empty URL returns False."""
-        assert validate_url("") is False
+        assert is_safe_url("") is False
 
     def test_none_url(self):
         """Test None-like empty URL returns False."""
-        assert validate_url("   ") is False
+        assert is_safe_url("   ") is False
 
     def test_invalid_scheme(self):
         """Test URL with invalid scheme."""
-        assert validate_url("ftp://example.com") is False
-        assert validate_url("file:///etc/passwd") is False
+        assert is_safe_url("ftp://example.com") is False
+        assert is_safe_url("file:///etc/passwd") is False
 
     def test_missing_scheme(self):
         """Test URL without scheme."""
-        assert validate_url("example.com") is False
-        assert validate_url("www.example.com") is False
+        assert is_safe_url("example.com") is False
+        assert is_safe_url("www.example.com") is False
 
     def test_localhost_blocked_by_default(self):
         """Test localhost is blocked by default."""
-        assert validate_url("http://localhost/") is False
-        assert validate_url("http://127.0.0.1/") is False
+        assert is_safe_url("http://localhost/") is False
+        assert is_safe_url("http://127.0.0.1/") is False
 
     def test_localhost_allowed_when_enabled(self):
         """Test localhost allowed when allow_local=True."""
-        assert validate_url("http://localhost/", allow_local=True) is True
-        assert validate_url("http://127.0.0.1/", allow_local=True) is True
+        assert is_safe_url("http://localhost/", allow_local=True) is True
+        assert is_safe_url("http://127.0.0.1/", allow_local=True) is True
 
     def test_private_ip_blocked_by_default(self):
         """Test private IPs are blocked by default."""
-        assert validate_url("http://192.168.1.1/") is False
-        assert validate_url("http://10.0.0.1/") is False
-        assert validate_url("http://172.16.0.1/") is False
+        assert is_safe_url("http://192.168.1.1/") is False
+        assert is_safe_url("http://10.0.0.1/") is False
+        assert is_safe_url("http://172.16.0.1/") is False
 
     def test_private_ip_allowed_when_enabled(self):
         """Test private IPs allowed when allow_local=True."""
-        assert validate_url("http://192.168.1.1/", allow_local=True) is True
-        assert validate_url("http://10.0.0.1/", allow_local=True) is True
+        assert is_safe_url("http://192.168.1.1/", allow_local=True) is True
+        assert is_safe_url("http://10.0.0.1/", allow_local=True) is True
 
     def test_url_with_port(self):
         """Test URL with port number."""
-        assert validate_url("https://example.com:8080/api") is True
+        assert is_safe_url("https://example.com:8080/api") is True
 
     def test_url_with_auth(self):
         """Test URL with authentication."""
-        assert validate_url("https://user:pass@example.com/") is True
+        assert is_safe_url("https://user:pass@example.com/") is True
 
     def test_ipv6_url(self):
         """Test IPv6 URL handling."""
         # IPv6 loopback should be blocked
-        assert validate_url("http://[::1]/") is False
+        assert is_safe_url("http://[::1]/") is False
 
     def test_malformed_url(self):
         """Test malformed URL returns False."""
-        assert validate_url("not-a-url") is False
-        assert validate_url("://missing-scheme") is False
+        assert is_safe_url("not-a-url") is False
+        assert is_safe_url("://missing-scheme") is False
 
 
 class TestCheckRobotsTxt:
@@ -475,13 +475,13 @@ class TestProcessElements:
 class TestEdgeCases:
     """Tests for edge cases and error handling."""
 
-    def test_validate_url_with_unicode(self):
+    def test_is_safe_url_with_unicode(self):
         """Test URL with unicode characters."""
-        assert validate_url("https://example.com/путь") is True
+        assert is_safe_url("https://example.com/путь") is True
 
-    def test_validate_url_with_encoded_chars(self):
+    def test_is_safe_url_with_encoded_chars(self):
         """Test URL with encoded characters."""
-        assert validate_url("https://example.com/path%20with%20spaces") is True
+        assert is_safe_url("https://example.com/path%20with%20spaces") is True
 
     def test_cookie_parsing_with_special_chars(self):
         """Test cookie parsing with special characters."""

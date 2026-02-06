@@ -19,9 +19,9 @@ from ciberwebscan.core.scraping.extractor import DataExtractor
 from ciberwebscan.core.scraping.helpers import (
     check_robots_txt,
     find_next_page_url,
+    is_safe_url,
     parse_cookie_string,
     process_elements,
-    validate_url,
 )
 
 if TYPE_CHECKING:
@@ -189,7 +189,7 @@ class StaticScraper:
             ...     print(f"Found {len(result.data)} items")
         """
         # Validate URL
-        if not validate_url(url, allow_local=config.allow_local):
+        if not is_safe_url(url, allow_local=config.allow_local):
             return ScrapeResult(
                 url=url,
                 success=False,

@@ -77,10 +77,10 @@ from .helpers import (
     extract_attribute,
     extract_text,
     find_next_page_url,
+    is_safe_url,
     parse_cookie_string,
     parse_set_cookie_headers,
     process_elements,
-    validate_url,
 )
 from .static import (
     ScrapeConfig,
@@ -142,7 +142,7 @@ def is_playwright_available() -> bool:
 
 __all__ = [
     # Helpers
-    "validate_url",
+    "is_safe_url",
     "check_robots_txt",
     "find_next_page_url",
     "parse_cookie_string",

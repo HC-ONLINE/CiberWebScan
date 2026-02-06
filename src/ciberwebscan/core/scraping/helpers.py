@@ -37,9 +37,9 @@ PRIVATE_IP_PATTERNS = [
 ]
 
 
-def validate_url(url: str, *, allow_local: bool = False) -> bool:
+def is_safe_url(url: str, *, allow_local: bool = False) -> bool:
     """
-    Validate URL format and safety.
+    Check if URL is safe for scraping.
 
     Rejects dangerous schemes (file, javascript, data) and optionally
     rejects localhost/private IPs.
@@ -52,11 +52,11 @@ def validate_url(url: str, *, allow_local: bool = False) -> bool:
         True if URL is valid and safe.
 
     Examples:
-        >>> validate_url('https://example.com')
+        >>> is_safe_url('https://example.com')
         True
-        >>> validate_url('file:///etc/passwd')
+        >>> is_safe_url('file:///etc/passwd')
         False
-        >>> validate_url('http://localhost:8080', allow_local=True)
+        >>> is_safe_url('http://localhost:8080', allow_local=True)
         True
     """
     if not URL_REGEX.match(url):
@@ -108,7 +108,7 @@ def check_robots_txt(
         ...     print(f"Blocked: {reason}")
     """
     # Validate URL first
-    if not validate_url(url, allow_local=True):
+    if not is_safe_url(url, allow_local=True):
         return False, "Invalid URL format"
 
     try:

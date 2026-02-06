@@ -22,9 +22,9 @@ from ciberwebscan.core.scraping.extractor import DataExtractor
 from ciberwebscan.core.scraping.helpers import (
     check_robots_txt,
     find_next_page_url,
+    is_safe_url,
     parse_cookie_string,
     process_elements,
-    validate_url,
 )
 
 if TYPE_CHECKING:
@@ -277,7 +277,7 @@ class DynamicScraper:
             >>> result = await scraper.scrape('https://example.com', config)
         """
         # Validate URL
-        if not validate_url(url, allow_local=config.allow_local):
+        if not is_safe_url(url, allow_local=config.allow_local):
             return DynamicScrapeResult(
                 url=url,
                 success=False,
