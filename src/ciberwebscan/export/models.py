@@ -168,6 +168,11 @@ class CVEResult(BaseModel):
         None, description="Original API response for debugging"
     )
 
+    @property
+    def cvss_score(self) -> float | None:
+        """Return the CVSS base score if available."""
+        return self.cvss.base_score if self.cvss else None
+
 
 # =============================================================================
 # Technology Fingerprint Results
