@@ -71,7 +71,12 @@ class AnalyzeOptions:
 
     # Advanced
     headers: dict[str, str] = field(default_factory=dict)
+    cookies: dict[str, str] = field(default_factory=dict)
+    proxy: str | None = None
+    user_agent: str | None = None
     timeout: float = 30.0
+    check_robots: bool = False  # Not typically needed for analysis
+    enrich_exploits: bool = False  # Enrich CVEs with exploit info
 
 
 class AnalyzeService(BaseService):

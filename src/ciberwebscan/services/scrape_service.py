@@ -65,6 +65,7 @@ class ScrapeOptions:
     cookies: dict[str, str] = field(default_factory=dict)
     proxy: str | None = None
     user_agent: str | None = None
+    check_robots: bool = True
 
 
 class ScrapeService(BaseService):
@@ -248,6 +249,10 @@ class ScrapeService(BaseService):
             config = ScrapeConfig(
                 selector=options.selector or "body",
                 schema=options.schema,
+                timeout=options.timeout,
+                headers=options.headers or None,
+                cookies=options.cookies or None,
+                check_robots=options.check_robots,
             )
 
             core_result: CoreScrapeResult = self.static_scraper.scrape(url, config)
