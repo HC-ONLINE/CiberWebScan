@@ -1,0 +1,470 @@
+"""
+Analyze service for CiberWebScan.
+
+Orchestrates security analysis operations using core analyzers.
+Supports SSL, technology fingerprinting, and CVE analysis with optional export.
+"""
+
+from __future__ import annotations
+
+import logging
+from collections.abc import Sequence
+from dataclasses import dataclass, field
+from typing import Any
+
+from ciberwebscan.core.analyzers import (
+    SSLAnalysisResult,
+    SSLAnalyzer,
+    TechnologyFingerprinter,
+)
+from ciberwebscan.core.analyzers.cve import (
+    CVEAggregator,
+)
+from ciberwebscan.export.models import (
+    AnalysisReport,
+    ConfidenceLevel,
+    CVEResult,
+    ExportMeta,
+    FingerprintResult,
+    Severity,
+    SSLResult,
+    TechnologyMatch,
+)
+from ciberwebscan.export.models import CVEReference as ExportCVEReference
+from ciberwebscan.services.base import (
+    BaseService,
+    ExecutionError,
+    ServiceResult,
+    ValidationError,
+)
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class AnalyzeOptions:
+    """Options for analysis operations."""
+
+    # Target
+    url: str
+
+    # Analysis types
+    ssl: bool = True
+    fingerprint: bool = True
+    cve: bool = True
+
+    # SSL options
+    ssl_verify: bool = True
+    ssl_timeout: float = 10.0
+
+    # Fingerprint options
+    deep_scan: bool = False
+
+    # CVE options
+    cve_sources: list[str] = field(default_factory=lambda: ["nvd"])
+    cve_limit: int = 100
+    cve_severity: str | None = None  # Filter by severity
+
+    # Export
+    export: str | None = None
+    export_format: str = "json"
+
+    # Advanced
+    headers: dict[str, str] = field(default_factory=dict)
+    timeout: float = 30.0
+
+
+class AnalyzeService(BaseService):
+    """
+    Service for security analysis operations.
+
+    Provides high-level interface for:
+    - SSL/TLS certificate analysis
+    - Technology fingerprinting
+    - CVE vulnerability lookup
+    - Combined security reports
+
+    Example:
+        service = AnalyzeService()
+        result = service.analyze(AnalyzeOptions(
+            url="https://example.com",
+            ssl=True,
+            fingerprint=True,
+            cve=True,
+            export="report.json"
+        ))
+        if result.success:
+            report = result.data
+            print(f"Found {len(report.fingerprint.technologies)} technologies")
+    """
+
+    def __init__(self):
+        """Initialize analyze service."""
+        super().__init__()
+        self._ssl_analyzer: SSLAnalyzer | None = None
+        self._fingerprinter: TechnologyFingerprinter | None = None
+        self._cve_aggregator: CVEAggregator | None = None
+
+    @property
+    def ssl_analyzer(self) -> SSLAnalyzer:
+        """Get or create SSL analyzer instance."""
+        if self._ssl_analyzer is None:
+            self._ssl_analyzer = SSLAnalyzer()
+        return self._ssl_analyzer
+
+    @property
+    def fingerprinter(self) -> TechnologyFingerprinter:
+        """Get or create fingerprinter instance."""
+        if self._fingerprinter is None:
+            self._fingerprinter = TechnologyFingerprinter()
+        return self._fingerprinter
+
+    @property
+    def cve_aggregator(self) -> CVEAggregator:
+        """Get or create CVE aggregator instance."""
+        if self._cve_aggregator is None:
+            self._cve_aggregator = CVEAggregator()
+        return self._cve_aggregator
+
+    def analyze(self, options: AnalyzeOptions) -> ServiceResult[AnalysisReport]:
+        """
+        Perform a security analysis.
+
+        Args:
+            options: Analysis options.
+
+        Returns:
+            ServiceResult containing analysis report.
+        """
+        result = ServiceResult[AnalysisReport](success=False)
+
+        try:
+            # Validate URL
+            url = self._validate_url(options.url)
+            self.logger.info(f"Analyzing: {url}")
+
+            # Initialize report with meta
+            meta = ExportMeta(target_url=url)
+            report = AnalysisReport(
+                meta=meta,
+                ssl=None,
+                fingerprint=None,
+                cves=[],
+            )
+
+            # SSL Analysis
+            if options.ssl:
+                ssl_result = self._analyze_ssl(url, options)
+                report.ssl = ssl_result
+
+            # Technology Fingerprinting
+            if options.fingerprint:
+                fingerprint_result = self._fingerprint(url, options)
+                report.fingerprint = fingerprint_result
+
+            # CVE Lookup
+            if options.cve and report.fingerprint and report.fingerprint.technologies:
+                cve_results = self._lookup_cves(
+                    report.fingerprint.technologies, options
+                )
+                report.cves = cve_results
+
+            result.data = report
+            result.success = True
+
+            # Handle export
+            if options.export:
+                exported, path = self._export_result(
+                    report,
+                    options.export,
+                    options.export_format,
+                )
+                result.exported = exported
+                result.export_path = path
+                result.export_format = options.export_format
+
+        except ValidationError as e:
+            result.error = str(e)
+            result.error_code = e.code
+            self.logger.error(f"Validation error: {e}")
+        except ExecutionError as e:
+            result.error = str(e)
+            result.error_code = e.code
+            self.logger.error(f"Execution error: {e}")
+        except Exception as e:
+            result.error = str(e)
+            result.error_code = "UNEXPECTED_ERROR"
+            self.logger.exception(f"Unexpected error during analysis: {e}")
+
+        return result.finalize()
+
+    def analyze_ssl(self, url: str, **kwargs: Any) -> ServiceResult[SSLResult]:
+        """
+        Perform SSL-only analysis.
+
+        Args:
+            url: URL to analyze.
+            **kwargs: Additional options.
+
+        Returns:
+            ServiceResult containing SSL analysis.
+        """
+        result = ServiceResult[SSLResult](success=False)
+
+        try:
+            url = self._validate_url(url)
+            ssl_result = self._analyze_ssl(
+                url,
+                AnalyzeOptions(url=url, **kwargs),
+            )
+            result.data = ssl_result
+            result.success = True
+
+        except Exception as e:
+            result.error = str(e)
+            result.error_code = "SSL_ANALYSIS_ERROR"
+
+        return result.finalize()
+
+    def fingerprint_url(
+        self,
+        url: str,
+        deep: bool = False,
+        **kwargs: Any,
+    ) -> ServiceResult[FingerprintResult]:
+        """
+        Perform technology fingerprinting.
+
+        Args:
+            url: URL to fingerprint.
+            deep: Enable deep scanning.
+            **kwargs: Additional options.
+
+        Returns:
+            ServiceResult containing detected technologies.
+        """
+        result = ServiceResult[FingerprintResult](success=False)
+
+        try:
+            url = self._validate_url(url)
+            fingerprint_result = self._fingerprint(
+                url,
+                AnalyzeOptions(url=url, deep_scan=deep, **kwargs),
+            )
+            result.data = fingerprint_result
+            result.success = True
+
+        except Exception as e:
+            result.error = str(e)
+            result.error_code = "FINGERPRINT_ERROR"
+
+        return result.finalize()
+
+    def lookup_cves(
+        self,
+        technologies: Sequence[TechnologyMatch | str],
+        **kwargs: Any,
+    ) -> ServiceResult[list[CVEResult]]:
+        """
+        Lookup CVEs for technologies.
+
+        Args:
+            technologies: List of technologies to check.
+            **kwargs: Additional options.
+
+        Returns:
+            ServiceResult containing CVE results.
+        """
+        result = ServiceResult[list[CVEResult]](success=False)
+
+        try:
+            # Normalize technologies to TechnologyMatch instances
+            tech_list: list[TechnologyMatch] = []
+            for t in technologies:
+                if isinstance(t, TechnologyMatch):
+                    tech_list.append(t)
+                else:
+                    tech_list.append(TechnologyMatch(name=str(t)))
+
+            cve_results = self._lookup_cves(
+                tech_list,
+                AnalyzeOptions(url="", **kwargs),
+            )
+            result.data = cve_results
+            result.success = True
+
+        except Exception as e:
+            result.error = str(e)
+            result.error_code = "CVE_LOOKUP_ERROR"
+
+        return result.finalize()
+
+    def _analyze_ssl(
+        self,
+        url: str,
+        options: AnalyzeOptions,
+    ) -> SSLResult | None:
+        """Internal SSL analysis."""
+        try:
+            ssl_info: SSLAnalysisResult = self.ssl_analyzer.analyze(url)
+
+            # Convert internal SSLAnalysisResult to export SSLResult
+            return SSLResult(
+                is_https=ssl_info.ssl_enabled,
+                protocol_version=(
+                    (ssl_info.protocols.preferred_cipher or "")
+                    if ssl_info.protocols
+                    else ""
+                ),
+                cipher_suite=(
+                    (
+                        ssl_info.protocols.cipher_suites[0]
+                        if ssl_info.protocols.cipher_suites
+                        else ""
+                    )
+                    if ssl_info.protocols
+                    else ""
+                ),
+                certificate=None,  # Would need to convert certificate info
+                chain_valid=(
+                    (not ssl_info.certificate.is_self_signed)
+                    if ssl_info.certificate
+                    else None
+                ),
+                findings=[],
+                grade=(
+                    ssl_info.security_assessment.overall_grade
+                    if ssl_info.security_assessment
+                    else None
+                ),
+            )
+
+        except Exception as e:
+            self.logger.warning(f"SSL analysis failed: {e}")
+            return None
+
+    def _fingerprint(
+        self,
+        url: str,
+        options: AnalyzeOptions,
+    ) -> FingerprintResult | None:
+        """Internal technology fingerprinting."""
+        try:
+            # Fetch page to obtain headers and HTML for fingerprinting
+            from ciberwebscan.core.client.http_client import HTTPClient
+
+            client = HTTPClient()
+            resp = client.get(url)
+            headers = dict(resp.headers)
+            html = resp.text
+
+            fp_result = self.fingerprinter.fingerprint(headers, html)
+
+            # Convert to FingerprintResult model
+            technologies: list[TechnologyMatch] = []
+            techs = fp_result.get("technologies", {})
+            for category, items in techs.items():
+                for item in items:
+                    if isinstance(item, dict):
+                        name = item.get("name") or ""
+                        version = item.get("version")
+                        confidence = item.get("confidence")
+                    else:
+                        name = str(item)
+                        version = None
+                        confidence = None
+
+                    technologies.append(
+                        TechnologyMatch(
+                            name=name,
+                            version=version,
+                            category=category,
+                            confidence=(
+                                ConfidenceLevel.MEDIUM
+                                if confidence is None
+                                else confidence
+                            ),
+                        )
+                    )
+
+            return FingerprintResult(
+                technologies=technologies,
+                server=fp_result.get("server"),
+                powered_by=fp_result.get("powered_by"),
+                framework=fp_result.get("framework"),
+                cms=fp_result.get("cms"),
+                cdn=fp_result.get("cdn"),
+                waf=fp_result.get("waf"),
+            )
+
+        except Exception as e:
+            self.logger.warning(f"Fingerprinting failed: {e}")
+            return None
+
+    def _lookup_cves(
+        self,
+        technologies: list[TechnologyMatch],
+        options: AnalyzeOptions,
+    ) -> list[CVEResult]:
+        """Internal CVE lookup."""
+        try:
+            all_cves: list[CVEResult] = []
+
+            for tech in technologies:
+                # Search CVEs for this technology
+                aggregated = self.cve_aggregator.search(
+                    product=tech.name,
+                    limit=options.cve_limit,
+                )
+
+                for cve in aggregated.entries:
+                    # Filter by severity if specified
+                    if options.cve_severity and (
+                        str(cve.severity.value).lower() != options.cve_severity.lower()
+                    ):
+                        continue
+
+                    all_cves.append(
+                        CVEResult(
+                            id=cve.id,
+                            source=cve.source.value if cve.source else "unknown",
+                            title=cve.title,
+                            description=cve.description,
+                            severity=(
+                                Severity(cve.severity.value)
+                                if hasattr(cve, "severity")
+                                and cve.severity
+                                and cve.severity.value
+                                in {"critical", "high", "medium", "low"}
+                                else Severity.INFO
+                            ),
+                            cvss=None,
+                            cwe_ids=cve.cwe_ids,
+                            affected_products=[
+                                f"{p.vendor}/{p.product}@{p.version_exact or ''}"
+                                for p in cve.affected_products
+                            ],
+                            references=[
+                                ExportCVEReference(url=r.url) for r in cve.references
+                            ],
+                            published_date=cve.published_date,
+                            last_modified=(
+                                cve.last_modified_date
+                                if hasattr(cve, "last_modified_date")
+                                else None
+                            ),
+                            exploitability_score=(
+                                cve.cvss.exploitability_score if cve.cvss else None
+                            ),
+                            impact_score=(cve.cvss.impact_score if cve.cvss else None),
+                            raw_data=(
+                                cve.raw_data if hasattr(cve, "raw_data") else None
+                            ),
+                        )
+                    )
+
+            return all_cves
+
+        except Exception as e:
+            self.logger.warning(f"CVE lookup failed: {e}")
+            return []
