@@ -10,6 +10,10 @@ from .fingerprint import (
     TechnologyFingerprinter,
     fingerprint_technologies,
 )
+from .headers import (
+    CookieAnalyzer,
+    SecurityHeadersAnalyzer,
+)
 from .ssl import (
     SSLAnalysisResult,
     SSLAnalyzer,
@@ -30,4 +34,7 @@ __all__ = [
     # Technology Fingerprinting
     "TechnologyFingerprinter",
     "fingerprint_technologies",
+    # Headers Analysis
+    "SecurityHeadersAnalyzer",
+    "CookieAnalyzer",
 ]
