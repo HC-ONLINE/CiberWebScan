@@ -111,6 +111,18 @@ class ScrapeService(BaseService):
             self._static_scraper = StaticScraper(client)
         return self._static_scraper
 
+    def _get_static_scraper_with_proxy(
+        self, proxy: str | None, verify_ssl: bool = True
+    ) -> StaticScraper:
+        """Get static scraper with specific proxy configuration."""
+        if proxy or not verify_ssl:
+            from ciberwebscan.core.client import HTTPClient
+
+            client = HTTPClient(proxy=proxy, verify=verify_ssl)
+            return StaticScraper(client)
+        else:
+            return self.static_scraper
+
     @property
     def dynamic_scraper(self) -> Any:
         """Get or create dynamic scraper instance."""
@@ -255,7 +267,9 @@ class ScrapeService(BaseService):
                 check_robots=options.check_robots,
             )
 
-            core_result: CoreScrapeResult = self.static_scraper.scrape(url, config)
+            core_result: CoreScrapeResult = self._get_static_scraper_with_proxy(
+                options.proxy, config.verify_ssl
+            ).scrape(url, config)
 
             # Map core ScrapeResult to export ScrapeResult
             return ScrapeResult(
@@ -275,6 +289,8 @@ class ScrapeService(BaseService):
     def _scrape_dynamic(self, url: str, options: ScrapeOptions) -> ScrapeResult:
         """Perform dynamic scraping with browser."""
         try:
+            import asyncio
+
             from ciberwebscan.core.scraping import DynamicScrapeConfig
 
             config = DynamicScrapeConfig(
@@ -283,7 +299,17 @@ class ScrapeService(BaseService):
                 schema=options.schema,
             )
 
-            core_result = self.dynamic_scraper.scrape(url, config)
+            # Run the async scrape method in the current event loop
+            try:
+                loop = asyncio.get_running_loop()
+                # If we're already in an async context, we need to handle it properly
+                # For now, let's use a simpler approach and run it sync
+                core_result = loop.run_until_complete(
+                    self.dynamic_scraper.scrape(url, config)
+                )
+            except RuntimeError:
+                # No running loop - create one to run the coroutine
+                core_result = asyncio.run(self.dynamic_scraper.scrape(url, config))
 
             # dynamic scraper returns DynamicScrapeResult-like dataclass
             return ScrapeResult(

@@ -214,7 +214,6 @@ class StaticScraper:
         # Prepare request
         headers = self._prepare_headers(config.headers)
         cookies = self._prepare_cookies(config.cookies)
-        proxy = self._get_proxy()
 
         # Make request
         start_time = time.time()
@@ -224,8 +223,6 @@ class StaticScraper:
                 headers=headers,
                 cookies=cookies,
                 timeout=config.timeout,
-                proxies=proxy,
-                verify=config.verify_ssl,
             )
             elapsed = time.time() - start_time
 
@@ -412,14 +409,6 @@ class StaticScraper:
             return self._ua_provider.get()
 
         return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-
-    def _get_proxy(self) -> dict[str, str] | None:
-        """Get proxy configuration."""
-        if self._proxy_rotator:
-            proxy = self._proxy_rotator.next()
-            if proxy:
-                return {"http": proxy, "https": proxy}
-        return None
 
 
 def scrape_static(

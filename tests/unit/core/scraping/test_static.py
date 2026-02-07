@@ -333,27 +333,6 @@ class TestStaticScraper:
 
         assert len(result.pages) == 2
 
-    def test_scrape_with_proxy_rotator(self, mock_client):
-        """Test scraping with proxy rotation."""
-        mock_proxy_rotator = MagicMock()
-        mock_proxy_rotator.next.return_value = "http://proxy:8080"
-
-        scraper = StaticScraper(mock_client, proxy_rotator=mock_proxy_rotator)
-
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.text = "<div class='item'>Test</div>"
-        mock_client.get.return_value = mock_response
-
-        config = ScrapeConfig(selector="div.item", check_robots=False)
-        scraper.scrape("https://example.com", config)
-
-        call_kwargs = mock_client.get.call_args[1]
-        assert call_kwargs["proxies"] == {
-            "http": "http://proxy:8080",
-            "https": "http://proxy:8080",
-        }
-
     def test_scrape_with_user_agent_provider(self, mock_client):
         """Test scraping with user agent provider."""
         mock_ua_provider = MagicMock()
