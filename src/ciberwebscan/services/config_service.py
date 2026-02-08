@@ -14,7 +14,6 @@ from typing import Any
 from ciberwebscan.config.loader import (
     Config,
     ConfigLoader,
-    reset_config,
 )
 from ciberwebscan.services.base import (
     BaseService,
@@ -65,11 +64,19 @@ class ConfigService(BaseService):
         Initialize config service.
 
         Args:
-            config_path: Optional path to config file.
+            config_path: Optional path to config file. If None, uses default location.
         """
         super().__init__()
-        self.config_path = Path(config_path) if config_path else None
+
+        if config_path is None:
+            # Use default config location
+            default_path = Path.home() / ".ciberwebscan" / "config.yaml"
+            self.config_path = default_path if default_path.exists() else default_path
+        else:
+            self.config_path = Path(config_path)
+
         self._loader: ConfigLoader | None = None
+        self._reset_mode: bool = False  # Flag to track if we're in reset mode
 
     @property
     def loader(self) -> ConfigLoader:
@@ -218,7 +225,7 @@ class ConfigService(BaseService):
         Reset configuration to defaults.
 
         Args:
-            key: Specific key to reset, or None for all.
+            key: Specific key to reset, or None to reset all.
 
         Returns:
             ServiceResult indicating success.
@@ -227,23 +234,28 @@ class ConfigService(BaseService):
 
         try:
             if key:
-                default = self._get_default_value(key)
-                self._set_nested_value(self.config, key, default)
-                self.logger.info(f"Configuration reset: {key}")
+                # Reset specific key to default value
+                default_value = self._get_default_value(key)
+                if default_value is not None:
+                    self._set_nested_value(self.config, key, default_value)
+                    result.data = True
+                    result.success = True
+                    self.logger.info(f"Reset {key} to default: {default_value}")
+                else:
+                    result.error = f"Key not found in defaults: {key}"
+                    result.error_code = "CONFIG_KEY_NOT_FOUND"
             else:
-                reset_config()
-                self._loader = None  # Force reload
-                self.logger.info("All configuration reset to defaults")
+                # Reset all - clear loader and create defaults-only configuration
+                self._loader = ConfigLoader()  # Create loader with defaults only
+                # If saving after reset, we want to create an essentially empty file
+                self._reset_mode = True  # Flag to indicate we're in reset mode
+                result.data = True
+                result.success = True
+                self.logger.info("Reset all configuration to defaults")
 
-            result.data = True
-            result.success = True
-
-        except KeyError:
-            result.error = f"Configuration key not found: {key}"
-            result.error_code = "CONFIG_KEY_NOT_FOUND"
         except Exception as e:
             result.error = str(e)
-            result.error_code = "CONFIG_ERROR"
+            result.error_code = "CONFIG_RESET_ERROR"
 
         return result.finalize()
 
@@ -265,11 +277,19 @@ class ConfigService(BaseService):
                 save_path = Path.home() / ".ciberwebscan" / "config.yaml"
 
             save_path.parent.mkdir(parents=True, exist_ok=True)
-            self.loader.save(save_path)
+
+            if self._reset_mode:
+                # Save empty config file after reset
+                with open(save_path, "w", encoding="utf-8") as f:
+                    f.write("# Configuration file - all values are defaults\n")
+                self._reset_mode = False  # Clear the flag
+                self.logger.info(f"Reset configuration saved to: {save_path}")
+            else:
+                # Normal save
+                self.loader.save(save_path)
 
             result.data = save_path
             result.success = True
-            self.logger.info(f"Configuration saved to: {save_path}")
 
         except Exception as e:
             result.error = str(e)

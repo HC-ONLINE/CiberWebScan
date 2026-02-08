@@ -56,10 +56,16 @@ class ConfigLoader:
         Initialize configuration loader.
 
         Args:
-            config_path: Path to config file (YAML or JSON).
+            config_path: Path to config file (YAML or JSON). If None, uses default location.
             env_prefix: Prefix for environment variable overrides.
         """
-        self.config_path = Path(config_path) if config_path else None
+        if config_path is None:
+            # Use default config location
+            default_path = Path.home() / ".ciberwebscan" / "config.yaml"
+            self.config_path = default_path if default_path.exists() else None
+        else:
+            self.config_path = Path(config_path)
+
         self.env_prefix = env_prefix
         self._config: Config | None = None
         self._raw: dict[str, Any] = {}
@@ -195,28 +201,41 @@ class ConfigLoader:
 
     def save(self, path: str | Path) -> None:
         """
-        Save current configuration to a file.
+        Save current configuration to file.
 
         Args:
-            path: Output file path (.yaml or .json).
+            path: Path to save config file to.
         """
-        path = Path(path)
-        path.parent.mkdir(parents=True, exist_ok=True)
+        save_path = Path(path)
+        save_path.parent.mkdir(parents=True, exist_ok=True)
 
-        config_dict = self.config.model_dump()
-        suffix = path.suffix.lower()
+        # Create config dict excluding defaults that haven't changed
+        config_to_save = {}
+        current_config = self.config.model_dump()
 
-        with open(path, "w", encoding="utf-8") as f:
-            if suffix in (".yaml", ".yml"):
-                import yaml
+        # Only include non-default values
+        for key, value in current_config.items():
+            default_value = DEFAULTS.get(key)
+            if value != default_value:
+                config_to_save[key] = value
 
-                yaml.dump(config_dict, f, default_flow_style=False, sort_keys=False)
-            else:
-                import json
+        # Save as YAML (preferred format)
+        try:
+            import yaml
 
-                json.dump(config_dict, f, indent=2, default=str)
-
-        logger.info(f"Configuration saved to: {path}")
+            with open(save_path, "w", encoding="utf-8") as f:
+                if config_to_save:
+                    # Save non-default values
+                    yaml.safe_dump(
+                        config_to_save, f, default_flow_style=False, sort_keys=False
+                    )
+                else:
+                    # Save empty file (all values are defaults)
+                    f.write("# Configuration file - all values are defaults\n")
+            logger.info(f"Configuration saved to: {save_path}")
+        except Exception as e:
+            logger.error(f"Failed to save config file: {e}")
+            raise
 
     def reload(self) -> None:
         """Reload configuration from sources."""

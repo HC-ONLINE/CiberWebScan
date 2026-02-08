@@ -43,6 +43,12 @@ def config_show(
         bool,
         typer.Option("--json", help="Output raw JSON"),
     ] = False,
+    config_path: Annotated[
+        str | None,
+        typer.Option(
+            "--config", help="Config file path (default: ~/.ciberwebscan/config.yaml)"
+        ),
+    ] = None,
 ) -> None:
     """
     Show current configuration.
@@ -55,13 +61,16 @@ def config_show(
         # Show specific section
         ciberwebscan config show scraping
 
+        # Show from custom config file
+        ciberwebscan config show --config my_config.yaml
+
         # Output as JSON
         ciberwebscan config show --json
     """
     try:
         from ciberwebscan.services import ConfigService
 
-        service = ConfigService()
+        service = ConfigService(config_path=config_path)
 
         result = service.get_section(section) if section else service.get_all()
 
@@ -90,6 +99,12 @@ def config_get(
         bool,
         typer.Option("--json", help="Output raw JSON"),
     ] = False,
+    config_path: Annotated[
+        str | None,
+        typer.Option(
+            "--config", help="Config file path (default: ~/.ciberwebscan/config.yaml)"
+        ),
+    ] = None,
 ) -> None:
     """
     Get a specific configuration value.
@@ -97,12 +112,12 @@ def config_get(
     Examples:
 
         ciberwebscan config get scraping.timeout
-        ciberwebscan config get http.max_retries
+        ciberwebscan config get http.max_retries --config custom_config.yaml
     """
     try:
         from ciberwebscan.services import ConfigService
 
-        service = ConfigService()
+        service = ConfigService(config_path=config_path)
         result = service.get(key)
 
         if json_output:
@@ -125,6 +140,18 @@ def config_get(
 def config_set(
     key: Annotated[str, typer.Argument(help="Configuration key")],
     value: Annotated[str, typer.Argument(help="New value")],
+    save_config: Annotated[
+        bool,
+        typer.Option(
+            "--save/--no-save", help="Save changes to config file (default: --save)"
+        ),
+    ] = True,
+    config_path: Annotated[
+        str | None,
+        typer.Option(
+            "--config", help="Config file path (default: ~/.ciberwebscan/config.yaml)"
+        ),
+    ] = None,
 ) -> None:
     """
     Set a configuration value.
@@ -132,7 +159,8 @@ def config_set(
     Examples:
 
         ciberwebscan config set scraping.timeout 60
-        ciberwebscan config set http.max_retries 5
+        ciberwebscan config set http.max_retries 5 --save
+        ciberwebscan config set export.output_dir results --no-save
     """
     try:
         from contextlib import suppress
@@ -157,14 +185,23 @@ def config_set(
                 with suppress(ValueError):
                     parsed_value = float(value)
 
-        service = ConfigService()
+        service = ConfigService(config_path=config_path)
         result = service.set(key, parsed_value)
 
-        if result.success:
-            print_success(f"Set {key} = {parsed_value}")
-        else:
+        if not result.success:
             print_error(result.error or "Unknown error")
             sys.exit(1)
+
+        print_success(f"Set {key} = {parsed_value}")
+
+        # Save to file if requested
+        if save_config:
+            save_result = service.save(config_path)
+            if save_result.success:
+                print_info(f"Configuration saved to: {save_result.data}")
+            else:
+                print_error(f"Failed to save config: {save_result.error}")
+                sys.exit(1)
 
     except Exception as e:
         print_error(f"Error: {e}")
@@ -181,6 +218,18 @@ def config_reset(
         bool,
         typer.Option("--yes", "-y", help="Skip confirmation"),
     ] = False,
+    save_config: Annotated[
+        bool,
+        typer.Option(
+            "--save/--no-save", help="Save changes to config file (default: --save)"
+        ),
+    ] = True,
+    config_path: Annotated[
+        str | None,
+        typer.Option(
+            "--config", help="Config file path (default: ~/.ciberwebscan/config.yaml)"
+        ),
+    ] = None,
 ) -> None:
     """
     Reset configuration to defaults.
@@ -195,6 +244,9 @@ def config_reset(
 
         # Reset all (skip confirmation)
         ciberwebscan config reset -y
+
+        # Reset without saving to file
+        ciberwebscan config reset scraping.timeout --no-save
     """
     try:
         if not key and not yes:
@@ -205,17 +257,26 @@ def config_reset(
 
         from ciberwebscan.services import ConfigService
 
-        service = ConfigService()
+        service = ConfigService(config_path=config_path)
         result = service.reset(key)
 
-        if result.success:
-            if key:
-                print_success(f"Reset {key} to default")
-            else:
-                print_success("Reset all configuration to defaults")
-        else:
+        if not result.success:
             print_error(result.error or "Unknown error")
             sys.exit(1)
+
+        if key:
+            print_success(f"Reset {key} to default")
+        else:
+            print_success("Reset all configuration to defaults")
+
+        # Save to file if requested
+        if save_config:
+            save_result = service.save(config_path)
+            if save_result.success:
+                print_info(f"Configuration saved to: {save_result.data}")
+            else:
+                print_error(f"Failed to save config: {save_result.error}")
+                sys.exit(1)
 
     except Exception as e:
         print_error(f"Error: {e}")

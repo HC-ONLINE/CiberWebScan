@@ -53,7 +53,9 @@ class TestConfigService:
     def test_service_creation(self, config_service: ConfigService):
         """Test service instantiation."""
         assert config_service is not None
-        assert config_service.config_path is None
+        # Config path is set to default location when no explicit path provided
+        expected_path = Path.home() / ".ciberwebscan" / "config.yaml"
+        assert config_service.config_path == expected_path
 
     def test_service_with_path(self, config_file: Path):
         """Test service with config path."""
