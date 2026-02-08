@@ -1,0 +1,235 @@
+"""
+Base classes and utilities for attack simulation modules.
+
+Provides common functionality shared across different attack types.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import time
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any
+
+import httpx
+from bs4 import BeautifulSoup
+
+from ciberwebscan.core.client import HTTPClient
+from ciberwebscan.export.models import (
+    AttackPayload,
+    ConfidenceLevel,
+    Severity,
+    VulnerabilityFinding,
+)
+
+logger = logging.getLogger(__name__)
+
+
+class AttackIntensity(str, Enum):
+    """Attack intensity levels."""
+
+    LOW = "low"  # Conservative testing, minimal payloads
+    MEDIUM = "medium"  # Balanced approach, moderate payload set
+    HIGH = "high"  # Aggressive testing, comprehensive payloads
+
+
+@dataclass
+class AttackConfig:
+    """Configuration for attack operations."""
+
+    # Target and scope
+    target_url: str
+    scope_urls: list[str] = field(default_factory=list)
+
+    # Attack settings
+    intensity: AttackIntensity = AttackIntensity.MEDIUM
+    max_payloads: int = 50
+    timeout: float = 10.0
+
+    # Rate limiting
+    delay_between_requests: float = 0.1
+    concurrent_requests: int = 1
+
+    # Custom payloads
+    custom_payloads_file: str | None = None
+
+    # User consent and safety
+    user_consent: bool = False
+    skip_dangerous_payloads: bool = True
+
+    # Output
+    verbose: bool = False
+
+
+@dataclass
+class AttackContext:
+    """Runtime context for an attack session."""
+
+    config: AttackConfig
+    http_client: HTTPClient
+    start_time: float = field(default_factory=time.time)
+
+    # Statistics
+    total_requests: int = 0
+    successful_requests: int = 0
+    failed_requests: int = 0
+
+    # Results
+    vulnerabilities: list[VulnerabilityFinding] = field(default_factory=list)
+
+    def elapsed_time(self) -> float:
+        """Get elapsed time since attack started."""
+        return time.time() - self.start_time
+
+    def add_vulnerability(self, vuln: VulnerabilityFinding) -> None:
+        """Add a vulnerability finding."""
+        self.vulnerabilities.append(vuln)
+        if self.config.verbose:
+            logger.info(f"Vulnerability found: {vuln.type} - {vuln.title}")
+
+    def log_request(self, success: bool) -> None:
+        """Log a request attempt."""
+        self.total_requests += 1
+        if success:
+            self.successful_requests += 1
+        else:
+            self.failed_requests += 1
+
+
+class AttackEngine(ABC):
+    """Base class for all attack modules."""
+
+    def __init__(self, name: str):
+        self.name = name
+        self.logger = logging.getLogger(f"{__name__}.{name}")
+
+    @abstractmethod
+    async def execute(self, context: AttackContext) -> list[VulnerabilityFinding]:
+        """Execute the attack and return findings."""
+        pass
+
+    @abstractmethod
+    def get_payloads(self, intensity: AttackIntensity, max_count: int) -> list[str]:
+        """Get payloads for this attack type."""
+        pass
+
+    def validate_target(self, url: str) -> bool:
+        """Validate if target is appropriate for this attack."""
+        return url.startswith(("http://", "https://"))
+
+    def create_payload_object(
+        self, payload_str: str, parameter: str = "", method: str = "GET"
+    ) -> AttackPayload:
+        """Create an AttackPayload object."""
+        return AttackPayload(
+            type=self.name, payload=payload_str, parameter=parameter, method=method
+        )
+
+    def create_vulnerability(
+        self,
+        title: str,
+        description: str,
+        severity: Severity,
+        confidence: ConfidenceLevel,
+        url: str,
+        payload: AttackPayload,
+        evidence: str = "",
+        remediation: str = "",
+        cwe_id: str | None = None,
+        owasp_category: str | None = None,
+    ) -> VulnerabilityFinding:
+        """Create a VulnerabilityFinding object."""
+        return VulnerabilityFinding(
+            type=self.name,
+            title=title,
+            description=description,
+            severity=severity,
+            confidence=confidence,
+            url=url,
+            payload=payload,
+            evidence=evidence,
+            remediation=remediation,
+            cwe_id=cwe_id,
+            owasp_category=owasp_category,
+        )
+
+    async def send_request(
+        self,
+        context: AttackContext,
+        url: str,
+        method: str = "GET",
+        data: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+    ) -> httpx.Response | None:
+        """Send HTTP request with error handling.
+
+        The underlying `HTTPClient` is synchronous; run its methods in a thread
+        via `asyncio.to_thread` so this coroutine does not block the event loop.
+        """
+        try:
+            if method.upper() == "GET":
+                response = await asyncio.to_thread(
+                    context.http_client.get, url, params=params or {}
+                )
+            elif method.upper() == "POST":
+                response = await asyncio.to_thread(
+                    context.http_client.post, url, data=data or {}, params=params or {}
+                )
+            else:
+                response = await asyncio.to_thread(
+                    context.http_client.request, method, url, data=data, params=params
+                )
+
+            context.log_request(True)
+            return response
+
+        except Exception as e:
+            context.log_request(False)
+            self.logger.debug(f"Request failed to {url}: {e}")
+            return None
+
+    def extract_forms(self, html: str) -> list[dict[str, Any]]:
+        """Extract forms from HTML response."""
+        forms = []
+        try:
+            soup = BeautifulSoup(html, "html.parser")
+            for form in soup.find_all("form"):
+                form_data = {
+                    "action": form.get("action", ""),
+                    "method": str(form.get("method", "GET")).upper(),
+                    "inputs": [],
+                }
+
+                # Find all input fields
+                for input_field in form.find_all(["input", "textarea", "select"]):
+                    field_data = {
+                        "name": input_field.get("name", ""),
+                        "type": input_field.get("type", "text"),
+                        "value": input_field.get("value", ""),
+                    }
+                    form_data["inputs"].append(field_data)
+
+                forms.append(form_data)
+
+        except Exception as e:
+            self.logger.debug(f"Error extracting forms: {e}")
+
+        return forms
+
+    def should_test_parameter(self, param_name: str) -> bool:
+        """Check if parameter should be tested based on name."""
+        # Skip obvious non-user-input parameters
+        skip_params = {
+            "csrf_token",
+            "authenticity_token",
+            "_token",
+            "__viewstate",
+            "sessionid",
+            "session_id",
+            "_session",
+            "timestamp",
+        }
+        return param_name.lower() not in skip_params
