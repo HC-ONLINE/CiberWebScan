@@ -67,22 +67,41 @@ class PayloadLoader:
         max_count: int | None = None,
     ) -> list[str]:
         """Get payloads for a specific attack type and intensity."""
-        all_payloads = self._payloads.get(attack_type, [])
+        attack_payloads = self._payloads.get(attack_type, [])
 
-        if not all_payloads:
-            logger.warning(f"No payloads found for attack type: {attack_type}")
-            return []
+        # Handle nested structure (intensity-based) or flat list
+        if isinstance(attack_payloads, dict):
+            # Nested structure: {'low': [...], 'medium': [...], 'high': [...]}
+            intensity_key = intensity.name.lower()
+            all_payloads = attack_payloads.get(intensity_key, [])
+            if not all_payloads and intensity_key != "low":
+                # Fallback to lower intensity if current not available
+                all_payloads = attack_payloads.get("low", [])
 
-        # Filter by intensity
-        if intensity == AttackIntensity.LOW:
-            # Use first 25% of payloads (basic ones)
-            selected = all_payloads[: len(all_payloads) // 4 or 1]
-        elif intensity == AttackIntensity.MEDIUM:
-            # Use first 50% of payloads
-            selected = all_payloads[: len(all_payloads) // 2 or 1]
-        else:  # HIGH
-            # Use all payloads
+            # For nested structure, all_payloads is already the right list
+            if not all_payloads:
+                logger.warning(
+                    f"No payloads found for attack type: {attack_type}, intensity: {intensity_key}"
+                )
+                return []
             selected = all_payloads
+        else:
+            # Flat list structure
+            all_payloads = attack_payloads
+            if not all_payloads:
+                logger.warning(f"No payloads found for attack type: {attack_type}")
+                return []
+
+            # Filter by intensity
+            if intensity == AttackIntensity.LOW:
+                # Use first 25% of payloads (basic ones)
+                selected = all_payloads[: len(all_payloads) // 4 or 1]
+            elif intensity == AttackIntensity.MEDIUM:
+                # Use first 50% of payloads
+                selected = all_payloads[: len(all_payloads) // 2 or 1]
+            else:  # HIGH
+                # Use all payloads
+                selected = all_payloads
 
         # Apply max count limit
         if max_count and len(selected) > max_count:
