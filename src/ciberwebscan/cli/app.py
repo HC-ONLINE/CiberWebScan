@@ -13,6 +13,7 @@ from typing import Annotated
 import typer
 
 from ciberwebscan.cli.commands.analyze import analyze
+from ciberwebscan.cli.commands.attack import attack
 from ciberwebscan.cli.commands.config import config
 from ciberwebscan.cli.commands.scrape import scrape
 from ciberwebscan.cli.output import print_info
@@ -29,6 +30,7 @@ app = typer.Typer(
 # Register command groups
 app.add_typer(scrape, name="scrape")
 app.add_typer(analyze, name="analyze")
+app.add_typer(attack, name="attack")
 app.add_typer(config, name="config")
 
 

@@ -59,11 +59,17 @@ def validate_url(url: str, allow_http: bool = True) -> str:
 
     # Basic domain validation
     domain = parsed.netloc.split(":")[0]  # Remove port
-    if (
-        not re.match(
-            r"^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*$",
+    # Require a dot-separated domain (e.g., example.com) for public hosts,
+    # but allow single-label hosts for localhost and local IPs.
+    is_domain_like = bool(
+        re.match(
+            r"^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)+$",
             domain,
         )
+    )
+
+    if (
+        not is_domain_like
         and domain not in ("localhost", "127.0.0.1")
         and not _is_valid_ip(domain)
     ):
