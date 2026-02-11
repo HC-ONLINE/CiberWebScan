@@ -84,6 +84,7 @@ addopts = [
     "--cov-report=term-missing",
     "--cov-report=xml",
 ]
+asyncio_mode = "auto"
 markers = [
     "slow: slow running tests",
     "integration: integration tests",
