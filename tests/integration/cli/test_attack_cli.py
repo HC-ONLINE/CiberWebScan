@@ -22,20 +22,24 @@ TEST_SERVER_URL = "http://127.0.0.1:5555"
 @pytest.fixture(scope="module")
 def test_server():
     """Start test server for integration tests."""
-    import threading
+    import subprocess
 
-    import uvicorn
-
-    from tests.testserver import create_app
-
-    # Start server in background thread
-    app = create_app()
-
-    def run_server():
-        uvicorn.run(app, host="127.0.0.1", port=5555, log_level="error")
-
-    server_thread = threading.Thread(target=run_server, daemon=True)
-    server_thread.start()
+    # Start server in background process
+    cmd = [
+        sys.executable,
+        "-m",
+        "uvicorn",
+        "tests.testserver:app",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "5555",
+        "--log-level",
+        "error",
+    ]
+    server_process = subprocess.Popen(
+        cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+    )
 
     # Wait for server to start
     max_attempts = 30
@@ -48,11 +52,19 @@ def test_server():
         except (httpx.RequestError, httpx.TimeoutException):
             time.sleep(0.1)
     else:
+        server_process.terminate()
+        server_process.wait()
         pytest.fail("Test server failed to start")
 
     yield TEST_SERVER_URL
 
-    # Note: Thread will be cleaned up automatically as it's daemon
+    # Clean up server process
+    try:
+        server_process.terminate()
+        server_process.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        server_process.kill()
+        server_process.wait()
 
 
 def run_cli_command(args: list[str]) -> dict[str, Any]:
