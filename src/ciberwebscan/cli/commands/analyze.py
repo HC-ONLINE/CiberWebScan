@@ -54,9 +54,12 @@ def analyze_url(
         bool,
         typer.Option("--cve/--no-cve", help="Look up CVEs for detected technologies"),
     ] = True,
-    headers: Annotated[
+    analyze_headers: Annotated[
         bool,
-        typer.Option("--headers/--no-headers", help="Analyze HTTP security headers"),
+        typer.Option(
+            "--analyze-headers/--no-analyze-headers",
+            help="Analyze HTTP security headers",
+        ),
     ] = True,
     # Options
     deep: Annotated[
@@ -101,10 +104,10 @@ def analyze_url(
         str | None,
         typer.Option("--user-agent", "-ua", help="Custom User-Agent string"),
     ] = None,
-    custom_headers: Annotated[
+    headers: Annotated[
         str | None,
         typer.Option(
-            "--custom-headers",
+            "--headers",
             "-H",
             help="Custom headers (format: 'Key: Value, Key2: Value2')",
         ),
@@ -154,8 +157,8 @@ def analyze_url(
 
         # Parse headers if provided
         headers_dict: dict[str, str] = {}
-        if custom_headers:
-            for pair in custom_headers.split(","):
+        if headers:
+            for pair in headers.split(","):
                 if ":" in pair:
                     key, value = pair.split(":", 1)
                     headers_dict[key.strip()] = value.strip()
@@ -199,7 +202,7 @@ def analyze_url(
                 analyses.append("Fingerprint")
             if cve:
                 analyses.append("CVE")
-            if headers:
+            if analyze_headers:
                 analyses.append("Headers")
             print_info(f"Analyses: {', '.join(analyses)}")
 
