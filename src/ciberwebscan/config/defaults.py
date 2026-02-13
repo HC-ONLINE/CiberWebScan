@@ -3,6 +3,8 @@ Default configuration values for CiberWebScan.
 
 These defaults are used when no config file is provided or when
 specific values are not set.
+
+WARNING: These values are considered legacy and may be removed in future versions. The recommended approach is to use Pydantic models.
 """
 
 from __future__ import annotations
@@ -67,25 +69,40 @@ DEFAULTS: dict[str, Any] = {
     # Analysis
     "analysis": {
         "ssl": {
+            "enabled": True,
             "check_expiry": True,
             "check_chain": True,
-            "min_protocol": "TLSv1.2",
+            "check_revocation": True,
+            "warning_days": 30,
         },
         "fingerprint": {
-            "deep_scan": False,
+            "enabled": True,
             "check_headers": True,
             "check_cookies": True,
             "check_html": True,
+            "check_scripts": True,
+            "check_dns": False,
         },
         "cve": {
-            "sources": ["nvd"],
+            "enabled": True,
+            "api": "all",
+            "nvd_api_key": None,
+            "vulners_api_key": None,
             "cache_ttl": 86400,
-            "max_results": 100,
+        },
+        "headers": {
+            "enabled": True,
+            "required_headers": [
+                "Strict-Transport-Security",
+                "X-Content-Type-Options",
+                "X-Frame-Options",
+                "Content-Security-Policy",
+            ],
         },
     },
     # Export
     "export": {
-        "format": "json",
+        "format": "jsonl",
         "pretty": True,
         "include_raw": False,
         "output_dir": "exports",
@@ -93,15 +110,17 @@ DEFAULTS: dict[str, Any] = {
     # Cache
     "cache": {
         "enabled": True,
+        "directory": ".cache",
         "ttl": 3600,
-        "max_size": 1000,
-        "backend": "memory",
+        "max_size_mb": 100,
     },
     # Logging
     "logging": {
         "level": "INFO",
         "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         "file": None,
+        "max_size": 10485760,
+        "backup_count": 5,
     },
 }
 

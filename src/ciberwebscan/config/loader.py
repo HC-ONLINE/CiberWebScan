@@ -62,7 +62,20 @@ class ConfigLoader:
         if config_path is None:
             # Use default config location
             default_path = Path.home() / ".ciberwebscan" / "config.yaml"
-            self.config_path = default_path if default_path.exists() else None
+            if not default_path.exists():
+                # Create default config file
+                default_path.parent.mkdir(parents=True, exist_ok=True)
+                config = Config()
+                import yaml
+
+                with open(default_path, "w", encoding="utf-8") as f:
+                    yaml.safe_dump(
+                        config.model_dump(),
+                        f,
+                        default_flow_style=False,
+                        sort_keys=False,
+                    )
+            self.config_path = default_path
         else:
             self.config_path = Path(config_path)
 
