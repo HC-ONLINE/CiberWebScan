@@ -126,6 +126,13 @@ def quick_scan(
 
 def main() -> None:
     """Main entry point."""
+    # Setup logging before running the app
+    from ciberwebscan.config.loader import get_config
+    from ciberwebscan.utils.logging import setup_logging
+
+    config = get_config()
+    setup_logging(config.logging)
+
     app()
 
 
