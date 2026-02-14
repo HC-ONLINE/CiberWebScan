@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Generic, TypeVar
 
+from ciberwebscan.config.loader import get_config
 from ciberwebscan.export import CSVExporter, ExportError, JSONExporter, JSONLExporter
 
 logger = logging.getLogger(__name__)
@@ -144,6 +145,9 @@ class BaseService:
             )
 
         try:
+            config = get_config()
+            indent = 2 if config.export.pretty else None
+
             exporters = {
                 "json": JSONExporter,
                 "jsonl": JSONLExporter,
@@ -158,17 +162,29 @@ class BaseService:
 
             # Check if data has export_report method (AnalysisReport)
             if hasattr(data, "meta") and hasattr(data, "calculate_summary"):
-                exporter = exporter_class(output_path=path)
+                if format == "json":
+                    exporter = exporter_class(output_path=path, indent=indent)
+                else:
+                    exporter = exporter_class(output_path=path)
                 exporter.export_report(data)
             # Check if it's a list/iterable for streaming
             elif isinstance(data, list | tuple):
-                with exporter_class(output_path=path) as exp:
-                    for item in data:
-                        exp.write_item(item)
+                if format == "json":
+                    with exporter_class(output_path=path, indent=indent) as exp:
+                        for item in data:
+                            exp.write_item(item)
+                else:
+                    with exporter_class(output_path=path) as exp:
+                        for item in data:
+                            exp.write_item(item)
             # Single item
             else:
-                with exporter_class(output_path=path) as exp:
-                    exp.write_item(data)
+                if format == "json":
+                    with exporter_class(output_path=path, indent=indent) as exp:
+                        exp.write_item(data)
+                else:
+                    with exporter_class(output_path=path) as exp:
+                        exp.write_item(data)
 
             self.logger.info(f"Exported to {path} ({format})")
             return True, path

@@ -254,6 +254,7 @@ class ExportConfig(BaseModel):
     include_screenshots: bool = False
     streaming: bool = True
     buffer_size: Annotated[int, Field(ge=1, le=10000)] = 100
+    pretty: bool = True
 
 
 # =============================================================================

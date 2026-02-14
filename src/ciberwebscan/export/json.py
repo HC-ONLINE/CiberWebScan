@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any, TextIO
 
 import orjson
 
+from ciberwebscan.config.loader import get_config
 from ciberwebscan.export.base import ExportWriteError, StreamingExporter
 
 if TYPE_CHECKING:
@@ -308,7 +309,7 @@ def export_to_json(
     data: Any,
     output_path: str | Path,
     *,
-    indent: int | None = 2,
+    indent: int | None = None,
     include_raw: bool = False,
 ) -> None:
     """
@@ -317,9 +318,12 @@ def export_to_json(
     Args:
         data: Data to export (dict, Pydantic model, AnalysisReport, etc.)
         output_path: Path to output file.
-        indent: Indentation level (None for compact).
+        indent: Indentation level (None for compact, uses config.export.pretty if None).
         include_raw: Include raw HTML/response data.
     """
+    if indent is None:
+        config = get_config()
+        indent = 2 if config.export.pretty else None
     exporter = JSONExporter(
         output_path=output_path,
         indent=indent,
