@@ -14,7 +14,6 @@ from typing import Any
 
 from pydantic import ValidationError as PydanticValidationError
 
-from .defaults import DEFAULTS
 from .models import (
     AppConfig as Config,
 )
@@ -94,7 +93,8 @@ class ConfigLoader:
     def _load(self) -> None:
         """Load configuration from all sources."""
         # Start with defaults
-        self._raw = self._deep_copy(DEFAULTS)
+        config = Config()
+        self._raw = config.model_dump()
 
         # Load from file if provided
         if self.config_path and self.config_path.exists():
@@ -225,10 +225,11 @@ class ConfigLoader:
         # Create config dict excluding defaults that haven't changed
         config_to_save = {}
         current_config = self.config.model_dump()
+        default_config = Config().model_dump()
 
         # Only include non-default values
         for key, value in current_config.items():
-            default_value = DEFAULTS.get(key)
+            default_value = default_config.get(key)
             if value != default_value:
                 config_to_save[key] = value
 
