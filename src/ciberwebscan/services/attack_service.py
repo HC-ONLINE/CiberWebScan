@@ -111,6 +111,13 @@ class AttackService(BaseService):
         super().__init__()
         self.app_config = get_config()
 
+        # Initialize user agent provider from config
+        from ciberwebscan.core.client.user_agent import UserAgentProvider
+
+        self._user_agent_provider = UserAgentProvider.from_config(
+            self.app_config.user_agent
+        )
+
     def attack(self, options: AttackOptions) -> ServiceResult[AttackResult]:
         """
         Perform security attack simulations.
@@ -179,6 +186,9 @@ class AttackService(BaseService):
             default_headers = dict(options.headers or {})
             if options.user_agent:
                 default_headers["User-Agent"] = options.user_agent
+            else:
+                # Use configured user agent
+                default_headers["User-Agent"] = self._user_agent_provider.get()
 
             http_config = self.app_config.http
             timeout = (

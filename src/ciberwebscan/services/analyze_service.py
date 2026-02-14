@@ -112,6 +112,13 @@ class AnalyzeService(BaseService):
         self._fingerprinter: TechnologyFingerprinter | None = None
         self._cve_aggregator: CVEAggregator | None = None
 
+        # Initialize user agent provider from config
+        from ciberwebscan.core.client.user_agent import UserAgentProvider
+
+        self._user_agent_provider = UserAgentProvider.from_config(
+            self.app_config.user_agent
+        )
+
     @property
     def ssl_analyzer(self) -> SSLAnalyzer:
         """Get or create SSL analyzer instance."""
@@ -374,6 +381,9 @@ class AnalyzeService(BaseService):
             default_headers = dict(options.headers or {})
             if options.user_agent:
                 default_headers["User-Agent"] = options.user_agent
+            else:
+                # Use configured user agent
+                default_headers["User-Agent"] = self._user_agent_provider.get()
 
             with HTTPClient(
                 timeout=timeout,

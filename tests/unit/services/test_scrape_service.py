@@ -200,7 +200,11 @@ class TestScrapeService:
             verify_ssl=False,
             follow_redirects=False,
         )
-        mock_get_config.return_value = Mock(scraping=Mock(), http=http_config)
+        mock_get_config.return_value = Mock(
+            scraping=Mock(),
+            http=http_config,
+            user_agent=Mock(mode="static", custom="TestAgent"),
+        )
 
         service = ScrapeService()
         _ = service.static_scraper
@@ -214,6 +218,7 @@ class TestScrapeService:
             verify=False,
             follow_redirects=False,
             proxy=None,
+            default_headers={"User-Agent": "TestAgent"},
         )
 
 

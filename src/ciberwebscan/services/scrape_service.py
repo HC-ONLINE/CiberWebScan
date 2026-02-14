@@ -103,6 +103,13 @@ class ScrapeService(BaseService):
         self._static_scraper: StaticScraper | None = None
         self._dynamic_scraper: Any = None  # Optional DynamicScraper
 
+        # Initialize user agent provider from config
+        from ciberwebscan.core.client.user_agent import UserAgentProvider
+
+        self._user_agent_provider = UserAgentProvider.from_config(
+            self.app_config.user_agent
+        )
+
     def _build_http_client(
         self,
         *,
@@ -112,6 +119,11 @@ class ScrapeService(BaseService):
         from ciberwebscan.core.client import HTTPClient
 
         http_config = self.app_config.http
+
+        # Get user agent from provider
+        user_agent = self._user_agent_provider.get()
+        default_headers = {"User-Agent": user_agent}
+
         return HTTPClient(
             timeout=http_config.timeout.read,
             max_retries=http_config.retry.max_attempts,
@@ -125,6 +137,7 @@ class ScrapeService(BaseService):
             verify=http_config.verify_ssl if verify is None else verify,
             follow_redirects=http_config.follow_redirects,
             proxy=proxy,
+            default_headers=default_headers,
         )
 
     @property

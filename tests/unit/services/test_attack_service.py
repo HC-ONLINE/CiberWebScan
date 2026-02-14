@@ -130,7 +130,9 @@ class TestAttackService:
             verify_ssl=True,
             follow_redirects=True,
         )
-        mock_get_config.return_value = Mock(http=http_config)
+        mock_get_config.return_value = Mock(
+            http=http_config, user_agent=Mock(mode="static", custom="TestAgent")
+        )
 
         mock_attacker = Mock()
         mock_attacker.execute = AsyncMock(return_value=[])

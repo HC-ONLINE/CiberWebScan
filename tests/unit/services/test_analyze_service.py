@@ -135,7 +135,9 @@ class TestAnalyzeService:
     ):
         """Test fingerprint request timeout uses global config default."""
         http_config = Mock(timeout=Mock(read=44.0, connect=12.0))
-        mock_get_config.return_value = Mock(http=http_config)
+        mock_get_config.return_value = Mock(
+            http=http_config, user_agent=Mock(mode="static", custom="TestAgent")
+        )
 
         mock_response = Mock(headers={}, text="<html></html>")
         mock_client = Mock()
