@@ -112,6 +112,38 @@ class TestAttackService:
         assert attack_service is not None
         assert hasattr(attack_service, "logger")
 
+    @patch("ciberwebscan.services.attack_service.get_config")
+    @patch("ciberwebscan.services.attack_service.HTTPClient")
+    @patch("ciberwebscan.services.attack_service.XSSAttacker")
+    def test_attack_uses_config_timeout_when_default(
+        self,
+        mock_xss_attacker_class: Mock,
+        mock_http_client_class: Mock,
+        mock_get_config: Mock,
+    ):
+        """Test that default timeout is resolved from global config."""
+        http_config = Mock(
+            timeout=Mock(connect=22.0),
+            retry=Mock(max_attempts=3, backoff_factor=0.5),
+            rate_limit=Mock(requests_per_second=5.0, per_domain=True),
+            http2=True,
+            verify_ssl=True,
+            follow_redirects=True,
+        )
+        mock_get_config.return_value = Mock(http=http_config)
+
+        mock_attacker = Mock()
+        mock_attacker.execute = AsyncMock(return_value=[])
+        mock_xss_attacker_class.return_value = mock_attacker
+        mock_http_client_class.return_value = Mock()
+
+        service = AttackService()
+        options = AttackOptions(url="https://example.com", user_consent=True, xss=True)
+        service.attack(options)
+
+        assert mock_http_client_class.call_args is not None
+        assert mock_http_client_class.call_args.kwargs["timeout"] == 22.0
+
     def test_attack_without_consent(self, attack_service: AttackService):
         """Test that attack requires user consent."""
         options = AttackOptions(

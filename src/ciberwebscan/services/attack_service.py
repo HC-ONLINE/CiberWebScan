@@ -14,6 +14,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 
+from ciberwebscan.config.loader import get_config
 from ciberwebscan.core.attacks import (
     AttackConfig,
     AttackContext,
@@ -108,6 +109,7 @@ class AttackService(BaseService):
     def __init__(self):
         """Initialize attack service."""
         super().__init__()
+        self.app_config = get_config()
 
     def attack(self, options: AttackOptions) -> ServiceResult[AttackResult]:
         """
@@ -178,9 +180,26 @@ class AttackService(BaseService):
             if options.user_agent:
                 default_headers["User-Agent"] = options.user_agent
 
+            http_config = self.app_config.http
+            timeout = (
+                http_config.timeout.connect
+                if options.timeout == 10.0
+                else options.timeout
+            )
+
             # Create HTTP client
             http_client = HTTPClient(
-                timeout=options.timeout,
+                timeout=timeout,
+                max_retries=http_config.retry.max_attempts,
+                backoff_factor=http_config.retry.backoff_factor,
+                rate_limit=(
+                    http_config.rate_limit.requests_per_second
+                    if http_config.rate_limit.per_domain
+                    else None
+                ),
+                http2=http_config.http2,
+                verify=http_config.verify_ssl,
+                follow_redirects=http_config.follow_redirects,
                 default_headers=default_headers or None,
                 proxy=options.proxy,
             )

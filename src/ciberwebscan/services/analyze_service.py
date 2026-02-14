@@ -12,6 +12,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
+from ciberwebscan.config.loader import get_config
 from ciberwebscan.core.analyzers import (
     SSLAnalysisResult,
     SSLAnalyzer,
@@ -106,6 +107,7 @@ class AnalyzeService(BaseService):
     def __init__(self):
         """Initialize analyze service."""
         super().__init__()
+        self.app_config = get_config()
         self._ssl_analyzer: SSLAnalyzer | None = None
         self._fingerprinter: TechnologyFingerprinter | None = None
         self._cve_aggregator: CVEAggregator | None = None
@@ -311,7 +313,13 @@ class AnalyzeService(BaseService):
     ) -> SSLResult | None:
         """Internal SSL analysis."""
         try:
-            ssl_info: SSLAnalysisResult = self.ssl_analyzer.analyze(url)
+            ssl_timeout = (
+                self.app_config.http.timeout.connect
+                if options.ssl_timeout == 10.0
+                else options.ssl_timeout
+            )
+            analyzer = SSLAnalyzer(timeout=int(ssl_timeout))
+            ssl_info: SSLAnalysisResult = analyzer.analyze(url)
 
             # Convert internal SSLAnalysisResult to export SSLResult
             return SSLResult(
@@ -358,8 +366,21 @@ class AnalyzeService(BaseService):
             # Fetch page to obtain headers and HTML for fingerprinting
             from ciberwebscan.core.client.http_client import HTTPClient
 
-            client = HTTPClient()
-            resp = client.get(url)
+            timeout = (
+                self.app_config.http.timeout.read
+                if options.timeout == 30.0
+                else options.timeout
+            )
+            default_headers = dict(options.headers or {})
+            if options.user_agent:
+                default_headers["User-Agent"] = options.user_agent
+
+            with HTTPClient(
+                timeout=timeout,
+                default_headers=default_headers or None,
+                proxy=options.proxy,
+            ) as client:
+                resp = client.get(url, cookies=options.cookies or None)
             headers = dict(resp.headers)
             html = resp.text
 

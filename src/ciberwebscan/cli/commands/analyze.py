@@ -26,12 +26,20 @@ from ciberwebscan.cli.validators import (
     validate_timeout,
     validate_url,
 )
+from ciberwebscan.config.loader import get_config
 
 analyze = typer.Typer(
     name="analyze",
     help="Security analysis commands.",
     no_args_is_help=True,
 )
+
+try:
+    _DEFAULT_ANALYZE_TIMEOUT = get_config().http.timeout.read
+    _DEFAULT_ANALYZE_SSL_TIMEOUT = get_config().http.timeout.connect
+except Exception:
+    _DEFAULT_ANALYZE_TIMEOUT = 30.0
+    _DEFAULT_ANALYZE_SSL_TIMEOUT = 10.0
 
 
 @analyze.command("url")
@@ -69,7 +77,7 @@ def analyze_url(
     timeout: Annotated[
         float,
         typer.Option("--timeout", "-t", help="Request timeout in seconds"),
-    ] = 30.0,
+    ] = _DEFAULT_ANALYZE_TIMEOUT,
     # CVE options
     cve_sources: Annotated[
         str | None,
@@ -183,6 +191,7 @@ def analyze_url(
             headers=headers_dict,
             deep_scan=deep,
             timeout=timeout,
+            ssl_timeout=timeout,
             cve_sources=sources,
             cve_limit=cve_limit,
             export=output,
@@ -232,7 +241,7 @@ def analyze_ssl(
     timeout: Annotated[
         float,
         typer.Option("--timeout", "-t", help="Timeout in seconds"),
-    ] = 10.0,
+    ] = _DEFAULT_ANALYZE_SSL_TIMEOUT,
     json_output: Annotated[
         bool,
         typer.Option("--json", help="Output raw JSON"),

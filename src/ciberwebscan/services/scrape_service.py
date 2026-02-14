@@ -13,6 +13,7 @@ from typing import Any
 
 from bs4 import BeautifulSoup
 
+from ciberwebscan.config.loader import get_config
 from ciberwebscan.config.models import ScrapingConfig
 from ciberwebscan.core.scraping import (
     DataExtractor,
@@ -97,17 +98,40 @@ class ScrapeService(BaseService):
             config: Scraping configuration. Uses defaults if not provided.
         """
         super().__init__()
-        self.config = config or ScrapingConfig()
+        self.app_config = get_config()
+        self.config = config or self.app_config.scraping
         self._static_scraper: StaticScraper | None = None
         self._dynamic_scraper: Any = None  # Optional DynamicScraper
+
+    def _build_http_client(
+        self,
+        *,
+        proxy: str | None = None,
+        verify: bool | None = None,
+    ):
+        from ciberwebscan.core.client import HTTPClient
+
+        http_config = self.app_config.http
+        return HTTPClient(
+            timeout=http_config.timeout.read,
+            max_retries=http_config.retry.max_attempts,
+            backoff_factor=http_config.retry.backoff_factor,
+            rate_limit=(
+                http_config.rate_limit.requests_per_second
+                if http_config.rate_limit.per_domain
+                else None
+            ),
+            http2=http_config.http2,
+            verify=http_config.verify_ssl if verify is None else verify,
+            follow_redirects=http_config.follow_redirects,
+            proxy=proxy,
+        )
 
     @property
     def static_scraper(self) -> StaticScraper:
         """Get or create static scraper instance."""
         if self._static_scraper is None:
-            from ciberwebscan.core.client import HTTPClient
-
-            client = HTTPClient()
+            client = self._build_http_client()
             self._static_scraper = StaticScraper(client)
         return self._static_scraper
 
@@ -116,9 +140,7 @@ class ScrapeService(BaseService):
     ) -> StaticScraper:
         """Get static scraper with specific proxy configuration."""
         if proxy or not verify_ssl:
-            from ciberwebscan.core.client import HTTPClient
-
-            client = HTTPClient(proxy=proxy, verify=verify_ssl)
+            client = self._build_http_client(proxy=proxy, verify=verify_ssl)
             return StaticScraper(client)
         else:
             return self.static_scraper
@@ -258,10 +280,15 @@ class ScrapeService(BaseService):
     def _scrape_static(self, url: str, options: ScrapeOptions) -> ScrapeResult:
         """Perform static scraping."""
         try:
+            timeout = (
+                self.app_config.http.timeout.read
+                if options.timeout == 30.0
+                else options.timeout
+            )
             config = ScrapeConfig(
                 selector=options.selector or "body",
                 schema=options.schema,
-                timeout=options.timeout,
+                timeout=timeout,
                 headers=options.headers or None,
                 cookies=options.cookies or None,
                 check_robots=options.check_robots,

@@ -91,7 +91,9 @@ class TestHTTPClient:
         assert client._max_retries == 3
         assert client._backoff_factor == 0.5
         assert client._proxy is None
-        assert client._rate_limiter is None
+        assert client._rate_limiter is not None
+        assert isinstance(client._rate_limiter, RateLimiter)
+        assert client._rate_limiter._min_interval == 0.2  # 5 req/s from default config
         client.close()
 
     def test_init_with_rate_limit(self):

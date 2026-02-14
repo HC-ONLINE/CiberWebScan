@@ -20,6 +20,8 @@ from urllib.parse import urlparse
 
 import httpx
 
+from ciberwebscan.config.loader import get_config
+
 logger = logging.getLogger(__name__)
 
 # Type alias for metrics callback
@@ -107,13 +109,13 @@ class HTTPClient:
 
     def __init__(
         self,
-        timeout: float = 30.0,
-        max_retries: int = 3,
-        backoff_factor: float = 0.5,
+        timeout: float | None = None,
+        max_retries: int | None = None,
+        backoff_factor: float | None = None,
         rate_limit: float | None = None,
-        http2: bool = True,
-        verify: bool = True,
-        follow_redirects: bool = True,
+        http2: bool | None = None,
+        verify: bool | None = None,
+        follow_redirects: bool | None = None,
         default_headers: dict[str, str] | None = None,
         metrics_callback: MetricsCallback | None = None,
         proxy: str | None = None,
@@ -137,22 +139,64 @@ class HTTPClient:
             proxy: Optional proxy URL (e.g., 'http://user:pass@host:port').
                 Supports http, https, and socks5 protocols.
         """
-        self._proxy = proxy
-        self._max_retries = max_retries
-        self._backoff_factor = backoff_factor
+        config = get_config().http
+
+        resolved_timeout: float | httpx.Timeout
+        if timeout is None:
+            resolved_timeout = httpx.Timeout(
+                connect=config.timeout.connect,
+                read=config.timeout.read,
+                write=config.timeout.write,
+                pool=config.timeout.pool,
+            )
+        else:
+            resolved_timeout = timeout
+
+        resolved_max_retries = (
+            config.retry.max_attempts if max_retries is None else max_retries
+        )
+        resolved_backoff_factor = (
+            config.retry.backoff_factor if backoff_factor is None else backoff_factor
+        )
+        resolved_rate_limit = (
+            config.rate_limit.requests_per_second
+            if rate_limit is None and config.rate_limit.per_domain
+            else rate_limit
+        )
+        resolved_http2 = config.http2 if http2 is None else http2
+        resolved_verify = config.verify_ssl if verify is None else verify
+        resolved_follow_redirects = (
+            config.follow_redirects if follow_redirects is None else follow_redirects
+        )
+
+        resolved_proxy = proxy
+        if resolved_proxy is None and config.proxy is not None:
+            resolved_proxy = (
+                str(config.proxy.https)
+                if config.proxy.https
+                else str(config.proxy.http)
+                if config.proxy.http
+                else config.proxy.socks5
+            )
+
+        self._proxy = resolved_proxy
+        self._max_retries = resolved_max_retries
+        self._backoff_factor = resolved_backoff_factor
         self._metrics_callback = metrics_callback
 
         # Rate limiter (optional)
-        self._rate_limiter = RateLimiter(rate_limit) if rate_limit else None
+        self._rate_limiter = (
+            RateLimiter(resolved_rate_limit) if resolved_rate_limit else None
+        )
 
         # Build httpx client
         self._client = httpx.Client(
-            timeout=timeout,
-            http2=http2,
-            verify=verify,
-            follow_redirects=follow_redirects,
+            timeout=resolved_timeout,
+            http2=resolved_http2,
+            verify=resolved_verify,
+            follow_redirects=resolved_follow_redirects,
             headers=default_headers,
-            proxy=proxy,
+            proxy=resolved_proxy,
         )
 
     def request(

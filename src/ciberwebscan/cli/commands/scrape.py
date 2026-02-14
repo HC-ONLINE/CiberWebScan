@@ -25,12 +25,18 @@ from ciberwebscan.cli.validators import (
     validate_timeout,
     validate_url,
 )
+from ciberwebscan.config.loader import get_config
 
 scrape = typer.Typer(
     name="scrape",
     help="Web scraping commands.",
     no_args_is_help=True,
 )
+
+try:
+    _DEFAULT_SCRAPE_TIMEOUT = get_config().http.timeout.read
+except Exception:
+    _DEFAULT_SCRAPE_TIMEOUT = 30.0
 
 
 @scrape.command("url")
@@ -50,7 +56,7 @@ def scrape_url(
     timeout: Annotated[
         float,
         typer.Option("--timeout", "-t", help="Request timeout in seconds"),
-    ] = 30.0,
+    ] = _DEFAULT_SCRAPE_TIMEOUT,
     # Content extraction
     selector: Annotated[
         str | None,
@@ -251,7 +257,7 @@ def scrape_batch(
     timeout: Annotated[
         float,
         typer.Option("--timeout", "-t", help="Request timeout in seconds"),
-    ] = 30.0,
+    ] = _DEFAULT_SCRAPE_TIMEOUT,
     # Export
     output: Annotated[
         str | None,

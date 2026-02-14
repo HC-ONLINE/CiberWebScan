@@ -29,12 +29,18 @@ from ciberwebscan.cli.validators import (
     validate_timeout,
     validate_url,
 )
+from ciberwebscan.config.loader import get_config
 
 attack = typer.Typer(
     name="attack",
     help="Security attack simulation commands.",
     no_args_is_help=True,
 )
+
+try:
+    _DEFAULT_ATTACK_TIMEOUT = get_config().http.timeout.connect
+except Exception:
+    _DEFAULT_ATTACK_TIMEOUT = 10.0
 
 
 @attack.command("test")
@@ -103,7 +109,7 @@ def attack_test(
     timeout: Annotated[
         float,
         typer.Option("--timeout", "-t", help="Request timeout in seconds"),
-    ] = 10.0,
+    ] = _DEFAULT_ATTACK_TIMEOUT,
     user_agent: Annotated[
         str | None,
         typer.Option("--user-agent", "-ua", help="Custom User-Agent string"),

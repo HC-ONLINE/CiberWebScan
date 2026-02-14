@@ -126,6 +126,32 @@ class TestAnalyzeService:
         assert aggregator is not None
         assert aggregator is analyze_service.cve_aggregator
 
+    @patch("ciberwebscan.core.client.http_client.HTTPClient")
+    @patch("ciberwebscan.services.analyze_service.get_config")
+    def test_fingerprint_uses_http_config_timeout_when_default(
+        self,
+        mock_get_config: Mock,
+        mock_http_client: Mock,
+    ):
+        """Test fingerprint request timeout uses global config default."""
+        http_config = Mock(timeout=Mock(read=44.0, connect=12.0))
+        mock_get_config.return_value = Mock(http=http_config)
+
+        mock_response = Mock(headers={}, text="<html></html>")
+        mock_client = Mock()
+        mock_client.get.return_value = mock_response
+        mock_http_client.return_value.__enter__.return_value = mock_client
+
+        service = AnalyzeService()
+        service._fingerprinter = Mock()
+        service._fingerprinter.fingerprint.return_value = {"technologies": {}}
+        service._fingerprint(
+            "https://example.com", AnalyzeOptions(url="https://example.com")
+        )
+
+        assert mock_http_client.call_args is not None
+        assert mock_http_client.call_args.kwargs["timeout"] == 44.0
+
 
 # =============================================================================
 # Analysis Tests

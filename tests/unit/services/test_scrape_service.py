@@ -184,6 +184,38 @@ class TestScrapeService:
             assert result.success is False
             assert "playwright" in result.error.lower()
 
+    @patch("ciberwebscan.core.client.HTTPClient")
+    @patch("ciberwebscan.services.scrape_service.get_config")
+    def test_static_scraper_uses_http_config(
+        self,
+        mock_get_config: Mock,
+        mock_http_client: Mock,
+    ):
+        """Test static scraper builds HTTP client from global config."""
+        http_config = Mock(
+            timeout=Mock(read=45.0),
+            retry=Mock(max_attempts=4, backoff_factor=0.7),
+            rate_limit=Mock(requests_per_second=3.0, per_domain=True),
+            http2=False,
+            verify_ssl=False,
+            follow_redirects=False,
+        )
+        mock_get_config.return_value = Mock(scraping=Mock(), http=http_config)
+
+        service = ScrapeService()
+        _ = service.static_scraper
+
+        mock_http_client.assert_called_once_with(
+            timeout=45.0,
+            max_retries=4,
+            backoff_factor=0.7,
+            rate_limit=3.0,
+            http2=False,
+            verify=False,
+            follow_redirects=False,
+            proxy=None,
+        )
+
 
 # =============================================================================
 # Multiple URL Tests
