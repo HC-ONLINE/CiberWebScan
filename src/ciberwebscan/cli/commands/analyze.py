@@ -188,6 +188,7 @@ def analyze_url(
             ssl=ssl,
             fingerprint=fingerprint,
             cve=cve,
+            analyze_headers=analyze_headers,
             headers=headers_dict,
             deep_scan=deep,
             timeout=timeout,

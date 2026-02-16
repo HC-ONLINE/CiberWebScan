@@ -9,6 +9,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from ciberwebscan.core.analyzers.cve.models import CVESource
 from ciberwebscan.export.models import (
     FingerprintResult,
     SSLResult,
@@ -367,3 +368,178 @@ class TestLookupCVEs:
 
         assert result.success is True
         mock_cves.assert_called_once()
+
+
+# =============================================================================
+# Config Integration Tests
+# =============================================================================
+
+
+class TestAnalyzeServiceConfigIntegration:
+    """Tests for configuration integration in AnalyzeService."""
+
+    def test_ssl_analyzer_uses_config(self, analyze_service: AnalyzeService):
+        """Test SSL analyzer is created with analysis.ssl config."""
+        analyzer = analyze_service.ssl_analyzer
+        cfg = analyze_service.app_config.analysis.ssl
+        assert analyzer.check_expiry == cfg.check_expiry
+        assert analyzer.check_chain == cfg.check_chain
+        assert analyzer.check_revocation == cfg.check_revocation
+        assert analyzer.warning_days == cfg.warning_days
+
+    def test_fingerprinter_uses_config(self, analyze_service: AnalyzeService):
+        """Test fingerprinter is created with analysis.fingerprint config."""
+        fp = analyze_service.fingerprinter
+        cfg = analyze_service.app_config.analysis.fingerprint
+        assert fp.check_headers == cfg.check_headers
+        assert fp.check_html == cfg.check_html
+        assert fp.check_scripts == cfg.check_scripts
+        assert fp.check_cookies == cfg.check_cookies
+        assert fp.check_dns == cfg.check_dns
+
+    def test_cve_aggregator_uses_config(self, analyze_service: AnalyzeService):
+        """Test CVE aggregator is created with analysis.cve config."""
+        aggregator = analyze_service.cve_aggregator
+        cfg = analyze_service.app_config.analysis.cve
+        assert aggregator.cache_ttl == cfg.cache_ttl
+
+    def test_headers_analyzer_uses_config(self, analyze_service: AnalyzeService):
+        """Test headers analyzer is created with analysis.headers config."""
+        analyzer = analyze_service.headers_analyzer
+        cfg = analyze_service.app_config.analysis.headers
+        assert analyzer.required_headers == cfg.required_headers
+
+    def test_resolve_cve_sources_nvd(self):
+        """Test _resolve_cve_sources for 'nvd'."""
+        sources = AnalyzeService._resolve_cve_sources("nvd")
+        assert sources == [CVESource.NVD]
+
+    def test_resolve_cve_sources_circl(self):
+        """Test _resolve_cve_sources for 'circl'."""
+        sources = AnalyzeService._resolve_cve_sources("circl")
+        assert sources == [CVESource.CIRCL]
+
+    def test_resolve_cve_sources_vulners(self):
+        """Test _resolve_cve_sources for 'vulners'."""
+        sources = AnalyzeService._resolve_cve_sources("vulners")
+        assert sources == [CVESource.VULNERS]
+
+    def test_resolve_cve_sources_all(self):
+        """Test _resolve_cve_sources for 'all'."""
+        sources = AnalyzeService._resolve_cve_sources("all")
+        assert CVESource.NVD in sources
+        assert CVESource.CIRCL in sources
+        assert CVESource.VULNERS in sources
+
+    def test_resolve_cve_sources_unknown_falls_back(self):
+        """Test _resolve_cve_sources for unknown value."""
+        sources = AnalyzeService._resolve_cve_sources("unknown")
+        assert sources == [CVESource.NVD, CVESource.CIRCL]
+
+
+class TestAnalyzeEnabledFlags:
+    """Tests for analysis.*.enabled config flags."""
+
+    @patch.object(AnalyzeService, "_analyze_ssl")
+    @patch.object(AnalyzeService, "_fingerprint")
+    @patch.object(AnalyzeService, "_lookup_cves")
+    @patch.object(AnalyzeService, "_analyze_headers")
+    def test_disabled_ssl_skips_ssl_analysis(
+        self,
+        mock_headers: Mock,
+        mock_cves: Mock,
+        mock_fp: Mock,
+        mock_ssl: Mock,
+    ):
+        """Test that SSL analysis is skipped when config disabled."""
+        with patch("ciberwebscan.services.analyze_service.get_config") as mock_cfg:
+            cfg = mock_cfg.return_value
+            cfg.analysis.ssl.enabled = False
+            cfg.analysis.fingerprint.enabled = True
+            cfg.analysis.headers.enabled = True
+            cfg.analysis.cve.enabled = True
+            cfg.http.timeout.connect = 10.0
+            cfg.http.timeout.read = 30.0
+            cfg.user_agent = Mock(mode="static", custom="TestAgent")
+
+            service = AnalyzeService()
+            mock_fp.return_value = None
+            mock_headers.return_value = None
+
+            options = AnalyzeOptions(url="https://example.com", ssl=True)
+            result = service.analyze(options)
+
+            assert result.success is True
+            mock_ssl.assert_not_called()
+
+    @patch.object(AnalyzeService, "_analyze_ssl")
+    @patch.object(AnalyzeService, "_fingerprint")
+    @patch.object(AnalyzeService, "_lookup_cves")
+    @patch.object(AnalyzeService, "_analyze_headers")
+    def test_disabled_fingerprint_skips_fingerprinting(
+        self,
+        mock_headers: Mock,
+        mock_cves: Mock,
+        mock_fp: Mock,
+        mock_ssl: Mock,
+    ):
+        """Test that fingerprinting is skipped when config disabled."""
+        with patch("ciberwebscan.services.analyze_service.get_config") as mock_cfg:
+            cfg = mock_cfg.return_value
+            cfg.analysis.ssl.enabled = True
+            cfg.analysis.fingerprint.enabled = False
+            cfg.analysis.headers.enabled = True
+            cfg.analysis.cve.enabled = True
+            cfg.http.timeout.connect = 10.0
+            cfg.http.timeout.read = 30.0
+            cfg.user_agent = Mock(mode="static", custom="TestAgent")
+
+            service = AnalyzeService()
+            mock_ssl.return_value = None
+            mock_headers.return_value = None
+
+            options = AnalyzeOptions(url="https://example.com", fingerprint=True)
+            result = service.analyze(options)
+
+            assert result.success is True
+            mock_fp.assert_not_called()
+
+    @patch.object(AnalyzeService, "_analyze_ssl")
+    @patch.object(AnalyzeService, "_fingerprint")
+    @patch.object(AnalyzeService, "_lookup_cves")
+    @patch.object(AnalyzeService, "_analyze_headers")
+    def test_disabled_headers_skips_headers_analysis(
+        self,
+        mock_headers: Mock,
+        mock_cves: Mock,
+        mock_fp: Mock,
+        mock_ssl: Mock,
+    ):
+        """Test that headers analysis is skipped when config disabled."""
+        with patch("ciberwebscan.services.analyze_service.get_config") as mock_cfg:
+            cfg = mock_cfg.return_value
+            cfg.analysis.ssl.enabled = True
+            cfg.analysis.fingerprint.enabled = True
+            cfg.analysis.headers.enabled = False
+            cfg.analysis.cve.enabled = True
+            cfg.http.timeout.connect = 10.0
+            cfg.http.timeout.read = 30.0
+            cfg.user_agent = Mock(mode="static", custom="TestAgent")
+
+            service = AnalyzeService()
+            mock_ssl.return_value = None
+            mock_fp.return_value = None
+
+            options = AnalyzeOptions(url="https://example.com", analyze_headers=True)
+            result = service.analyze(options)
+
+            assert result.success is True
+            mock_headers.assert_not_called()
+
+    def test_analyze_options_has_headers_flag(self):
+        """Test that AnalyzeOptions includes the analyze_headers flag."""
+        options = AnalyzeOptions(url="https://example.com")
+        assert options.analyze_headers is True
+
+        options2 = AnalyzeOptions(url="https://example.com", analyze_headers=False)
+        assert options2.analyze_headers is False

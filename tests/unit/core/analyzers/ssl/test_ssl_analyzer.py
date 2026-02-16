@@ -480,3 +480,134 @@ class TestAnalyzeSSLSecurityFunction:
         result = analyze_ssl_security("http://example.com")
         assert isinstance(result, dict)
         assert result["ssl_enabled"] is False
+
+
+class TestSSLAnalyzerConfigParams:
+    """Tests for config-driven SSLAnalyzer parameters."""
+
+    def test_default_config_params(self) -> None:
+        """Test default values for config params."""
+        analyzer = SSLAnalyzer()
+        assert analyzer.check_expiry is True
+        assert analyzer.check_chain is True
+        assert analyzer.check_revocation is True
+        assert analyzer.warning_days == 30
+
+    def test_custom_config_params(self) -> None:
+        """Test initialization with custom config params."""
+        analyzer = SSLAnalyzer(
+            check_expiry=False,
+            check_chain=False,
+            check_revocation=False,
+            warning_days=60,
+        )
+        assert analyzer.check_expiry is False
+        assert analyzer.check_chain is False
+        assert analyzer.check_revocation is False
+        assert analyzer.warning_days == 60
+
+    def test_assess_skips_expiry_when_disabled(self) -> None:
+        """Test that expiry check is skipped when check_expiry=False."""
+        analyzer = SSLAnalyzer(check_expiry=False)
+
+        cert = SSLCertificateInfo(
+            subject={"commonName": "test.com"},
+            issuer={"commonName": "CA"},
+            version=3,
+            serial_number="123",
+            not_before=datetime.datetime(2020, 1, 1),
+            not_after=datetime.datetime(2021, 1, 1),
+            signature_algorithm="sha256",
+            public_key_algorithm="RSAPublicKey",
+            public_key_size=2048,
+            san_domains=[],
+            is_self_signed=False,
+            is_expired=True,
+            days_until_expiry=-365,
+            fingerprint_sha256="abc",
+            fingerprint_sha1="def",
+        )
+
+        protocol = SSLProtocolInfo(
+            supported_protocols=["TLSv1.2"],
+            cipher_suites=["ECDHE-RSA-AES256"],
+            preferred_cipher="ECDHE-RSA-AES256",
+            supports_sni=True,
+            compression_supported=False,
+            secure_renegotiation=True,
+        )
+
+        assessment = analyzer._assess_security(cert, protocol)
+        assert assessment is not None
+        assert "Expired certificate" not in assessment.vulnerabilities
+
+    def test_assess_skips_chain_when_disabled(self) -> None:
+        """Test that chain check is skipped when check_chain=False."""
+        analyzer = SSLAnalyzer(check_chain=False)
+
+        cert = SSLCertificateInfo(
+            subject={"commonName": "test.com"},
+            issuer={"commonName": "test.com"},  # self-signed
+            version=3,
+            serial_number="123",
+            not_before=datetime.datetime(2024, 1, 1),
+            not_after=datetime.datetime(2025, 1, 1),
+            signature_algorithm="sha256",
+            public_key_algorithm="RSAPublicKey",
+            public_key_size=2048,
+            san_domains=[],
+            is_self_signed=True,
+            is_expired=False,
+            days_until_expiry=365,
+            fingerprint_sha256="abc",
+            fingerprint_sha1="def",
+        )
+
+        protocol = SSLProtocolInfo(
+            supported_protocols=["TLSv1.2"],
+            cipher_suites=["ECDHE-RSA-AES256"],
+            preferred_cipher="ECDHE-RSA-AES256",
+            supports_sni=True,
+            compression_supported=False,
+            secure_renegotiation=True,
+        )
+
+        assessment = analyzer._assess_security(cert, protocol)
+        assert assessment is not None
+        assert "Self-signed certificate" not in assessment.vulnerabilities
+
+    def test_custom_warning_days(self) -> None:
+        """Test custom warning_days threshold."""
+        analyzer = SSLAnalyzer(warning_days=90)
+
+        cert = SSLCertificateInfo(
+            subject={"commonName": "test.com"},
+            issuer={"commonName": "CA"},
+            version=3,
+            serial_number="123",
+            not_before=datetime.datetime(2024, 1, 1),
+            not_after=datetime.datetime(2025, 1, 1),
+            signature_algorithm="sha256",
+            public_key_algorithm="RSAPublicKey",
+            public_key_size=2048,
+            san_domains=[],
+            is_self_signed=False,
+            is_expired=False,
+            days_until_expiry=60,
+            fingerprint_sha256="abc",
+            fingerprint_sha1="def",
+        )
+
+        protocol = SSLProtocolInfo(
+            supported_protocols=["TLSv1.2"],
+            cipher_suites=["ECDHE-RSA-AES256"],
+            preferred_cipher="ECDHE-RSA-AES256",
+            supports_sni=True,
+            compression_supported=False,
+            secure_renegotiation=True,
+        )
+
+        assessment = analyzer._assess_security(cert, protocol)
+        assert assessment is not None
+        # 60 < 90 warning_days -> should trigger warning
+        assert any("expires in" in w for w in assessment.warnings)

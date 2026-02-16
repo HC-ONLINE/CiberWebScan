@@ -37,14 +37,33 @@ class TechnologyFingerprinter:
         js_library_signatures: JavaScript library signatures.
     """
 
-    def __init__(self, signatures_path: str | None = None) -> None:
+    def __init__(
+        self,
+        signatures_path: str | None = None,
+        check_headers: bool = True,
+        check_html: bool = True,
+        check_scripts: bool = True,
+        check_cookies: bool = True,
+        check_dns: bool = False,
+    ) -> None:
         """
         Initialize the fingerprinter by loading technology signatures.
 
         Args:
             signatures_path: Optional path to signatures file.
                            If None, uses the default path.
+            check_headers: Whether to analyze HTTP headers.
+            check_html: Whether to analyze HTML content.
+            check_scripts: Whether to analyze JavaScript libraries.
+            check_cookies: Whether to analyze cookies for fingerprinting.
+            check_dns: Whether to perform DNS-based fingerprinting.
         """
+        self.check_headers = check_headers
+        self.check_html = check_html
+        self.check_scripts = check_scripts
+        self.check_cookies = check_cookies
+        self.check_dns = check_dns
+
         signatures = load_technology_signatures(signatures_path)
         self.cms_signatures = signatures.get("cms_signatures", {})
         self.framework_signatures = signatures.get("framework_signatures", {})
@@ -84,29 +103,39 @@ class TechnologyFingerprinter:
         """
         logger.info("Starting technology fingerprinting analysis")
 
-        # Analyze headers
-        header_results = analyze_headers(
-            headers,
-            self.cms_signatures,
-            self.framework_signatures,
-            self.server_signatures,
-            debug_enabled=debug,
-        )
-        detected_headers = header_results["detected_headers"]
-        debug_info_headers = header_results["debug_info"]
-        sources_info_headers = header_results["sources_info"]
+        detected_headers: dict[str, Any] = {}
+        debug_info_headers: dict[str, Any] = {}
+        sources_info_headers: dict[str, Any] = {}
+        detected_html: dict[str, Any] = {}
+        debug_info_html: dict[str, Any] = {}
+        sources_info_html: dict[str, Any] = {}
 
-        # Analyze HTML
-        html_results = analyze_html_content(
-            html_content,
-            self.cms_signatures,
-            self.framework_signatures,
-            self.js_library_signatures,
-            debug_enabled=debug,
-        )
-        detected_html = html_results["detected_html"]
-        debug_info_html = html_results["debug_info"]
-        sources_info_html = html_results["sources_info"]
+        # Analyze headers (if enabled)
+        if self.check_headers:
+            header_results = analyze_headers(
+                headers,
+                self.cms_signatures,
+                self.framework_signatures,
+                self.server_signatures,
+                debug_enabled=debug,
+            )
+            detected_headers = header_results["detected_headers"]
+            debug_info_headers = header_results["debug_info"]
+            sources_info_headers = header_results["sources_info"]
+
+        # Analyze HTML (if enabled)
+        if self.check_html:
+            js_sigs = self.js_library_signatures if self.check_scripts else {}
+            html_results = analyze_html_content(
+                html_content,
+                self.cms_signatures,
+                self.framework_signatures,
+                js_sigs,
+                debug_enabled=debug,
+            )
+            detected_html = html_results["detected_html"]
+            debug_info_html = html_results["debug_info"]
+            sources_info_html = html_results["sources_info"]
 
         # Combine results and calculate confidence
         combined_data = combine_and_score_results(
@@ -206,6 +235,11 @@ def fingerprint_technologies(
     html_content: str,
     debug: bool = False,
     signatures_path: str | None = None,
+    check_headers: bool = True,
+    check_html: bool = True,
+    check_scripts: bool = True,
+    check_cookies: bool = True,
+    check_dns: bool = False,
 ) -> dict[str, Any]:
     """
     Convenience function for technology fingerprinting.
@@ -215,9 +249,21 @@ def fingerprint_technologies(
         html_content: HTML content of the analyzed page.
         debug: If True, includes detailed debug info.
         signatures_path: Optional path to signatures file.
+        check_headers: Whether to analyze HTTP headers.
+        check_html: Whether to analyze HTML content.
+        check_scripts: Whether to analyze JavaScript libraries.
+        check_cookies: Whether to analyze cookies.
+        check_dns: Whether to perform DNS-based fingerprinting.
 
     Returns:
         Dictionary with fingerprinting results.
     """
-    fingerprinter = TechnologyFingerprinter(signatures_path)
+    fingerprinter = TechnologyFingerprinter(
+        signatures_path,
+        check_headers=check_headers,
+        check_html=check_html,
+        check_scripts=check_scripts,
+        check_cookies=check_cookies,
+        check_dns=check_dns,
+    )
     return fingerprinter.fingerprint(headers, html_content, debug)

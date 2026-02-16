@@ -45,6 +45,7 @@ class CVEAggregator:
         sources: list[CVESource] | None = None,
         nvd_api_key: str = "",
         vulners_api_key: str = "",
+        cache_ttl: int = 86400,
     ) -> None:
         """
         Initialize the CVE aggregator.
@@ -53,8 +54,10 @@ class CVEAggregator:
             sources: List of CVE sources to query. Defaults to [NVD, CIRCL].
             nvd_api_key: Optional NVD API key for higher rate limits.
             vulners_api_key: Optional Vulners API key.
+            cache_ttl: Time-to-live in seconds for cached results.
         """
         self.sources = sources or [CVESource.NVD, CVESource.CIRCL]
+        self.cache_ttl = cache_ttl
 
         # Initialize clients
         self.nvd_client = NVDClient(api_key=nvd_api_key)

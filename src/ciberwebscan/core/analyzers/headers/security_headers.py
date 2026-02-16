@@ -9,13 +9,34 @@ from __future__ import annotations
 import re
 from typing import Any
 
+# TODO: Move this to a config file or allow customization via constructor parameters
+_DEFAULT_REQUIRED_HEADERS = [
+    "Strict-Transport-Security",
+    "X-Content-Type-Options",
+    "X-Frame-Options",
+    "Content-Security-Policy",
+]
+
 
 class SecurityHeadersAnalyzer:
     """Analyzer for HTTP security headers."""
 
-    def __init__(self):
-        """Initialize security headers analyzer."""
-        pass
+    def __init__(
+        self,
+        required_headers: list[str] | None = None,
+    ):
+        """Initialize security headers analyzer.
+
+        Args:
+            required_headers: List of header names that are considered
+                required. Missing required headers will be flagged in the
+                analysis results.
+        """
+        self.required_headers = (
+            required_headers
+            if required_headers is not None
+            else _DEFAULT_REQUIRED_HEADERS
+        )
 
     def analyze(self, headers: dict[str, str]) -> dict[str, Any]:
         """Analyze security headers from HTTP response.
@@ -24,9 +45,17 @@ class SecurityHeadersAnalyzer:
             headers: Dictionary of HTTP headers (case-insensitive).
 
         Returns:
-            Dictionary containing analysis results for each security header.
+            Dictionary containing analysis results for each security header
+            and a ``missing_required`` list with the names of required headers
+            that were not found in the response.
         """
         normalized_headers = {k.lower(): v for k, v in headers.items()}
+
+        # Detect missing required headers
+        present_lower = set(normalized_headers.keys())
+        missing_required = [
+            h for h in self.required_headers if h.lower() not in present_lower
+        ]
 
         return {
             "csp": self._analyze_csp(
@@ -50,6 +79,7 @@ class SecurityHeadersAnalyzer:
             "permissions_policy": self._analyze_permissions_policy(
                 normalized_headers.get("permissions-policy", "")
             ),
+            "missing_required": missing_required,
         }
 
     def _analyze_csp(self, csp_header: str) -> dict[str, Any]:

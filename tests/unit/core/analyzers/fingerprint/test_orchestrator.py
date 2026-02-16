@@ -129,3 +129,81 @@ class TestFingerprintTechnologies:
 
         assert "technologies" in result
         assert "summary" in result
+
+
+class TestTechnologyFingerprinterConfigParams:
+    """Tests for config-driven TechnologyFingerprinter parameters."""
+
+    def test_default_config_params(self, mock_signatures_file: Path) -> None:
+        """Test default config parameter values."""
+        fp = TechnologyFingerprinter(signatures_path=str(mock_signatures_file))
+        assert fp.check_headers is True
+        assert fp.check_html is True
+        assert fp.check_scripts is True
+        assert fp.check_cookies is True
+        assert fp.check_dns is False
+
+    def test_custom_config_params(self, mock_signatures_file: Path) -> None:
+        """Test initialization with custom config params."""
+        fp = TechnologyFingerprinter(
+            signatures_path=str(mock_signatures_file),
+            check_headers=False,
+            check_html=False,
+            check_scripts=False,
+            check_cookies=False,
+            check_dns=True,
+        )
+        assert fp.check_headers is False
+        assert fp.check_html is False
+        assert fp.check_scripts is False
+        assert fp.check_cookies is False
+        assert fp.check_dns is True
+
+    def test_headers_disabled_skips_header_analysis(
+        self, mock_signatures_file: Path
+    ) -> None:
+        """When check_headers=False, header analysis is skipped."""
+        fp = TechnologyFingerprinter(
+            signatures_path=str(mock_signatures_file),
+            check_headers=False,
+        )
+        result = fp.fingerprint(
+            headers={"Server": "nginx/1.18.0"},
+            html_content="",
+        )
+        assert "technologies" in result
+        # With headers disabled, server detection from headers should not happen
+        tech_list = fp.get_technology_list(
+            headers={"Server": "nginx/1.18.0"},
+            html_content="",
+        )
+        # nginx should NOT be detected via headers when disabled
+        assert "nginx" not in [t.lower() for t in tech_list]
+
+    def test_html_disabled_skips_html_analysis(
+        self, mock_signatures_file: Path
+    ) -> None:
+        """When check_html=False, HTML analysis is skipped."""
+        fp = TechnologyFingerprinter(
+            signatures_path=str(mock_signatures_file),
+            check_html=False,
+        )
+        result = fp.fingerprint(
+            headers={},
+            html_content='<meta name="generator" content="WordPress">',
+        )
+        assert "technologies" in result
+
+    def test_scripts_disabled_excludes_js_signatures(
+        self, mock_signatures_file: Path
+    ) -> None:
+        """When check_scripts=False, JS library signatures are not used."""
+        fp = TechnologyFingerprinter(
+            signatures_path=str(mock_signatures_file),
+            check_scripts=False,
+        )
+        result = fp.fingerprint(
+            headers={},
+            html_content='<script src="jquery.min.js"></script>',
+        )
+        assert "technologies" in result

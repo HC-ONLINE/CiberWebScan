@@ -14,12 +14,14 @@ from typing import Any
 
 from ciberwebscan.config.loader import get_config
 from ciberwebscan.core.analyzers import (
+    SecurityHeadersAnalyzer,
     SSLAnalysisResult,
     SSLAnalyzer,
     TechnologyFingerprinter,
 )
 from ciberwebscan.core.analyzers.cve import (
     CVEAggregator,
+    CVESource,
 )
 from ciberwebscan.export.models import (
     AnalysisReport,
@@ -27,6 +29,8 @@ from ciberwebscan.export.models import (
     CVEResult,
     ExportMeta,
     FingerprintResult,
+    HeaderFinding,
+    HeadersResult,
     Severity,
     SSLResult,
     TechnologyMatch,
@@ -53,6 +57,7 @@ class AnalyzeOptions:
     ssl: bool = True
     fingerprint: bool = True
     cve: bool = True
+    analyze_headers: bool = True
 
     # SSL options
     ssl_verify: bool = True
@@ -111,6 +116,7 @@ class AnalyzeService(BaseService):
         self._ssl_analyzer: SSLAnalyzer | None = None
         self._fingerprinter: TechnologyFingerprinter | None = None
         self._cve_aggregator: CVEAggregator | None = None
+        self._headers_analyzer: SecurityHeadersAnalyzer | None = None
 
         # Initialize user agent provider from config
         from ciberwebscan.core.client.user_agent import UserAgentProvider
@@ -123,22 +129,63 @@ class AnalyzeService(BaseService):
     def ssl_analyzer(self) -> SSLAnalyzer:
         """Get or create SSL analyzer instance."""
         if self._ssl_analyzer is None:
-            self._ssl_analyzer = SSLAnalyzer()
+            ssl_cfg = self.app_config.analysis.ssl
+            self._ssl_analyzer = SSLAnalyzer(
+                check_expiry=ssl_cfg.check_expiry,
+                check_chain=ssl_cfg.check_chain,
+                check_revocation=ssl_cfg.check_revocation,
+                warning_days=ssl_cfg.warning_days,
+            )
         return self._ssl_analyzer
 
     @property
     def fingerprinter(self) -> TechnologyFingerprinter:
         """Get or create fingerprinter instance."""
         if self._fingerprinter is None:
-            self._fingerprinter = TechnologyFingerprinter()
+            fp_cfg = self.app_config.analysis.fingerprint
+            self._fingerprinter = TechnologyFingerprinter(
+                check_headers=fp_cfg.check_headers,
+                check_html=fp_cfg.check_html,
+                check_scripts=fp_cfg.check_scripts,
+                check_cookies=fp_cfg.check_cookies,
+                check_dns=fp_cfg.check_dns,
+            )
         return self._fingerprinter
 
     @property
     def cve_aggregator(self) -> CVEAggregator:
         """Get or create CVE aggregator instance."""
         if self._cve_aggregator is None:
-            self._cve_aggregator = CVEAggregator()
+            cve_cfg = self.app_config.analysis.cve
+            sources = self._resolve_cve_sources(cve_cfg.api)
+            self._cve_aggregator = CVEAggregator(
+                sources=sources,
+                nvd_api_key=cve_cfg.nvd_api_key or "",
+                vulners_api_key=cve_cfg.vulners_api_key or "",
+                cache_ttl=cve_cfg.cache_ttl,
+            )
         return self._cve_aggregator
+
+    @property
+    def headers_analyzer(self) -> SecurityHeadersAnalyzer:
+        """Get or create security headers analyzer instance."""
+        if self._headers_analyzer is None:
+            hdr_cfg = self.app_config.analysis.headers
+            self._headers_analyzer = SecurityHeadersAnalyzer(
+                required_headers=hdr_cfg.required_headers,
+            )
+        return self._headers_analyzer
+
+    @staticmethod
+    def _resolve_cve_sources(api: str) -> list[CVESource]:
+        """Convert the ``analysis.cve.api`` config value to a source list."""
+        source_map: dict[str, list[CVESource]] = {
+            "nvd": [CVESource.NVD],
+            "circl": [CVESource.CIRCL],
+            "vulners": [CVESource.VULNERS],
+            "all": [CVESource.NVD, CVESource.CIRCL, CVESource.VULNERS],
+        }
+        return source_map.get(api, [CVESource.NVD, CVESource.CIRCL])
 
     def analyze(self, options: AnalyzeOptions) -> ServiceResult[AnalysisReport]:
         """
@@ -163,21 +210,35 @@ class AnalyzeService(BaseService):
                 meta=meta,
                 ssl=None,
                 fingerprint=None,
+                headers=None,
                 cves=[],
             )
 
-            # SSL Analysis
-            if options.ssl:
+            # SSL Analysis (respect both config enabled flag and CLI option)
+            ssl_enabled = self.app_config.analysis.ssl.enabled and options.ssl
+            if ssl_enabled:
                 ssl_result = self._analyze_ssl(url, options)
                 report.ssl = ssl_result
 
             # Technology Fingerprinting
-            if options.fingerprint:
+            fp_enabled = (
+                self.app_config.analysis.fingerprint.enabled and options.fingerprint
+            )
+            if fp_enabled:
                 fingerprint_result = self._fingerprint(url, options)
                 report.fingerprint = fingerprint_result
 
+            # Headers Analysis
+            headers_enabled = (
+                self.app_config.analysis.headers.enabled and options.analyze_headers
+            )
+            if headers_enabled:
+                headers_result = self._analyze_headers(url, options)
+                report.headers = headers_result
+
             # CVE Lookup
-            if options.cve and report.fingerprint and report.fingerprint.technologies:
+            cve_enabled = self.app_config.analysis.cve.enabled and options.cve
+            if cve_enabled and report.fingerprint and report.fingerprint.technologies:
                 cve_results = self._lookup_cves(
                     report.fingerprint.technologies, options
                 )
@@ -325,7 +386,14 @@ class AnalyzeService(BaseService):
                 if options.ssl_timeout == 10.0
                 else options.ssl_timeout
             )
-            analyzer = SSLAnalyzer(timeout=int(ssl_timeout))
+            ssl_cfg = self.app_config.analysis.ssl
+            analyzer = SSLAnalyzer(
+                timeout=int(ssl_timeout),
+                check_expiry=ssl_cfg.check_expiry,
+                check_chain=ssl_cfg.check_chain,
+                check_revocation=ssl_cfg.check_revocation,
+                warning_days=ssl_cfg.warning_days,
+            )
             ssl_info: SSLAnalysisResult = analyzer.analyze(url)
 
             # Convert internal SSLAnalysisResult to export SSLResult
@@ -361,6 +429,73 @@ class AnalyzeService(BaseService):
 
         except Exception as e:
             self.logger.warning(f"SSL analysis failed: {e}")
+            return None
+
+    def _analyze_headers(
+        self,
+        url: str,
+        options: AnalyzeOptions,
+    ) -> HeadersResult | None:
+        """Internal security headers analysis."""
+        try:
+            from ciberwebscan.core.client.http_client import HTTPClient
+
+            timeout = (
+                self.app_config.http.timeout.read
+                if options.timeout == 30.0
+                else options.timeout
+            )
+            default_headers = dict(options.headers or {})
+            if options.user_agent:
+                default_headers["User-Agent"] = options.user_agent
+            else:
+                default_headers["User-Agent"] = self._user_agent_provider.get()
+
+            with HTTPClient(
+                timeout=timeout,
+                default_headers=default_headers or None,
+                proxy=options.proxy,
+            ) as client:
+                resp = client.get(url, cookies=options.cookies or None)
+
+            response_headers = dict(resp.headers)
+            analysis = self.headers_analyzer.analyze(response_headers)
+
+            findings: list[HeaderFinding] = []
+            for header_name in analysis.get("missing_required", []):
+                findings.append(
+                    HeaderFinding(
+                        header=header_name,
+                        present=False,
+                        severity=Severity.MEDIUM,
+                        recommendation=f"Add the {header_name} header",
+                    )
+                )
+
+            # Calculate a simple score based on individual header scores
+            header_keys = [
+                "csp",
+                "hsts",
+                "frame_options",
+                "content_type_nosniff",
+                "xss_protection",
+                "referrer_policy",
+                "permissions_policy",
+            ]
+            scores = [
+                analysis[k].get("score", 0)
+                for k in header_keys
+                if k in analysis and isinstance(analysis[k], dict)
+            ]
+            overall_score = int(sum(scores) / len(scores)) if scores else 0
+
+            return HeadersResult(
+                findings=findings,
+                score=overall_score,
+            )
+
+        except Exception as e:
+            self.logger.warning(f"Headers analysis failed: {e}")
             return None
 
     def _fingerprint(

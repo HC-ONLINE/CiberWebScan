@@ -227,3 +227,27 @@ class TestLookupCVEs:
         call_kwargs = mock_search.call_args[1]
         assert CVESource.NVD in call_kwargs["sources"]
         assert CVESource.CIRCL in call_kwargs["sources"]
+
+
+class TestCVEAggregatorConfigParams:
+    """Tests for config-driven CVEAggregator parameters."""
+
+    def test_default_cache_ttl(self) -> None:
+        """Test default cache_ttl value."""
+        aggregator = CVEAggregator()
+        assert aggregator.cache_ttl == 86400
+
+    def test_custom_cache_ttl(self) -> None:
+        """Test initialization with custom cache_ttl."""
+        aggregator = CVEAggregator(cache_ttl=3600)
+        assert aggregator.cache_ttl == 3600
+
+    @patch.dict("os.environ", {"NVD_API_KEY": "", "VULNERS_API_KEY": ""})
+    def test_custom_api_keys(self) -> None:
+        """Test initialization with API keys."""
+        aggregator = CVEAggregator(
+            nvd_api_key="test-nvd-key",
+            vulners_api_key="test-vulners-key",
+        )
+        assert aggregator.nvd_client.api_key == "test-nvd-key"
+        assert aggregator.vulners_client.api_key == "test-vulners-key"

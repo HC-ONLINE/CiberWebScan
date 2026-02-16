@@ -160,6 +160,10 @@ class SSLAnalyzer:
         self,
         timeout: int = 10,
         hsts_checker: Callable[[str], bool] | None = None,
+        check_expiry: bool = True,
+        check_chain: bool = True,
+        check_revocation: bool = True,
+        warning_days: int = 30,
     ) -> None:
         """
         Initialize the SSL analyzer.
@@ -168,9 +172,17 @@ class SSLAnalyzer:
             timeout: Connection timeout in seconds.
             hsts_checker: Optional callback to check HSTS header.
                          Receives URL, returns bool.
+            check_expiry: Whether to check certificate expiry.
+            check_chain: Whether to validate the certificate chain.
+            check_revocation: Whether to check certificate revocation.
+            warning_days: Days before expiry to trigger a warning.
         """
         self.timeout = timeout
         self._hsts_checker = hsts_checker
+        self.check_expiry = check_expiry
+        self.check_chain = check_chain
+        self.check_revocation = check_revocation
+        self.warning_days = warning_days
 
     def analyze(self, url: str) -> SSLAnalysisResult:
         """
@@ -510,14 +522,15 @@ class SSLAnalyzer:
         weak_ciphers: list[str] = []
 
         # Evaluate certificate
-        if cert_info.is_expired:
-            vulnerabilities.append("Expired certificate")
-        elif cert_info.days_until_expiry < 30:
-            warnings.append(
-                f"Certificate expires in {cert_info.days_until_expiry} days"
-            )
+        if self.check_expiry:
+            if cert_info.is_expired:
+                vulnerabilities.append("Expired certificate")
+            elif cert_info.days_until_expiry < self.warning_days:
+                warnings.append(
+                    f"Certificate expires in {cert_info.days_until_expiry} days"
+                )
 
-        if cert_info.is_self_signed:
+        if self.check_chain and cert_info.is_self_signed:
             vulnerabilities.append("Self-signed certificate")
 
         # Evaluate key size based on algorithm
