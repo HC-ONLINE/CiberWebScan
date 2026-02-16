@@ -166,6 +166,9 @@ class StaticScraper:
         self._proxy_rotator = proxy_rotator
         self._ua_provider = user_agent_provider
         self._extractor = DataExtractor()
+        # Proxy client caching: reuse client while proxy stays the same
+        self._last_proxy: str | None = None
+        self._proxy_client: HTTPClient | None = None
 
     def scrape(
         self,
@@ -215,10 +218,13 @@ class StaticScraper:
         headers = self._prepare_headers(config.headers)
         cookies = self._prepare_cookies(config.cookies)
 
+        # Resolve HTTP client (may differ when proxy rotation is active)
+        client = self._get_client()
+
         # Make request
         start_time = time.time()
         try:
-            response = self._client.get(
+            response = client.get(
                 url,
                 headers=headers,
                 cookies=cookies,
@@ -373,6 +379,36 @@ class StaticScraper:
         else:
             # Default: extract text and common attributes
             return process_elements(elements)
+
+    def _get_proxy(self) -> str | None:
+        """Get next proxy URL from rotator, if available."""
+        if self._proxy_rotator:
+            return self._proxy_rotator.next()
+        return None
+
+    def _get_client(self) -> HTTPClient:
+        """Return an HTTP client configured with the current rotated proxy.
+
+        If no proxy rotator is active the default client is returned.
+        When the rotator yields a new proxy a fresh :class:`HTTPClient` is
+        created; the client is cached and reused while the proxy stays the
+        same to avoid per-request overhead.
+        """
+        proxy = self._get_proxy()
+        if proxy is None:
+            return self._client
+
+        # Reuse cached client if proxy hasn't changed
+        if proxy == self._last_proxy and self._proxy_client is not None:
+            return self._proxy_client
+
+        # Build new client for the new proxy
+        from ciberwebscan.core.client.http_client import HTTPClient as _HTTPClient
+
+        logger.debug("Switching proxy to %s", proxy)
+        self._proxy_client = _HTTPClient(proxy=proxy)
+        self._last_proxy = proxy
+        return self._proxy_client
 
     def _prepare_headers(
         self,

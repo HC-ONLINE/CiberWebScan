@@ -273,3 +273,71 @@ class TestProxyRotator:
 
         # Index should be adjusted, current should still be p2
         assert rotator.current() == "http://p2:8080"
+
+
+class TestProxyRotatorInterval:
+    """Tests for ProxyRotator rotation_interval feature."""
+
+    def test_default_interval_is_one(self, sample_proxies):
+        """Default rotation_interval=1 rotates on every call (backwards compat)."""
+        rotator = ProxyRotator(sample_proxies)
+        assert rotator.rotation_interval == 1
+        assert rotator.next() == sample_proxies[0]
+        assert rotator.next() == sample_proxies[1]
+        assert rotator.next() == sample_proxies[2]
+
+    def test_interval_keeps_same_proxy(self):
+        """With interval=3, same proxy is returned 3 times before rotating."""
+        proxies = ["http://p1:8080", "http://p2:8080"]
+        rotator = ProxyRotator(proxies, rotation_interval=3)
+
+        # First 3 calls → p1
+        assert rotator.next() == "http://p1:8080"
+        assert rotator.next() == "http://p1:8080"
+        assert rotator.next() == "http://p1:8080"
+        # Next 3 calls → p2
+        assert rotator.next() == "http://p2:8080"
+        assert rotator.next() == "http://p2:8080"
+        assert rotator.next() == "http://p2:8080"
+        # Wraps around → p1
+        assert rotator.next() == "http://p1:8080"
+
+    def test_interval_with_three_proxies(self):
+        """Interval with 3 proxies cycles correctly."""
+        proxies = ["http://a:1", "http://b:2", "http://c:3"]
+        rotator = ProxyRotator(proxies, rotation_interval=2)
+
+        results = [rotator.next() for _ in range(6)]
+        assert results == [
+            "http://a:1",
+            "http://a:1",
+            "http://b:2",
+            "http://b:2",
+            "http://c:3",
+            "http://c:3",
+        ]
+
+    def test_reset_clears_request_count(self):
+        """reset() should clear request counter and index."""
+        rotator = ProxyRotator(
+            ["http://p1:8080", "http://p2:8080"], rotation_interval=3
+        )
+        rotator.next()  # count=1
+        rotator.next()  # count=2
+        rotator.reset()
+        # After reset, should start from p1 again with fresh counter
+        assert rotator.next() == "http://p1:8080"
+        assert rotator.next() == "http://p1:8080"
+        assert rotator.next() == "http://p1:8080"
+        assert rotator.next() == "http://p2:8080"
+
+    def test_invalid_interval_raises(self):
+        """rotation_interval < 1 should raise ValueError."""
+        with pytest.raises(ValueError, match="rotation_interval"):
+            ProxyRotator(["http://p1:8080"], rotation_interval=0)
+
+    def test_single_proxy_with_interval(self):
+        """Single proxy with interval always returns the same proxy."""
+        rotator = ProxyRotator(["http://only:8080"], rotation_interval=5)
+        results = [rotator.next() for _ in range(10)]
+        assert all(p == "http://only:8080" for p in results)

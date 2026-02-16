@@ -110,6 +110,9 @@ class ScrapeService(BaseService):
             self.app_config.user_agent
         )
 
+        # Initialize proxy rotator from config (lazy-built on first access)
+        self._proxy_rotator = self._build_proxy_rotator()
+
     def _build_http_client(
         self,
         *,
@@ -140,12 +143,58 @@ class ScrapeService(BaseService):
             default_headers=default_headers,
         )
 
+    def _build_proxy_rotator(self):
+        """Build a ProxyRotator from config if proxy rotation is enabled.
+
+        Returns:
+            A :class:`ProxyRotator` instance or ``None`` when rotation is
+            disabled or no proxies are available.
+        """
+        from ciberwebscan.core.client.proxy import ProxyRotator
+
+        proxy_cfg = self.app_config.http.proxy
+        if proxy_cfg is None or not proxy_cfg.rotate:
+            return None
+
+        # Prefer explicit proxy_list; fall back to individual proxy fields
+        proxies: list[str] = []
+        if proxy_cfg.proxy_list:
+            proxies = list(proxy_cfg.proxy_list)
+        else:
+            for url in (proxy_cfg.http, proxy_cfg.https):
+                if url is not None:
+                    proxies.append(str(url))
+            if proxy_cfg.socks5:
+                proxies.append(proxy_cfg.socks5)
+
+        if not proxies:
+            logger.warning(
+                "Proxy rotation enabled but no proxies configured — "
+                "set proxy_list or individual proxy fields"
+            )
+            return None
+
+        rotator = ProxyRotator(
+            proxies=proxies,
+            rotation_interval=proxy_cfg.rotation_interval,
+        )
+        logger.info(
+            "Proxy rotation enabled: %d proxies, interval=%d",
+            len(proxies),
+            proxy_cfg.rotation_interval,
+        )
+        return rotator
+
     @property
     def static_scraper(self) -> StaticScraper:
         """Get or create static scraper instance."""
         if self._static_scraper is None:
             client = self._build_http_client()
-            self._static_scraper = StaticScraper(client)
+            self._static_scraper = StaticScraper(
+                client,
+                proxy_rotator=self._proxy_rotator,
+                user_agent_provider=self._user_agent_provider,
+            )
         return self._static_scraper
 
     def _get_static_scraper_with_proxy(
@@ -154,7 +203,11 @@ class ScrapeService(BaseService):
         """Get static scraper with specific proxy configuration."""
         if proxy or not verify_ssl:
             client = self._build_http_client(proxy=proxy, verify=verify_ssl)
-            return StaticScraper(client)
+            return StaticScraper(
+                client,
+                proxy_rotator=self._proxy_rotator,
+                user_agent_provider=self._user_agent_provider,
+            )
         else:
             return self.static_scraper
 
@@ -164,7 +217,10 @@ class ScrapeService(BaseService):
         if self._dynamic_scraper is None and is_playwright_available():
             from ciberwebscan.core.scraping import DynamicScraper
 
-            self._dynamic_scraper = DynamicScraper()
+            self._dynamic_scraper = DynamicScraper(
+                proxy_rotator=self._proxy_rotator,
+                user_agent_provider=self._user_agent_provider,
+            )
         return self._dynamic_scraper
 
     def scrape(

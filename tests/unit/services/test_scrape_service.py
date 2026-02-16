@@ -199,6 +199,7 @@ class TestScrapeService:
             http2=False,
             verify_ssl=False,
             follow_redirects=False,
+            proxy=None,
         )
         mock_get_config.return_value = Mock(
             scraping=Mock(),

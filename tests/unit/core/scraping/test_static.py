@@ -487,3 +487,101 @@ class TestRobotsIntegration:
         result = scraper.scrape("https://example.com/page", config)
 
         assert result.success is True
+
+
+class TestStaticScraperProxyRotation:
+    """Tests for proxy rotation integration in StaticScraper."""
+
+    def test_get_proxy_returns_none_without_rotator(self):
+        """Without rotator, _get_proxy returns None."""
+        scraper = StaticScraper(MagicMock())
+        assert scraper._get_proxy() is None
+
+    def test_get_proxy_calls_rotator_next(self):
+        """_get_proxy delegates to rotator.next()."""
+        from ciberwebscan.core.client.proxy import ProxyRotator
+
+        rotator = ProxyRotator(["http://p1:8080", "http://p2:8080"])
+        scraper = StaticScraper(MagicMock(), proxy_rotator=rotator)
+
+        assert scraper._get_proxy() == "http://p1:8080"
+        assert scraper._get_proxy() == "http://p2:8080"
+
+    def test_get_client_returns_default_without_rotator(self):
+        """Without rotator, _get_client returns the default client."""
+        default_client = MagicMock()
+        scraper = StaticScraper(default_client)
+        assert scraper._get_client() is default_client
+
+    def test_get_client_creates_new_client_on_proxy_change(self):
+        """When proxy changes, a new HTTPClient is created."""
+        from unittest.mock import patch
+
+        from ciberwebscan.core.client.proxy import ProxyRotator
+
+        rotator = ProxyRotator(
+            ["http://p1:8080", "http://p2:8080"], rotation_interval=1
+        )
+        scraper = StaticScraper(MagicMock(), proxy_rotator=rotator)
+
+        with patch(
+            "ciberwebscan.core.client.http_client.HTTPClient"
+        ) as mock_httpclient:
+            mock_instance = MagicMock()
+            mock_httpclient.return_value = mock_instance
+
+            client1 = scraper._get_client()
+            assert client1 is mock_instance
+
+    def test_get_client_reuses_cached_client_same_proxy(self):
+        """When proxy stays the same, cached client is reused."""
+        from ciberwebscan.core.client.proxy import ProxyRotator
+
+        # interval=2 means same proxy for 2 consecutive calls
+        rotator = ProxyRotator(
+            ["http://p1:8080", "http://p2:8080"], rotation_interval=2
+        )
+        scraper = StaticScraper(MagicMock(), proxy_rotator=rotator)
+
+        from unittest.mock import patch
+
+        with patch(
+            "ciberwebscan.core.client.http_client.HTTPClient"
+        ) as mock_httpclient:
+            mock_instance = MagicMock()
+            mock_httpclient.return_value = mock_instance
+
+            client1 = scraper._get_client()  # p1, request_count=1
+            client2 = scraper._get_client()  # p1, request_count=2 → rotates
+            assert client1 is client2
+            # HTTPClient constructed only once for the same proxy
+            assert mock_httpclient.call_count == 1
+
+    def test_scrape_uses_rotated_proxy(self):
+        """scrape() should use the client returned by _get_client()."""
+        from unittest.mock import patch
+
+        from ciberwebscan.core.client.proxy import ProxyRotator
+
+        rotator = ProxyRotator(["http://p1:8080"])
+        default_client = MagicMock()
+        scraper = StaticScraper(default_client, proxy_rotator=rotator)
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = "<div class='item'>Hello</div>"
+
+        with patch(
+            "ciberwebscan.core.client.http_client.HTTPClient"
+        ) as mock_httpclient:
+            proxy_client = MagicMock()
+            proxy_client.get.return_value = mock_response
+            mock_httpclient.return_value = proxy_client
+
+            config = ScrapeConfig(selector="div.item", check_robots=False)
+            result = scraper.scrape("https://example.com", config)
+
+            assert result.success is True
+            # Request was made through the proxy client, not the default one
+            proxy_client.get.assert_called_once()
+            default_client.get.assert_not_called()

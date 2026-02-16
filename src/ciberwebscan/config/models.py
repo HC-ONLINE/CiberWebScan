@@ -52,6 +52,28 @@ class ProxyConfig(BaseModel):
     socks5: str | None = Field(None, pattern=r"^socks5://[\w\.\-]+:\d+$")
     rotate: bool = False
     rotation_interval: Annotated[int, Field(ge=1)] = 10
+    proxy_list: list[str] | None = Field(
+        default=None,
+        description=(
+            "List of proxy URLs for rotation. "
+            "Accepts a list of strings or a single comma/newline-separated string."
+        ),
+    )
+
+    @field_validator("proxy_list", mode="before")
+    @classmethod
+    def _normalize_proxy_list(cls, value: str | list[str] | None) -> list[str] | None:
+        """Normalize proxy_list: accept a string or list, always return list or None."""
+        if value is None:
+            return None
+        if isinstance(value, str):
+            from ciberwebscan.core.client.proxy import parse_proxy_list
+
+            parsed = parse_proxy_list(value)
+            return parsed if parsed else None
+        if isinstance(value, list):
+            return [v for v in value if v] or None
+        return value
 
 
 class HTTPConfig(BaseModel):

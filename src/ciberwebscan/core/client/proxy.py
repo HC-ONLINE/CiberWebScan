@@ -306,13 +306,16 @@ def filter_working_proxies(
 @dataclass
 class ProxyRotator:
     """
-    Round-robin proxy rotator.
+    Round-robin proxy rotator with configurable rotation interval.
 
-    Cycles through a list of proxies, returning a different one on each call.
-    Thread-safe for basic usage.
+    Cycles through a list of proxies. When ``rotation_interval`` is 1
+    (default) a new proxy is returned on every call to :meth:`next`.
+    When it is greater than 1 the same proxy is returned for
+    *rotation_interval* consecutive calls before advancing.
 
     Attributes:
         proxies: List of proxy URLs available for rotation.
+        rotation_interval: Number of requests before switching proxy.
 
     Examples:
         >>> rotator = ProxyRotator(['http://p1:8080', 'http://p2:8080'])
@@ -322,25 +325,41 @@ class ProxyRotator:
         'http://p2:8080'
         >>> rotator.next()  # Wraps around
         'http://p1:8080'
+
+        With interval::
+
+            >>> rotator = ProxyRotator(['http://p1:8080', 'http://p2:8080'], rotation_interval=3)
+            >>> [rotator.next() for _ in range(6)]
+            ['http://p1:8080', 'http://p1:8080', 'http://p1:8080',
+             'http://p2:8080', 'http://p2:8080', 'http://p2:8080']
     """
 
     proxies: list[str]
+    rotation_interval: int = 1
     _index: int = field(default=0, init=False, repr=False)
+    _request_count: int = field(default=0, init=False, repr=False)
 
     def __post_init__(self) -> None:
-        """Validate proxies list."""
+        """Validate proxies list and rotation_interval."""
         if not self.proxies:
             raise ValueError("Proxy list cannot be empty")
+        if self.rotation_interval < 1:
+            raise ValueError("rotation_interval must be >= 1")
 
     def next(self) -> str:
         """
         Get the next proxy in rotation.
 
+        The proxy advances every *rotation_interval* calls.
+
         Returns:
             Next proxy URL in the rotation sequence.
         """
         proxy = self.proxies[self._index]
-        self._index = (self._index + 1) % len(self.proxies)
+        self._request_count += 1
+        if self._request_count >= self.rotation_interval:
+            self._request_count = 0
+            self._index = (self._index + 1) % len(self.proxies)
         return proxy
 
     def current(self) -> str:
@@ -353,8 +372,9 @@ class ProxyRotator:
         return self.proxies[self._index]
 
     def reset(self) -> None:
-        """Reset rotation to the first proxy."""
+        """Reset rotation to the first proxy and request counter."""
         self._index = 0
+        self._request_count = 0
 
     def remove(self, proxy: str) -> bool:
         """
