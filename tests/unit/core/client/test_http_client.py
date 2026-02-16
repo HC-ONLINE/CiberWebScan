@@ -271,6 +271,18 @@ class TestHTTPClient:
         assert response.status_code == 200
         assert mock_request.call_count == 2
 
+    def test_max_redirects_from_config(self):
+        """Test that max_redirects is loaded from config (default 10)."""
+        client = HTTPClient()
+        assert client._client.max_redirects == 10
+        client.close()
+
+    def test_max_redirects_override(self):
+        """Test that max_redirects can be overridden per instance."""
+        client = HTTPClient(max_redirects=5)
+        assert client._client.max_redirects == 5
+        client.close()
+
     def test_convenience_methods_exist(self):
         """Test that all convenience methods exist."""
         client = HTTPClient()

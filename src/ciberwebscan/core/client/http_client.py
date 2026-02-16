@@ -120,6 +120,7 @@ class HTTPClient:
         metrics_callback: MetricsCallback | None = None,
         proxy: str | None = None,
         retryable_status_codes: set[int] | None = None,
+        max_redirects: int | None = None,
     ):
         """
         Initialize the HTTP client.
@@ -141,6 +142,8 @@ class HTTPClient:
                 Supports http, https, and socks5 protocols.
             retryable_status_codes: HTTP status codes that trigger retry.
                 If None, uses config value or DEFAULT_RETRYABLE_STATUS_CODES.
+            max_redirects: Maximum number of redirects to follow.
+                If None, uses config value (default 10).
         """
         config = get_config().http
 
@@ -170,6 +173,9 @@ class HTTPClient:
         resolved_verify = config.verify_ssl if verify is None else verify
         resolved_follow_redirects = (
             config.follow_redirects if follow_redirects is None else follow_redirects
+        )
+        resolved_max_redirects = (
+            config.max_redirects if max_redirects is None else max_redirects
         )
 
         resolved_proxy = proxy
@@ -206,6 +212,7 @@ class HTTPClient:
             http2=resolved_http2,
             verify=resolved_verify,
             follow_redirects=resolved_follow_redirects,
+            max_redirects=resolved_max_redirects,
             headers=default_headers,
             proxy=resolved_proxy,
         )
