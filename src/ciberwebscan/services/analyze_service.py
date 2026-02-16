@@ -125,6 +125,53 @@ class AnalyzeService(BaseService):
             self.app_config.user_agent
         )
 
+        # Initialize proxy rotator from config
+        self._proxy_rotator = self._build_proxy_rotator()
+
+    def _build_proxy_rotator(self):
+        """Build a ProxyRotator from config if proxy rotation is enabled."""
+        from ciberwebscan.core.client.proxy import ProxyRotator
+
+        proxy_cfg = self.app_config.http.proxy
+        if proxy_cfg is None or not proxy_cfg.rotate:
+            return None
+
+        proxies: list[str] = []
+        if proxy_cfg.proxy_list:
+            proxies = list(proxy_cfg.proxy_list)
+        else:
+            for url in (proxy_cfg.http, proxy_cfg.https):
+                if url is not None:
+                    proxies.append(str(url))
+            if proxy_cfg.socks5:
+                proxies.append(proxy_cfg.socks5)
+
+        if not proxies:
+            logger.warning(
+                "Proxy rotation enabled but no proxies configured — "
+                "set proxy_list or individual proxy fields"
+            )
+            return None
+
+        rotator = ProxyRotator(
+            proxies=proxies,
+            rotation_interval=proxy_cfg.rotation_interval,
+        )
+        logger.info(
+            "Proxy rotation enabled: %d proxies, interval=%d",
+            len(proxies),
+            proxy_cfg.rotation_interval,
+        )
+        return rotator
+
+    def _resolve_proxy(self, explicit_proxy: str | None) -> str | None:
+        """Return *explicit_proxy* when provided, otherwise ask the rotator."""
+        if explicit_proxy:
+            return explicit_proxy
+        if self._proxy_rotator:
+            return self._proxy_rotator.next()
+        return None
+
     @property
     def ssl_analyzer(self) -> SSLAnalyzer:
         """Get or create SSL analyzer instance."""
@@ -454,7 +501,7 @@ class AnalyzeService(BaseService):
             with HTTPClient(
                 timeout=timeout,
                 default_headers=default_headers or None,
-                proxy=options.proxy,
+                proxy=self._resolve_proxy(options.proxy),
             ) as client:
                 resp = client.get(url, cookies=options.cookies or None)
 
@@ -523,7 +570,7 @@ class AnalyzeService(BaseService):
             with HTTPClient(
                 timeout=timeout,
                 default_headers=default_headers or None,
-                proxy=options.proxy,
+                proxy=self._resolve_proxy(options.proxy),
             ) as client:
                 resp = client.get(url, cookies=options.cookies or None)
             headers = dict(resp.headers)

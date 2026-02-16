@@ -129,6 +129,7 @@ class TestAttackService:
             http2=True,
             verify_ssl=True,
             follow_redirects=True,
+            proxy=None,
         )
         mock_get_config.return_value = Mock(
             http=http_config, user_agent=Mock(mode="static", custom="TestAgent")
@@ -400,3 +401,166 @@ class TestAttackServiceErrorHandling:
         # Should succeed but with no findings (error logged)
         assert result.success is True
         assert result.data.total_findings == 0
+
+
+# =============================================================================
+# Proxy Rotation Tests
+# =============================================================================
+
+
+class TestAttackServiceProxyRotation:
+    """Tests for proxy rotation integration in AttackService."""
+
+    @patch("ciberwebscan.services.attack_service.get_config")
+    def test_build_proxy_rotator_returns_none_when_no_proxy_config(
+        self, mock_get_config: Mock
+    ):
+        """Rotator is None when proxy config is None."""
+        mock_get_config.return_value = Mock(
+            http=Mock(proxy=None),
+            user_agent=Mock(mode="static", custom="TestAgent"),
+        )
+        service = AttackService()
+        assert service._proxy_rotator is None
+
+    @patch("ciberwebscan.services.attack_service.get_config")
+    def test_build_proxy_rotator_returns_none_when_rotate_disabled(
+        self, mock_get_config: Mock
+    ):
+        """Rotator is None when proxy.rotate is False."""
+        mock_get_config.return_value = Mock(
+            http=Mock(proxy=Mock(rotate=False)),
+            user_agent=Mock(mode="static", custom="TestAgent"),
+        )
+        service = AttackService()
+        assert service._proxy_rotator is None
+
+    @patch("ciberwebscan.services.attack_service.get_config")
+    def test_build_proxy_rotator_creates_rotator_with_proxy_list(
+        self, mock_get_config: Mock
+    ):
+        """Rotator is created from proxy_list when present."""
+        mock_get_config.return_value = Mock(
+            http=Mock(
+                proxy=Mock(
+                    rotate=True,
+                    proxy_list=["http://p1:8080", "http://p2:8080"],
+                    rotation_interval=5,
+                )
+            ),
+            user_agent=Mock(mode="static", custom="TestAgent"),
+        )
+        service = AttackService()
+        assert service._proxy_rotator is not None
+        assert service._proxy_rotator.proxies == [
+            "http://p1:8080",
+            "http://p2:8080",
+        ]
+        assert service._proxy_rotator.rotation_interval == 5
+
+    @patch("ciberwebscan.services.attack_service.get_config")
+    def test_build_proxy_rotator_falls_back_to_individual_fields(
+        self, mock_get_config: Mock
+    ):
+        """Rotator uses http/https/socks5 fields when proxy_list is empty."""
+        mock_get_config.return_value = Mock(
+            http=Mock(
+                proxy=Mock(
+                    rotate=True,
+                    proxy_list=None,
+                    http="http://proxy:8080",
+                    https="https://proxy:8443",
+                    socks5="socks5://proxy:1080",
+                    rotation_interval=1,
+                )
+            ),
+            user_agent=Mock(mode="static", custom="TestAgent"),
+        )
+        service = AttackService()
+        assert service._proxy_rotator is not None
+        assert len(service._proxy_rotator.proxies) == 3
+
+    @patch("ciberwebscan.services.attack_service.get_config")
+    def test_build_proxy_rotator_returns_none_when_no_proxies(
+        self, mock_get_config: Mock
+    ):
+        """Rotator is None when rotate=True but no proxies configured."""
+        mock_get_config.return_value = Mock(
+            http=Mock(
+                proxy=Mock(
+                    rotate=True,
+                    proxy_list=None,
+                    http=None,
+                    https=None,
+                    socks5=None,
+                    rotation_interval=1,
+                )
+            ),
+            user_agent=Mock(mode="static", custom="TestAgent"),
+        )
+        service = AttackService()
+        assert service._proxy_rotator is None
+
+    def test_resolve_proxy_prefers_explicit(self, attack_service: AttackService):
+        """Explicit proxy takes priority over rotator."""
+        from ciberwebscan.core.client.proxy import ProxyRotator
+
+        attack_service._proxy_rotator = ProxyRotator(proxies=["http://rotated:8080"])
+        result = attack_service._resolve_proxy("http://explicit:3128")
+        assert result == "http://explicit:3128"
+
+    def test_resolve_proxy_uses_rotator(self, attack_service: AttackService):
+        """Rotator is used when no explicit proxy provided."""
+        from ciberwebscan.core.client.proxy import ProxyRotator
+
+        attack_service._proxy_rotator = ProxyRotator(
+            proxies=["http://p1:8080", "http://p2:8080"]
+        )
+        result = attack_service._resolve_proxy(None)
+        assert result == "http://p1:8080"
+
+    def test_resolve_proxy_returns_none_without_rotator(
+        self, attack_service: AttackService
+    ):
+        """Returns None when no explicit proxy and no rotator."""
+        attack_service._proxy_rotator = None
+        result = attack_service._resolve_proxy(None)
+        assert result is None
+
+    @patch("ciberwebscan.services.attack_service.get_config")
+    @patch("ciberwebscan.services.attack_service.HTTPClient")
+    @patch("ciberwebscan.services.attack_service.XSSAttacker")
+    def test_attack_passes_resolved_proxy_to_http_client(
+        self,
+        mock_xss_class: Mock,
+        mock_http_client_class: Mock,
+        mock_get_config: Mock,
+    ):
+        """HTTPClient receives the proxy returned by _resolve_proxy."""
+        http_config = Mock(
+            timeout=Mock(connect=10.0),
+            retry=Mock(max_attempts=3, backoff_factor=0.5),
+            rate_limit=Mock(requests_per_second=5.0, per_domain=True),
+            http2=False,
+            verify_ssl=True,
+            follow_redirects=True,
+            proxy=Mock(
+                rotate=True,
+                proxy_list=["http://p1:8080", "http://p2:8080"],
+                rotation_interval=1,
+            ),
+        )
+        mock_get_config.return_value = Mock(
+            http=http_config, user_agent=Mock(mode="static", custom="TestAgent")
+        )
+
+        mock_attacker = Mock()
+        mock_attacker.execute = AsyncMock(return_value=[])
+        mock_xss_class.return_value = mock_attacker
+        mock_http_client_class.return_value = Mock()
+
+        service = AttackService()
+        options = AttackOptions(url="https://example.com", user_consent=True, xss=True)
+        service.attack(options)
+
+        assert mock_http_client_class.call_args.kwargs["proxy"] == "http://p1:8080"

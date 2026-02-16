@@ -135,7 +135,7 @@ class TestAnalyzeService:
         mock_http_client: Mock,
     ):
         """Test fingerprint request timeout uses global config default."""
-        http_config = Mock(timeout=Mock(read=44.0, connect=12.0))
+        http_config = Mock(timeout=Mock(read=44.0, connect=12.0), proxy=None)
         mock_get_config.return_value = Mock(
             http=http_config, user_agent=Mock(mode="static", custom="TestAgent")
         )
@@ -543,3 +543,277 @@ class TestAnalyzeEnabledFlags:
 
         options2 = AnalyzeOptions(url="https://example.com", analyze_headers=False)
         assert options2.analyze_headers is False
+
+
+# =============================================================================
+# Proxy Rotation Tests
+# =============================================================================
+
+
+class TestAnalyzeServiceProxyRotation:
+    """Tests for proxy rotation integration in AnalyzeService."""
+
+    @patch("ciberwebscan.services.analyze_service.get_config")
+    def test_build_proxy_rotator_returns_none_when_no_proxy_config(
+        self, mock_get_config: Mock
+    ):
+        """Rotator is None when proxy config is None."""
+        mock_get_config.return_value = Mock(
+            http=Mock(proxy=None),
+            user_agent=Mock(mode="static", custom="TestAgent"),
+            analysis=Mock(
+                ssl=Mock(
+                    enabled=True,
+                    check_expiry=True,
+                    check_chain=True,
+                    check_revocation=False,
+                    warning_days=30,
+                ),
+                fingerprint=Mock(
+                    enabled=True,
+                    check_headers=True,
+                    check_html=True,
+                    check_scripts=True,
+                    check_cookies=True,
+                    check_dns=True,
+                ),
+                cve=Mock(enabled=True, cache_ttl=3600),
+                headers=Mock(enabled=True, required_headers=[]),
+            ),
+        )
+        service = AnalyzeService()
+        assert service._proxy_rotator is None
+
+    @patch("ciberwebscan.services.analyze_service.get_config")
+    def test_build_proxy_rotator_returns_none_when_rotate_disabled(
+        self, mock_get_config: Mock
+    ):
+        """Rotator is None when proxy.rotate is False."""
+        mock_get_config.return_value = Mock(
+            http=Mock(proxy=Mock(rotate=False)),
+            user_agent=Mock(mode="static", custom="TestAgent"),
+            analysis=Mock(
+                ssl=Mock(
+                    enabled=True,
+                    check_expiry=True,
+                    check_chain=True,
+                    check_revocation=False,
+                    warning_days=30,
+                ),
+                fingerprint=Mock(
+                    enabled=True,
+                    check_headers=True,
+                    check_html=True,
+                    check_scripts=True,
+                    check_cookies=True,
+                    check_dns=True,
+                ),
+                cve=Mock(enabled=True, cache_ttl=3600),
+                headers=Mock(enabled=True, required_headers=[]),
+            ),
+        )
+        service = AnalyzeService()
+        assert service._proxy_rotator is None
+
+    @patch("ciberwebscan.services.analyze_service.get_config")
+    def test_build_proxy_rotator_creates_rotator_with_proxy_list(
+        self, mock_get_config: Mock
+    ):
+        """Rotator is created from proxy_list when present."""
+        mock_get_config.return_value = Mock(
+            http=Mock(
+                proxy=Mock(
+                    rotate=True,
+                    proxy_list=["http://p1:8080", "http://p2:8080"],
+                    rotation_interval=3,
+                )
+            ),
+            user_agent=Mock(mode="static", custom="TestAgent"),
+            analysis=Mock(
+                ssl=Mock(
+                    enabled=True,
+                    check_expiry=True,
+                    check_chain=True,
+                    check_revocation=False,
+                    warning_days=30,
+                ),
+                fingerprint=Mock(
+                    enabled=True,
+                    check_headers=True,
+                    check_html=True,
+                    check_scripts=True,
+                    check_cookies=True,
+                    check_dns=True,
+                ),
+                cve=Mock(enabled=True, cache_ttl=3600),
+                headers=Mock(enabled=True, required_headers=[]),
+            ),
+        )
+        service = AnalyzeService()
+        assert service._proxy_rotator is not None
+        assert service._proxy_rotator.proxies == [
+            "http://p1:8080",
+            "http://p2:8080",
+        ]
+        assert service._proxy_rotator.rotation_interval == 3
+
+    @patch("ciberwebscan.services.analyze_service.get_config")
+    def test_build_proxy_rotator_falls_back_to_individual_fields(
+        self, mock_get_config: Mock
+    ):
+        """Rotator uses http/https/socks5 fields when proxy_list is empty."""
+        mock_get_config.return_value = Mock(
+            http=Mock(
+                proxy=Mock(
+                    rotate=True,
+                    proxy_list=None,
+                    http="http://proxy:8080",
+                    https="https://proxy:8443",
+                    socks5="socks5://proxy:1080",
+                    rotation_interval=1,
+                )
+            ),
+            user_agent=Mock(mode="static", custom="TestAgent"),
+            analysis=Mock(
+                ssl=Mock(
+                    enabled=True,
+                    check_expiry=True,
+                    check_chain=True,
+                    check_revocation=False,
+                    warning_days=30,
+                ),
+                fingerprint=Mock(
+                    enabled=True,
+                    check_headers=True,
+                    check_html=True,
+                    check_scripts=True,
+                    check_cookies=True,
+                    check_dns=True,
+                ),
+                cve=Mock(enabled=True, cache_ttl=3600),
+                headers=Mock(enabled=True, required_headers=[]),
+            ),
+        )
+        service = AnalyzeService()
+        assert service._proxy_rotator is not None
+        assert len(service._proxy_rotator.proxies) == 3
+
+    @patch("ciberwebscan.services.analyze_service.get_config")
+    def test_build_proxy_rotator_returns_none_when_no_proxies(
+        self, mock_get_config: Mock
+    ):
+        """Rotator is None when rotate=True but no proxies configured."""
+        mock_get_config.return_value = Mock(
+            http=Mock(
+                proxy=Mock(
+                    rotate=True,
+                    proxy_list=None,
+                    http=None,
+                    https=None,
+                    socks5=None,
+                    rotation_interval=1,
+                )
+            ),
+            user_agent=Mock(mode="static", custom="TestAgent"),
+            analysis=Mock(
+                ssl=Mock(
+                    enabled=True,
+                    check_expiry=True,
+                    check_chain=True,
+                    check_revocation=False,
+                    warning_days=30,
+                ),
+                fingerprint=Mock(
+                    enabled=True,
+                    check_headers=True,
+                    check_html=True,
+                    check_scripts=True,
+                    check_cookies=True,
+                    check_dns=True,
+                ),
+                cve=Mock(enabled=True, cache_ttl=3600),
+                headers=Mock(enabled=True, required_headers=[]),
+            ),
+        )
+        service = AnalyzeService()
+        assert service._proxy_rotator is None
+
+    def test_resolve_proxy_prefers_explicit(self, analyze_service: AnalyzeService):
+        """Explicit proxy takes priority over rotator."""
+        from ciberwebscan.core.client.proxy import ProxyRotator
+
+        analyze_service._proxy_rotator = ProxyRotator(proxies=["http://rotated:8080"])
+        result = analyze_service._resolve_proxy("http://explicit:3128")
+        assert result == "http://explicit:3128"
+
+    def test_resolve_proxy_uses_rotator(self, analyze_service: AnalyzeService):
+        """Rotator is used when no explicit proxy provided."""
+        from ciberwebscan.core.client.proxy import ProxyRotator
+
+        analyze_service._proxy_rotator = ProxyRotator(
+            proxies=["http://p1:8080", "http://p2:8080"]
+        )
+        result = analyze_service._resolve_proxy(None)
+        assert result == "http://p1:8080"
+
+    def test_resolve_proxy_returns_none_without_rotator(
+        self, analyze_service: AnalyzeService
+    ):
+        """Returns None when no explicit proxy and no rotator."""
+        analyze_service._proxy_rotator = None
+        result = analyze_service._resolve_proxy(None)
+        assert result is None
+
+    @patch("ciberwebscan.core.client.http_client.HTTPClient")
+    @patch("ciberwebscan.services.analyze_service.get_config")
+    def test_fingerprint_passes_resolved_proxy_to_http_client(
+        self,
+        mock_get_config: Mock,
+        mock_http_client: Mock,
+    ):
+        """HTTPClient receives the proxy returned by _resolve_proxy."""
+        http_config = Mock(
+            timeout=Mock(read=30.0, connect=10.0),
+            proxy=Mock(
+                rotate=True,
+                proxy_list=["http://p1:8080", "http://p2:8080"],
+                rotation_interval=1,
+            ),
+        )
+        mock_get_config.return_value = Mock(
+            http=http_config,
+            user_agent=Mock(mode="static", custom="TestAgent"),
+            analysis=Mock(
+                ssl=Mock(
+                    enabled=True,
+                    check_expiry=True,
+                    check_chain=True,
+                    check_revocation=False,
+                    warning_days=30,
+                ),
+                fingerprint=Mock(
+                    enabled=True,
+                    check_headers=True,
+                    check_html=True,
+                    check_scripts=True,
+                    check_cookies=True,
+                    check_dns=True,
+                ),
+                cve=Mock(enabled=True, cache_ttl=3600),
+                headers=Mock(enabled=True, required_headers=[]),
+            ),
+        )
+
+        mock_response = Mock(headers={}, text="<html></html>")
+        mock_client = Mock()
+        mock_client.get.return_value = mock_response
+        mock_http_client.return_value.__enter__.return_value = mock_client
+
+        service = AnalyzeService()
+        service._fingerprinter = Mock()
+        service._fingerprinter.fingerprint.return_value = {"technologies": {}}
+        service._fingerprint(
+            "https://example.com", AnalyzeOptions(url="https://example.com")
+        )
+
+        assert mock_http_client.call_args.kwargs["proxy"] == "http://p1:8080"
