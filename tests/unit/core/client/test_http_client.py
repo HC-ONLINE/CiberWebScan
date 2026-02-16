@@ -114,15 +114,72 @@ class TestHTTPClient:
             assert isinstance(client, HTTPClient)
         # Client should be closed after exiting context
 
-    def test_retryable_status_codes(self):
-        """Test that retryable status codes are defined correctly."""
-        assert 429 in HTTPClient.RETRYABLE_STATUS_CODES
-        assert 500 in HTTPClient.RETRYABLE_STATUS_CODES
-        assert 502 in HTTPClient.RETRYABLE_STATUS_CODES
-        assert 503 in HTTPClient.RETRYABLE_STATUS_CODES
-        assert 504 in HTTPClient.RETRYABLE_STATUS_CODES
-        assert 200 not in HTTPClient.RETRYABLE_STATUS_CODES
-        assert 404 not in HTTPClient.RETRYABLE_STATUS_CODES
+    def test_default_retryable_status_codes(self):
+        """Test that default retryable status codes are defined correctly."""
+        assert 429 in HTTPClient.DEFAULT_RETRYABLE_STATUS_CODES
+        assert 500 in HTTPClient.DEFAULT_RETRYABLE_STATUS_CODES
+        assert 502 in HTTPClient.DEFAULT_RETRYABLE_STATUS_CODES
+        assert 503 in HTTPClient.DEFAULT_RETRYABLE_STATUS_CODES
+        assert 504 in HTTPClient.DEFAULT_RETRYABLE_STATUS_CODES
+        assert 200 not in HTTPClient.DEFAULT_RETRYABLE_STATUS_CODES
+        assert 404 not in HTTPClient.DEFAULT_RETRYABLE_STATUS_CODES
+
+    def test_retryable_status_codes_from_config(self):
+        """Test that retryable status codes are loaded from config."""
+        client = HTTPClient()
+        # Config defaults match the class defaults
+        assert 429 in client._retryable_status_codes
+        assert 503 in client._retryable_status_codes
+        client.close()
+
+    def test_retryable_status_codes_override(self):
+        """Test that retryable status codes can be overridden per instance."""
+        custom_codes = {408, 429, 500}
+        client = HTTPClient(retryable_status_codes=custom_codes)
+        assert client._retryable_status_codes == {408, 429, 500}
+        assert 503 not in client._retryable_status_codes
+        client.close()
+
+    @patch.object(httpx.Client, "request")
+    def test_custom_retryable_codes_trigger_retry(self, mock_request):
+        """Test that custom retryable codes actually trigger retries."""
+        mock_response_408 = MagicMock(spec=httpx.Response)
+        mock_response_408.status_code = 408
+        mock_response_408.headers = {}
+
+        mock_response_200 = MagicMock(spec=httpx.Response)
+        mock_response_200.status_code = 200
+
+        mock_request.side_effect = [mock_response_408, mock_response_200]
+
+        with HTTPClient(
+            retryable_status_codes={408, 500},
+            max_retries=2,
+            backoff_factor=0.01,
+        ) as client:
+            response = client.get("https://example.com")
+
+        assert response.status_code == 200
+        assert mock_request.call_count == 2
+
+    @patch.object(httpx.Client, "request")
+    def test_non_retryable_code_not_retried(self, mock_request):
+        """Test that codes NOT in retryable set are not retried."""
+        mock_response_503 = MagicMock(spec=httpx.Response)
+        mock_response_503.status_code = 503
+
+        # 503 is not in custom set, so should NOT be retried
+        mock_request.return_value = mock_response_503
+
+        with HTTPClient(
+            retryable_status_codes={408},
+            max_retries=3,
+            backoff_factor=0.01,
+        ) as client:
+            response = client.get("https://example.com")
+
+        assert response.status_code == 503
+        assert mock_request.call_count == 1  # No retry
 
     @patch.object(httpx.Client, "request")
     def test_get_request(self, mock_request):

@@ -104,8 +104,8 @@ class HTTPClient:
         ...     data = client.get("https://api.example.com").json()
     """
 
-    # Status codes that should trigger a retry
-    RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
+    # Default fallback when config is not available
+    DEFAULT_RETRYABLE_STATUS_CODES: set[int] = {429, 500, 502, 503, 504}
 
     def __init__(
         self,
@@ -119,6 +119,7 @@ class HTTPClient:
         default_headers: dict[str, str] | None = None,
         metrics_callback: MetricsCallback | None = None,
         proxy: str | None = None,
+        retryable_status_codes: set[int] | None = None,
     ):
         """
         Initialize the HTTP client.
@@ -138,6 +139,8 @@ class HTTPClient:
                 Signature: (method, url, status_code, duration_seconds) -> None
             proxy: Optional proxy URL (e.g., 'http://user:pass@host:port').
                 Supports http, https, and socks5 protocols.
+            retryable_status_codes: HTTP status codes that trigger retry.
+                If None, uses config value or DEFAULT_RETRYABLE_STATUS_CODES.
         """
         config = get_config().http
 
@@ -183,6 +186,14 @@ class HTTPClient:
         self._max_retries = resolved_max_retries
         self._backoff_factor = resolved_backoff_factor
         self._metrics_callback = metrics_callback
+
+        # Retryable status codes: explicit param > config > class default
+        if retryable_status_codes is not None:
+            self._retryable_status_codes = retryable_status_codes
+        elif config.retry.retryable_status_codes:
+            self._retryable_status_codes = set(config.retry.retryable_status_codes)
+        else:
+            self._retryable_status_codes = self.DEFAULT_RETRYABLE_STATUS_CODES
 
         # Rate limiter (optional)
         self._rate_limiter = (
@@ -245,7 +256,7 @@ class HTTPClient:
                 # Check if we should retry based on status code
                 if (
                     retry
-                    and response.status_code in self.RETRYABLE_STATUS_CODES
+                    and response.status_code in self._retryable_status_codes
                     and attempt < max_attempts - 1
                 ):
                     wait_time = self._calculate_backoff(attempt, response)
