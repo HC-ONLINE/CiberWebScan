@@ -15,6 +15,7 @@ import logging
 from dataclasses import dataclass, field
 
 from ciberwebscan.config.loader import get_config
+from ciberwebscan.config.models import AttackConfig as ConfigAttackConfig
 from ciberwebscan.core.attacks import (
     AttackConfig,
     AttackContext,
@@ -42,21 +43,29 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class AttackOptions:
-    """Options for attack simulation operations."""
+    """
+    Options for attack simulation operations.
+
+    Fields set to None will use values from config (if provided).
+    CLI arguments override config values when explicitly set.
+    """
 
     # Target
     url: str
     user_consent: bool = False  # MUST be True to execute attacks
 
-    # Attack types to run
-    xss: bool = False
-    sqli: bool = False
-    traversal: bool = False
-    enumeration: bool = False
+    # Config source (used for defaults)
+    config: ConfigAttackConfig | None = None
+
+    # Attack types to run (None = use config default)
+    xss: bool | None = None
+    sqli: bool | None = None
+    traversal: bool | None = None
+    enumeration: bool | None = None
 
     # Attack configuration
     intensity: str = "medium"  # low, medium, high
-    max_payloads: int = 50
+    max_payloads: int | None = None  # None = use config default
     timeout: float = 10.0
     delay_between_requests: float = 0.1
     concurrent_requests: int = 1
@@ -79,6 +88,33 @@ class AttackOptions:
     proxy: str | None = None
     user_agent: str | None = None
     verbose: bool = False
+
+    def __post_init__(self):
+        """Apply config defaults for fields set to None."""
+        if self.config is not None:
+            # Apply attack type defaults from config
+            if self.xss is None:
+                self.xss = self.config.xss
+            if self.sqli is None:
+                self.sqli = self.config.sqli
+            if self.traversal is None:
+                self.traversal = self.config.traversal
+            if self.enumeration is None:
+                self.enumeration = self.config.enumeration
+            if self.max_payloads is None:
+                self.max_payloads = self.config.max_payloads
+        else:
+            # Fallback to hardcoded defaults when no config
+            if self.xss is None:
+                self.xss = False
+            if self.sqli is None:
+                self.sqli = False
+            if self.traversal is None:
+                self.traversal = False
+            if self.enumeration is None:
+                self.enumeration = False
+            if self.max_payloads is None:
+                self.max_payloads = 50
 
 
 class AttackService(BaseService):
@@ -213,6 +249,13 @@ class AttackService(BaseService):
                     f"Invalid intensity: {options.intensity}. Must be: low, medium, high",
                     details={"url": url},
                 ) from None
+
+            # Ensure fields from __post_init__ are set
+            assert options.xss is not None
+            assert options.sqli is not None
+            assert options.traversal is not None
+            assert options.enumeration is not None
+            assert options.max_payloads is not None
 
             # Build attack configuration
             attack_config = AttackConfig(

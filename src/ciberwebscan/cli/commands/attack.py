@@ -56,21 +56,33 @@ def attack_test(
     ] = False,
     # Attack types
     xss: Annotated[
-        bool,
-        typer.Option("--xss", help="Test for Cross-Site Scripting vulnerabilities"),
-    ] = False,
+        bool | None,
+        typer.Option(
+            "--xss",
+            help="Test for Cross-Site Scripting vulnerabilities (uses config default if not set)",
+        ),
+    ] = None,
     sqli: Annotated[
-        bool,
-        typer.Option("--sqli", help="Test for SQL Injection vulnerabilities"),
-    ] = False,
+        bool | None,
+        typer.Option(
+            "--sqli",
+            help="Test for SQL Injection vulnerabilities (uses config default if not set)",
+        ),
+    ] = None,
     traversal: Annotated[
-        bool,
-        typer.Option("--traversal", help="Test for Path Traversal vulnerabilities"),
-    ] = False,
+        bool | None,
+        typer.Option(
+            "--traversal",
+            help="Test for Path Traversal vulnerabilities (uses config default if not set)",
+        ),
+    ] = None,
     enumeration: Annotated[
-        bool,
-        typer.Option("--enumeration", help="Test for Directory/File enumeration"),
-    ] = False,
+        bool | None,
+        typer.Option(
+            "--enumeration",
+            help="Test for Directory/File enumeration (uses config default if not set)",
+        ),
+    ] = None,
     all_attacks: Annotated[
         bool,
         typer.Option("--all", help="Run all attack types"),
@@ -85,9 +97,12 @@ def attack_test(
         ),
     ] = "medium",
     max_payloads: Annotated[
-        int,
-        typer.Option("--max-payloads", help="Maximum payloads to test per attack"),
-    ] = 50,
+        int | None,
+        typer.Option(
+            "--max-payloads",
+            help="Maximum payloads to test per attack (uses config default if not set)",
+        ),
+    ] = None,
     # Custom payloads
     payloads: Annotated[
         str | None,
@@ -205,12 +220,6 @@ def attack_test(
         if all_attacks:
             xss = sqli = traversal = enumeration = True
 
-        # Validate at least one attack type is selected
-        if not any([xss, sqli, traversal, enumeration]):
-            print_error("No attack types selected")
-            print_info("Use --xss, --sqli, --traversal, --enumeration, or --all")
-            sys.exit(2)
-
         # Parse headers if provided
         headers_dict: dict[str, str] = {}
         if headers:
@@ -229,9 +238,13 @@ def attack_test(
 
         from ciberwebscan.services import AttackOptions, AttackService
 
+        # Get config for defaults
+        app_config = get_config()
+
         options = AttackOptions(
             url=validated_url,
             user_consent=True,  # Already validated above
+            config=app_config.attack,  # Use config.attack for defaults
             xss=xss,
             sqli=sqli,
             traversal=traversal,
@@ -249,6 +262,13 @@ def attack_test(
             export_format=format,
             verbose=verbose,
         )
+
+        # Validate at least one attack type is enabled (after config defaults are applied)
+        if not any([options.xss, options.sqli, options.traversal, options.enumeration]):
+            print_error("No attack types selected")
+            print_info("Use --xss, --sqli, --traversal, --enumeration, or --all")
+            print_info("Or enable attack types in your config.yaml (config.attack.*)")
+            sys.exit(2)
 
         # Display attack configuration
         if not quiet:

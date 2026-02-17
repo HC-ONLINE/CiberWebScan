@@ -7,6 +7,7 @@ Tests the CLI attack commands against a real test server.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import time
@@ -68,14 +69,29 @@ def test_server():
 
 
 def run_cli_command(args: list[str]) -> dict[str, Any]:
-    """Run CLI command and return result."""
+    """
+    Run CLI command and return result.
+    Sets environment variables to disable all attack types by default,
+    ensuring tests have a clean baseline and only enable what they explicitly request.
+    """
     cmd = [sys.executable, "-m", "ciberwebscan"] + args
+
+    env = os.environ.copy()
+    env["PYTHONPATH"] = "src"
+
+    # Override config via environment variables to disable all attacks by default
+    # This ensures tests have a clean baseline and only enable what they explicitly request
+    env["CIBERWEBSCAN_ATTACK_XSS"] = "false"
+    env["CIBERWEBSCAN_ATTACK_SQLI"] = "false"
+    env["CIBERWEBSCAN_ATTACK_TRAVERSAL"] = "false"
+    env["CIBERWEBSCAN_ATTACK_ENUMERATION"] = "false"
 
     result = subprocess.run(
         cmd,
         capture_output=True,
         text=True,
         timeout=30,
+        env=env,
     )
 
     return {

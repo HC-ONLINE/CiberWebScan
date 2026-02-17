@@ -98,6 +98,79 @@ class TestAttackOptions:
         assert options.timeout == 30.0
         assert options.verbose is True
 
+    def test_config_defaults(self):
+        """Test that config values are used as defaults when provided."""
+        from ciberwebscan.config.models import AttackConfig
+
+        # Create a config with specific values
+        attack_config = AttackConfig(
+            enabled=True,
+            user_consent=False,
+            xss=True,
+            sqli=True,
+            traversal=False,
+            enumeration=True,
+            max_payloads=100,
+        )
+
+        # Create options with config but without explicit values
+        options = AttackOptions(
+            url="https://test.com",
+            user_consent=True,
+            config=attack_config,
+        )
+
+        # Should use config values
+        assert options.xss is True
+        assert options.sqli is True
+        assert options.traversal is False
+        assert options.enumeration is True
+        assert options.max_payloads == 100
+
+    def test_explicit_values_override_config(self):
+        """Test that explicit values override config defaults."""
+        from ciberwebscan.config.models import AttackConfig
+
+        # Create a config with specific values
+        attack_config = AttackConfig(
+            enabled=True,
+            xss=True,
+            sqli=True,
+            max_payloads=100,
+        )
+
+        # Create options with config AND explicit overrides
+        options = AttackOptions(
+            url="https://test.com",
+            user_consent=True,
+            config=attack_config,
+            xss=False,  # Override config
+            sqli=True,  # Same as config
+            traversal=True,  # Override config (was False by default)
+            max_payloads=25,  # Override config
+        )
+
+        # Explicit values should win
+        assert options.xss is False  # Overridden
+        assert options.sqli is True  # Same as config
+        assert options.traversal is True  # Overridden
+        assert options.max_payloads == 25  # Overridden
+
+    def test_no_config_uses_hardcoded_defaults(self):
+        """Test that without config, hardcoded defaults are used."""
+        # Create options without config
+        options = AttackOptions(
+            url="https://test.com",
+            user_consent=True,
+        )
+
+        # Should use hardcoded defaults
+        assert options.xss is False
+        assert options.sqli is False
+        assert options.traversal is False
+        assert options.enumeration is False
+        assert options.max_payloads == 50
+
 
 # =============================================================================
 # AttackService Tests
@@ -404,6 +477,55 @@ class TestAttackServiceErrorHandling:
         # Should succeed but with no findings (error logged)
         assert result.success is True
         assert result.data.total_findings == 0
+
+    @patch("ciberwebscan.services.attack_service.HTTPClient")
+    @patch("ciberwebscan.services.attack_service.XSSAttacker")
+    def test_attack_with_config_defaults(
+        self,
+        mock_xss_class: Mock,
+        mock_http_client_class: Mock,
+        attack_service: AttackService,
+        mock_vulnerability: VulnerabilityFinding,
+    ):
+        """Test that attack service works with config.attack defaults."""
+        from ciberwebscan.config.models import AttackConfig
+
+        # Create a config that enables XSS and sets max_payloads
+        attack_config = AttackConfig(
+            enabled=True,
+            xss=True,
+            sqli=False,
+            max_payloads=75,
+        )
+
+        # Mock XSS attacker
+        mock_attacker = Mock()
+        mock_attacker.execute = AsyncMock(return_value=[mock_vulnerability])
+        mock_xss_class.return_value = mock_attacker
+
+        # Mock HTTP client
+        mock_client = Mock()
+        mock_http_client_class.return_value = mock_client
+
+        # Create options with config (xss=None means use config default)
+        options = AttackOptions(
+            url="https://example.com",
+            user_consent=True,
+            config=attack_config,
+            # xss not specified -> should use config.xss (True)
+            # max_payloads not specified -> should use config.max_payloads (75)
+        )
+
+        # Verify that config defaults were applied
+        assert options.xss is True
+        assert options.max_payloads == 75
+
+        # Execute attack
+        result = attack_service.attack(options)
+
+        assert result.success is True
+        assert result.data.total_findings == 1
+        assert result.data.xss_findings == 1
 
 
 # =============================================================================
