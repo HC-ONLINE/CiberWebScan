@@ -137,7 +137,10 @@ class TestAnalyzeService:
         """Test fingerprint request timeout uses global config default."""
         http_config = Mock(timeout=Mock(read=44.0, connect=12.0), proxy=None)
         mock_get_config.return_value = Mock(
-            http=http_config, user_agent=Mock(mode="static", custom="TestAgent")
+            http=http_config,
+            user_agent=Mock(
+                mode="static", custom="TestAgent", rotate_interval=1, agents=None
+            ),
         )
 
         mock_response = Mock(headers={}, text="<html></html>")
@@ -460,7 +463,9 @@ class TestAnalyzeEnabledFlags:
             cfg.analysis.cve.enabled = True
             cfg.http.timeout.connect = 10.0
             cfg.http.timeout.read = 30.0
-            cfg.user_agent = Mock(mode="static", custom="TestAgent")
+            cfg.user_agent = Mock(
+                mode="static", custom="TestAgent", rotate_interval=1, agents=None
+            )
 
             service = AnalyzeService()
             mock_fp.return_value = None
@@ -492,7 +497,9 @@ class TestAnalyzeEnabledFlags:
             cfg.analysis.cve.enabled = True
             cfg.http.timeout.connect = 10.0
             cfg.http.timeout.read = 30.0
-            cfg.user_agent = Mock(mode="static", custom="TestAgent")
+            cfg.user_agent = Mock(
+                mode="static", custom="TestAgent", rotate_interval=1, agents=None
+            )
 
             service = AnalyzeService()
             mock_ssl.return_value = None
@@ -524,7 +531,9 @@ class TestAnalyzeEnabledFlags:
             cfg.analysis.cve.enabled = True
             cfg.http.timeout.connect = 10.0
             cfg.http.timeout.read = 30.0
-            cfg.user_agent = Mock(mode="static", custom="TestAgent")
+            cfg.user_agent = Mock(
+                mode="static", custom="TestAgent", rotate_interval=1, agents=None
+            )
 
             service = AnalyzeService()
             mock_ssl.return_value = None
@@ -560,7 +569,9 @@ class TestAnalyzeServiceProxyRotation:
         """Rotator is None when proxy config is None."""
         mock_get_config.return_value = Mock(
             http=Mock(proxy=None),
-            user_agent=Mock(mode="static", custom="TestAgent"),
+            user_agent=Mock(
+                mode="static", custom="TestAgent", rotate_interval=1, agents=None
+            ),
             analysis=Mock(
                 ssl=Mock(
                     enabled=True,
@@ -591,7 +602,9 @@ class TestAnalyzeServiceProxyRotation:
         """Rotator is None when proxy.rotate is False."""
         mock_get_config.return_value = Mock(
             http=Mock(proxy=Mock(rotate=False)),
-            user_agent=Mock(mode="static", custom="TestAgent"),
+            user_agent=Mock(
+                mode="static", custom="TestAgent", rotate_interval=1, agents=None
+            ),
             analysis=Mock(
                 ssl=Mock(
                     enabled=True,
@@ -628,7 +641,9 @@ class TestAnalyzeServiceProxyRotation:
                     rotation_interval=3,
                 )
             ),
-            user_agent=Mock(mode="static", custom="TestAgent"),
+            user_agent=Mock(
+                mode="static", custom="TestAgent", rotate_interval=1, agents=None
+            ),
             analysis=Mock(
                 ssl=Mock(
                     enabled=True,
@@ -673,7 +688,9 @@ class TestAnalyzeServiceProxyRotation:
                     rotation_interval=1,
                 )
             ),
-            user_agent=Mock(mode="static", custom="TestAgent"),
+            user_agent=Mock(
+                mode="static", custom="TestAgent", rotate_interval=1, agents=None
+            ),
             analysis=Mock(
                 ssl=Mock(
                     enabled=True,
@@ -714,7 +731,9 @@ class TestAnalyzeServiceProxyRotation:
                     rotation_interval=1,
                 )
             ),
-            user_agent=Mock(mode="static", custom="TestAgent"),
+            user_agent=Mock(
+                mode="static", custom="TestAgent", rotate_interval=1, agents=None
+            ),
             analysis=Mock(
                 ssl=Mock(
                     enabled=True,
@@ -782,7 +801,9 @@ class TestAnalyzeServiceProxyRotation:
         )
         mock_get_config.return_value = Mock(
             http=http_config,
-            user_agent=Mock(mode="static", custom="TestAgent"),
+            user_agent=Mock(
+                mode="static", custom="TestAgent", rotate_interval=1, agents=None
+            ),
             analysis=Mock(
                 ssl=Mock(
                     enabled=True,

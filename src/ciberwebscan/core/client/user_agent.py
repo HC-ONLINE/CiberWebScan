@@ -37,22 +37,32 @@ class UserAgentRotator:
     """
 
     agents: list[str]
+    rotation_interval: int = 1
     _index: int = field(default=0, init=False, repr=False)
+    _request_count: int = field(default=0, init=False, repr=False)
 
     def __post_init__(self) -> None:
-        """Validate agents list."""
+        """Validate agents list and rotation interval."""
         if not self.agents:
             raise ValueError("User-Agent list cannot be empty")
+        if self.rotation_interval < 1:
+            raise ValueError("rotation_interval must be >= 1")
 
     def next(self) -> str:
         """
         Get the next User-Agent in rotation.
 
+        The agent only advances after every *rotation_interval* calls,
+        keeping the same User-Agent for N consecutive requests.
+
         Returns:
             Next User-Agent string in the rotation sequence.
         """
         agent = self.agents[self._index]
-        self._index = (self._index + 1) % len(self.agents)
+        self._request_count += 1
+        if self._request_count >= self.rotation_interval:
+            self._request_count = 0
+            self._index = (self._index + 1) % len(self.agents)
         return agent
 
     def current(self) -> str:
@@ -67,6 +77,7 @@ class UserAgentRotator:
     def reset(self) -> None:
         """Reset rotation to the first User-Agent."""
         self._index = 0
+        self._request_count = 0
 
     def random(self) -> str:
         """
@@ -120,6 +131,7 @@ class UserAgentProvider:
         mode: Literal["static", "rotate", "random"] = "rotate",
         agents: list[str] | None = None,
         custom: str | None = None,
+        rotation_interval: int = 1,
     ) -> None:
         """
         Initialize the User-Agent provider.
@@ -129,6 +141,9 @@ class UserAgentProvider:
             agents: List of User-Agent strings. Uses defaults if None.
             custom: Custom User-Agent for static mode. If provided and
                 mode is 'static', this takes precedence over agents list.
+            rotation_interval: Number of consecutive requests that use the
+                same User-Agent before rotating. Only applies to 'rotate'
+                mode; ignored in 'static' and 'random' modes.
 
         Raises:
             ValueError: If agents list is empty and no custom is provided.
@@ -146,7 +161,11 @@ class UserAgentProvider:
             raise ValueError("Must provide agents list or custom User-Agent")
 
         self._agents = agents
-        self._rotator = UserAgentRotator(agents) if agents else None
+        self._rotator = (
+            UserAgentRotator(agents, rotation_interval=rotation_interval)
+            if agents
+            else None
+        )
 
     @classmethod
     def from_config(cls, config: UserAgentConfig) -> UserAgentProvider:
@@ -163,6 +182,7 @@ class UserAgentProvider:
             mode=config.mode,
             agents=config.agents,
             custom=config.custom,
+            rotation_interval=config.rotate_interval,
         )
 
     def get(self) -> str:

@@ -204,7 +204,9 @@ class TestScrapeService:
         mock_get_config.return_value = Mock(
             scraping=Mock(),
             http=http_config,
-            user_agent=Mock(mode="static", custom="TestAgent"),
+            user_agent=Mock(
+                mode="static", custom="TestAgent", rotate_interval=1, agents=None
+            ),
         )
 
         service = ScrapeService()

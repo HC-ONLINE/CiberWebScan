@@ -132,7 +132,10 @@ class TestAttackService:
             proxy=None,
         )
         mock_get_config.return_value = Mock(
-            http=http_config, user_agent=Mock(mode="static", custom="TestAgent")
+            http=http_config,
+            user_agent=Mock(
+                mode="static", custom="TestAgent", rotate_interval=1, agents=None
+            ),
         )
 
         mock_attacker = Mock()
@@ -418,7 +421,9 @@ class TestAttackServiceProxyRotation:
         """Rotator is None when proxy config is None."""
         mock_get_config.return_value = Mock(
             http=Mock(proxy=None),
-            user_agent=Mock(mode="static", custom="TestAgent"),
+            user_agent=Mock(
+                mode="static", custom="TestAgent", rotate_interval=1, agents=None
+            ),
         )
         service = AttackService()
         assert service._proxy_rotator is None
@@ -430,7 +435,9 @@ class TestAttackServiceProxyRotation:
         """Rotator is None when proxy.rotate is False."""
         mock_get_config.return_value = Mock(
             http=Mock(proxy=Mock(rotate=False)),
-            user_agent=Mock(mode="static", custom="TestAgent"),
+            user_agent=Mock(
+                mode="static", custom="TestAgent", rotate_interval=1, agents=None
+            ),
         )
         service = AttackService()
         assert service._proxy_rotator is None
@@ -448,7 +455,9 @@ class TestAttackServiceProxyRotation:
                     rotation_interval=5,
                 )
             ),
-            user_agent=Mock(mode="static", custom="TestAgent"),
+            user_agent=Mock(
+                mode="static", custom="TestAgent", rotate_interval=1, agents=None
+            ),
         )
         service = AttackService()
         assert service._proxy_rotator is not None
@@ -474,7 +483,9 @@ class TestAttackServiceProxyRotation:
                     rotation_interval=1,
                 )
             ),
-            user_agent=Mock(mode="static", custom="TestAgent"),
+            user_agent=Mock(
+                mode="static", custom="TestAgent", rotate_interval=1, agents=None
+            ),
         )
         service = AttackService()
         assert service._proxy_rotator is not None
@@ -496,7 +507,9 @@ class TestAttackServiceProxyRotation:
                     rotation_interval=1,
                 )
             ),
-            user_agent=Mock(mode="static", custom="TestAgent"),
+            user_agent=Mock(
+                mode="static", custom="TestAgent", rotate_interval=1, agents=None
+            ),
         )
         service = AttackService()
         assert service._proxy_rotator is None
@@ -551,7 +564,10 @@ class TestAttackServiceProxyRotation:
             ),
         )
         mock_get_config.return_value = Mock(
-            http=http_config, user_agent=Mock(mode="static", custom="TestAgent")
+            http=http_config,
+            user_agent=Mock(
+                mode="static", custom="TestAgent", rotate_interval=1, agents=None
+            ),
         )
 
         mock_attacker = Mock()

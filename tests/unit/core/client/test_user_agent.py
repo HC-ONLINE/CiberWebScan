@@ -231,3 +231,128 @@ class TestDefaultUserAgentsConfig:
     def test_minimum_count(self):
         """Should have a reasonable number of user agents."""
         assert len(DEFAULT_USER_AGENTS) >= 4
+
+
+# ── rotation_interval tests ─────────────────────────────────────────
+
+
+class TestUserAgentRotatorInterval:
+    """Tests for UserAgentRotator rotation_interval behaviour."""
+
+    def test_default_interval_is_one(self, sample_user_agents):
+        """Default interval=1 rotates on every call (backwards compat)."""
+        rotator = UserAgentRotator(sample_user_agents)
+        assert rotator.next() == sample_user_agents[0]
+        assert rotator.next() == sample_user_agents[1]
+
+    def test_interval_three(self, sample_user_agents):
+        """With interval=3, same agent is returned 3 times before rotating."""
+        rotator = UserAgentRotator(sample_user_agents, rotation_interval=3)
+
+        for _ in range(3):
+            assert rotator.next() == sample_user_agents[0]
+        for _ in range(3):
+            assert rotator.next() == sample_user_agents[1]
+        for _ in range(3):
+            assert rotator.next() == sample_user_agents[2]
+        # Wraps around
+        assert rotator.next() == sample_user_agents[0]
+
+    def test_full_cycle_with_interval(self):
+        """Full cycle: 2 agents × interval 2 = 4 calls then back to start."""
+        agents = ["A", "B"]
+        rotator = UserAgentRotator(agents, rotation_interval=2)
+
+        results = [rotator.next() for _ in range(4)]
+        assert results == ["A", "A", "B", "B"]
+        # Back to A
+        assert rotator.next() == "A"
+
+    def test_reset_clears_request_count(self, sample_user_agents):
+        """reset() must also zero the request counter."""
+        rotator = UserAgentRotator(sample_user_agents, rotation_interval=3)
+
+        rotator.next()  # count=1
+        rotator.next()  # count=2
+        rotator.reset()
+
+        # After reset both index and count are 0 → starts fresh
+        assert rotator.current() == sample_user_agents[0]
+        for _ in range(3):
+            assert rotator.next() == sample_user_agents[0]
+
+    def test_invalid_interval_raises(self, sample_user_agents):
+        """rotation_interval < 1 should raise ValueError."""
+        with pytest.raises(ValueError, match="rotation_interval"):
+            UserAgentRotator(sample_user_agents, rotation_interval=0)
+
+    def test_current_unaffected_by_interval(self, sample_user_agents):
+        """current() reflects index but doesn't depend on interval logic."""
+        rotator = UserAgentRotator(sample_user_agents, rotation_interval=2)
+
+        assert rotator.current() == sample_user_agents[0]
+        rotator.next()  # count=1, index still 0
+        assert rotator.current() == sample_user_agents[0]
+        rotator.next()  # count=2 → rotates, index now 1
+        assert rotator.current() == sample_user_agents[1]
+
+
+class TestUserAgentProviderInterval:
+    """Tests for UserAgentProvider rotation_interval wiring."""
+
+    def test_rotate_mode_with_interval(self, sample_user_agents):
+        """Provider in rotate mode honours rotation_interval."""
+        provider = UserAgentProvider(
+            mode="rotate",
+            agents=sample_user_agents,
+            rotation_interval=2,
+        )
+        assert provider.get() == sample_user_agents[0]
+        assert provider.get() == sample_user_agents[0]
+        assert provider.get() == sample_user_agents[1]
+        assert provider.get() == sample_user_agents[1]
+
+    def test_random_mode_ignores_interval(self, sample_user_agents):
+        """Random mode must ignore rotation_interval entirely."""
+        provider = UserAgentProvider(
+            mode="random",
+            agents=sample_user_agents,
+            rotation_interval=100,
+        )
+        # Just ensure it returns valid agents (can't assert order)
+        seen = {provider.get() for _ in range(30)}
+        assert seen.issubset(set(sample_user_agents))
+
+    def test_static_mode_ignores_interval(self):
+        """Static mode must ignore rotation_interval entirely."""
+        provider = UserAgentProvider(
+            mode="static",
+            custom="StaticBot/1.0",
+            rotation_interval=5,
+        )
+        for _ in range(10):
+            assert provider.get() == "StaticBot/1.0"
+
+    def test_from_config_reads_rotate_interval(self, sample_user_agents):
+        """from_config must pass rotate_interval to the rotator."""
+        config = UserAgentConfig(
+            mode="rotate",
+            agents=sample_user_agents,
+            rotate_interval=3,
+        )
+        provider = UserAgentProvider.from_config(config)
+
+        # Same agent 3 times, then next
+        for _ in range(3):
+            assert provider.get() == sample_user_agents[0]
+        assert provider.get() == sample_user_agents[1]
+
+    def test_from_config_default_interval(self, sample_user_agents):
+        """from_config with default rotate_interval=10 keeps same agent 10 times."""
+        config = UserAgentConfig(mode="rotate", agents=sample_user_agents)
+        provider = UserAgentProvider.from_config(config)
+
+        # Default is 10 → same agent for 10 calls
+        for _ in range(10):
+            assert provider.get() == sample_user_agents[0]
+        assert provider.get() == sample_user_agents[1]
