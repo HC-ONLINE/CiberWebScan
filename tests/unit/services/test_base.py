@@ -272,3 +272,88 @@ class TestServiceExport:
         assert "items" in loaded
         assert loaded["items"][0]["name"] == "test"
         assert loaded["items"][0]["value"] == 42
+
+    @pytest.mark.parametrize("fmt", ["json", "jsonl", "csv"])
+    def test_export_passes_include_raw_from_config(
+        self, service: ConcreteService, tmp_path: Path, fmt: str
+    ):
+        """_export_result reads include_raw_html from config and forwards it."""
+        from unittest.mock import Mock, patch
+
+        data = [{"name": "Alice"}]
+        output_path = tmp_path / f"output.{fmt}"
+
+        with (
+            patch("ciberwebscan.services.base.get_config") as mock_cfg,
+            patch("ciberwebscan.services.base.JSONExporter") as mock_json,
+            patch("ciberwebscan.services.base.JSONLExporter") as mock_jsonl,
+            patch("ciberwebscan.services.base.CSVExporter") as mock_csv,
+        ):
+            mock_cfg.return_value = Mock(
+                export=Mock(pretty=True, include_raw_html=True, buffer_size=256)
+            )
+            mock_exp = Mock()
+            mock_exp.__enter__ = Mock(return_value=mock_exp)
+            mock_exp.__exit__ = Mock(return_value=False)
+            mocks = {"json": mock_json, "jsonl": mock_jsonl, "csv": mock_csv}
+            mocks[fmt].return_value = mock_exp
+
+            service._export_result(data, str(output_path), fmt)
+
+            call_kwargs = mocks[fmt].call_args.kwargs
+            assert call_kwargs["include_raw"] is True
+            assert mock_exp.buffer_size == 256
+
+    @pytest.mark.parametrize("fmt", ["json", "jsonl", "csv"])
+    def test_export_passes_buffer_size_from_config(
+        self, service: ConcreteService, tmp_path: Path, fmt: str
+    ):
+        """_export_result reads buffer_size from config and sets it on exporter."""
+        from unittest.mock import Mock, patch
+
+        data = {"key": "value"}
+        output_path = tmp_path / f"out.{fmt}"
+
+        with (
+            patch("ciberwebscan.services.base.get_config") as mock_cfg,
+            patch("ciberwebscan.services.base.JSONExporter") as mock_json,
+            patch("ciberwebscan.services.base.JSONLExporter") as mock_jsonl,
+            patch("ciberwebscan.services.base.CSVExporter") as mock_csv,
+        ):
+            mock_cfg.return_value = Mock(
+                export=Mock(pretty=False, include_raw_html=False, buffer_size=512)
+            )
+            mock_exp = Mock()
+            mock_exp.__enter__ = Mock(return_value=mock_exp)
+            mock_exp.__exit__ = Mock(return_value=False)
+            mocks = {"json": mock_json, "jsonl": mock_jsonl, "csv": mock_csv}
+            mocks[fmt].return_value = mock_exp
+
+            service._export_result(data, str(output_path), fmt)
+
+            assert mock_exp.buffer_size == 512
+
+    def test_export_include_raw_false_by_default(
+        self, service: ConcreteService, tmp_path: Path
+    ):
+        """include_raw defaults to False when config says so."""
+        from unittest.mock import Mock, patch
+
+        data = {"key": "value"}
+        output_path = tmp_path / "out.json"
+
+        with (
+            patch("ciberwebscan.services.base.get_config") as mock_cfg,
+            patch("ciberwebscan.services.base.JSONExporter") as mock_json,
+        ):
+            mock_cfg.return_value = Mock(
+                export=Mock(pretty=True, include_raw_html=False, buffer_size=100)
+            )
+            mock_exp = Mock()
+            mock_exp.__enter__ = Mock(return_value=mock_exp)
+            mock_exp.__exit__ = Mock(return_value=False)
+            mock_json.return_value = mock_exp
+
+            service._export_result(data, str(output_path), "json")
+
+            assert mock_json.call_args.kwargs["include_raw"] is False

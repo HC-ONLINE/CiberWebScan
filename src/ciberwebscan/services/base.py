@@ -147,6 +147,8 @@ class BaseService:
         try:
             config = get_config()
             indent = 2 if config.export.pretty else None
+            include_raw = config.export.include_raw_html
+            buffer_size = config.export.buffer_size
 
             exporters = {
                 "json": JSONExporter,
@@ -160,31 +162,25 @@ class BaseService:
 
             exporter_class = exporters[format]
 
-            # Check if data has export_report method (AnalysisReport)
-            if hasattr(data, "meta") and hasattr(data, "calculate_summary"):
-                if format == "json":
-                    exporter = exporter_class(output_path=path, indent=indent)
-                else:
-                    exporter = exporter_class(output_path=path)
-                exporter.export_report(data)
-            # Check if it's a list/iterable for streaming
-            elif isinstance(data, list | tuple):
-                if format == "json":
-                    with exporter_class(output_path=path, indent=indent) as exp:
-                        for item in data:
-                            exp.write_item(item)
-                else:
-                    with exporter_class(output_path=path) as exp:
-                        for item in data:
-                            exp.write_item(item)
-            # Single item
+            # Build exporter with full config values
+            if format == "json":
+                exporter = exporter_class(
+                    output_path=path, indent=indent, include_raw=include_raw
+                )
             else:
-                if format == "json":
-                    with exporter_class(output_path=path, indent=indent) as exp:
-                        exp.write_item(data)
-                else:
-                    with exporter_class(output_path=path) as exp:
-                        exp.write_item(data)
+                exporter = exporter_class(output_path=path, include_raw=include_raw)
+            exporter.buffer_size = buffer_size
+
+            # Export data
+            if hasattr(data, "meta") and hasattr(data, "calculate_summary"):
+                exporter.export_report(data)
+            elif isinstance(data, list | tuple):
+                with exporter:
+                    for item in data:
+                        exporter.write_item(item)
+            else:
+                with exporter:
+                    exporter.write_item(data)
 
             self.logger.info(f"Exported to {path} ({format})")
             return True, path
