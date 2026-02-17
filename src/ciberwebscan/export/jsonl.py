@@ -154,8 +154,6 @@ class JSONLExporter(StreamingExporter):
                     # Write scrape result
                     if report.scrape:
                         scrape_data = self._serialize_item(report.scrape)
-                        if not self.include_raw:
-                            scrape_data.pop("raw_html", None)
                         self.write_item(scrape_data, item_type="scrape")
 
                     # Write fingerprint result
@@ -215,8 +213,6 @@ class JSONLExporter(StreamingExporter):
             # Write scrape result
             if report.scrape:
                 scrape_data = self._serialize_item(report.scrape)
-                if not self.include_raw:
-                    scrape_data.pop("raw_html", None)
                 self.write_item(scrape_data, item_type="scrape")
 
             # Write fingerprint result

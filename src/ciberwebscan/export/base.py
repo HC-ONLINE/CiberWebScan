@@ -165,24 +165,30 @@ class BaseExporter(ABC):
         Serialize an item to a dictionary.
 
         Handles Pydantic models, dataclasses, and plain dicts.
+        Strips ``raw_html`` when *include_raw* is False.
         """
         if hasattr(item, "model_dump"):
             # Pydantic v2
-            return item.model_dump(exclude_none=not self.include_raw)
+            data = item.model_dump(exclude_none=not self.include_raw)
         elif hasattr(item, "dict"):
             # Pydantic v1
-            return item.dict(exclude_none=not self.include_raw)
+            data = item.dict(exclude_none=not self.include_raw)
         elif hasattr(item, "__dataclass_fields__"):
             # Dataclass
             from dataclasses import asdict
 
-            return asdict(item)
+            data = asdict(item)
         elif isinstance(item, dict):
-            return item
+            data = dict(item)  # shallow copy to avoid mutating caller's dict
         else:
             raise ExportValidationError(
                 f"Cannot serialize item of type {type(item).__name__}"
             )
+
+        if not self.include_raw:
+            data.pop("raw_html", None)
+
+        return data
 
     def _format_datetime(self, dt: datetime | None) -> str | None:
         """Format datetime to ISO 8601 string."""

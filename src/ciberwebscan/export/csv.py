@@ -200,10 +200,6 @@ class CSVExporter(StreamingExporter):
                     max_depth=self.max_flatten_depth,
                 )
 
-            # Remove raw data if not requested
-            if not self.include_raw:
-                data.pop("raw_html", None)
-
             # Auto-detect columns from first item
             if self.columns is None:
                 self.columns = list(data.keys())
