@@ -302,6 +302,133 @@ class TestScrapeMultiple:
 
 
 # =============================================================================
+# Dynamic Scraping Config Defaults Tests
+# =============================================================================
+
+
+class TestScrapeDynamicConfigDefaults:
+    """Tests that _scrape_dynamic applies DynamicScrapingConfig defaults."""
+
+    def _run_dynamic(
+        self,
+        scrape_service: ScrapeService,
+        options: ScrapeOptions,
+        mock_dsc: Mock,
+        mock_bt: Mock,
+    ) -> None:
+        """Helper: run _scrape_dynamic with asyncio fully mocked."""
+        mock_result = Mock(html="<html/>", status_code=200, elapsed_time=0.1)
+        scrape_service._dynamic_scraper = Mock()
+        scrape_service._dynamic_scraper.scrape = Mock(return_value=mock_result)
+
+        # mock_dsc returns a fake config object; mock_bt returns a dummy enum
+        mock_dsc.return_value = Mock()
+        mock_bt.side_effect = lambda v: Mock(value=v)
+
+        with patch("asyncio.get_running_loop", side_effect=RuntimeError) and patch(
+            "asyncio.run", return_value=mock_result
+        ):
+            scrape_service._scrape_dynamic("https://example.com", options)
+
+    @patch(
+        "ciberwebscan.services.scrape_service.is_playwright_available",
+        return_value=True,
+    )
+    @patch("ciberwebscan.core.scraping.BrowserType")
+    @patch("ciberwebscan.core.scraping.DynamicScrapeConfig")
+    def test_config_headless_browser_timeout_applied(
+        self,
+        mock_dsc: Mock,
+        mock_bt: Mock,
+        _mock_avail: Mock,
+        scrape_service: ScrapeService,
+    ):
+        """headless, browser_type y wait_timeout se toman de config.dynamic."""
+        from ciberwebscan.config.models import DynamicScrapingConfig
+
+        scrape_service.config.dynamic = DynamicScrapingConfig(
+            enabled=True,
+            headless=False,
+            browser_type="firefox",
+            wait_timeout=45.0,
+        )
+
+        self._run_dynamic(
+            scrape_service,
+            ScrapeOptions(url="https://example.com"),
+            mock_dsc,
+            mock_bt,
+        )
+
+        _, kwargs = mock_dsc.call_args
+        assert kwargs["headless"] is False
+        assert kwargs["wait_timeout"] == 45.0
+        mock_bt.assert_called_with("firefox")
+
+    @patch(
+        "ciberwebscan.services.scrape_service.is_playwright_available",
+        return_value=True,
+    )
+    @patch("ciberwebscan.core.scraping.BrowserType")
+    @patch("ciberwebscan.core.scraping.DynamicScrapeConfig")
+    def test_options_wait_for_overrides_config_wait_selector(
+        self,
+        mock_dsc: Mock,
+        mock_bt: Mock,
+        _mock_avail: Mock,
+        scrape_service: ScrapeService,
+    ):
+        """options.wait_for tiene prioridad sobre config.dynamic.wait_selector."""
+        from ciberwebscan.config.models import DynamicScrapingConfig
+
+        scrape_service.config.dynamic = DynamicScrapingConfig(
+            enabled=True,
+            wait_selector=".config-default",
+        )
+
+        self._run_dynamic(
+            scrape_service,
+            ScrapeOptions(url="https://example.com", wait_for=".options-override"),
+            mock_dsc,
+            mock_bt,
+        )
+
+        _, kwargs = mock_dsc.call_args
+        assert kwargs["wait_selector"] == ".options-override"
+
+    @patch(
+        "ciberwebscan.services.scrape_service.is_playwright_available",
+        return_value=True,
+    )
+    @patch("ciberwebscan.core.scraping.BrowserType")
+    @patch("ciberwebscan.core.scraping.DynamicScrapeConfig")
+    def test_config_wait_selector_used_when_options_wait_for_is_none(
+        self,
+        mock_dsc: Mock,
+        mock_bt: Mock,
+        _mock_avail: Mock,
+        scrape_service: ScrapeService,
+    ):
+        """config.dynamic.wait_selector se usa cuando options.wait_for es None."""
+        from ciberwebscan.config.models import DynamicScrapingConfig
+
+        scrape_service.config.dynamic = DynamicScrapingConfig(
+            enabled=True,
+            wait_selector=".from-config",
+        )
+
+        self._run_dynamic(
+            scrape_service,
+            ScrapeOptions(url="https://example.com", wait_for=None),
+            mock_dsc,
+            mock_bt,
+        )
+
+        _, kwargs = mock_dsc.call_args
+        assert kwargs["wait_selector"] == ".from-config"
+
+
+# =============================================================================
 # Context Manager Tests
 # =============================================================================
 

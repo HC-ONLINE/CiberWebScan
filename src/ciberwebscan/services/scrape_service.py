@@ -387,11 +387,15 @@ class ScrapeService(BaseService):
         try:
             import asyncio
 
-            from ciberwebscan.core.scraping import DynamicScrapeConfig
+            from ciberwebscan.core.scraping import BrowserType, DynamicScrapeConfig
 
+            dyn_cfg = self.config.dynamic
             config = DynamicScrapeConfig(
                 selector=options.selector or "body",
-                wait_selector=options.wait_for,
+                wait_selector=options.wait_for or dyn_cfg.wait_selector,
+                wait_timeout=dyn_cfg.wait_timeout,
+                headless=dyn_cfg.headless,
+                browser_type=BrowserType(dyn_cfg.browser_type),
                 schema=options.schema,
             )
 

@@ -34,9 +34,12 @@ scrape = typer.Typer(
 )
 
 try:
-    _DEFAULT_SCRAPE_TIMEOUT = get_config().http.timeout.read
+    _cfg = get_config()
+    _DEFAULT_SCRAPE_TIMEOUT = _cfg.http.timeout.read
+    _DEFAULT_DYNAMIC = _cfg.scraping.dynamic.enabled
 except Exception:
     _DEFAULT_SCRAPE_TIMEOUT = 30.0
+    _DEFAULT_DYNAMIC = False
 
 
 @scrape.command("url")
@@ -46,7 +49,7 @@ def scrape_url(
     dynamic: Annotated[
         bool,
         typer.Option("--dynamic", "-d", help="Use browser-based scraping"),
-    ] = False,
+    ] = _DEFAULT_DYNAMIC,
     wait_for: Annotated[
         str | None,
         typer.Option(
@@ -253,7 +256,7 @@ def scrape_batch(
     dynamic: Annotated[
         bool,
         typer.Option("--dynamic", "-d", help="Use browser-based scraping"),
-    ] = False,
+    ] = _DEFAULT_DYNAMIC,
     timeout: Annotated[
         float,
         typer.Option("--timeout", "-t", help="Request timeout in seconds"),
