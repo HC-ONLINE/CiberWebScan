@@ -149,10 +149,16 @@ class PaginationConfig(BaseModel):
 class DynamicScrapingConfig(BaseModel):
     """playwright/dynamic scraping settings."""
 
+    enabled: bool = False
+    """Enable/disable dynamic (browser-based) scraping."""
+
     wait_timeout: Annotated[float, Field(ge=1.0, le=120.0)] = 10.0
-    wait_for_selector: str | None = None
+    wait_selector: str | None = None
+    """CSS selector to wait for before scraping (maps to DynamicScrapeConfig.wait_selector)."""
+
     headless: bool = True
-    browser: Literal["chrome", "firefox", "edge"] = "chrome"
+    browser_type: Literal["chromium", "firefox", "webkit"] = "chromium"
+    """Browser engine (maps to DynamicScrapeConfig.browser_type / BrowserType enum)."""
 
 
 class ScrapingConfig(BaseModel):
@@ -330,7 +336,7 @@ class AppConfig(BaseModel):
         scraping:
           dynamic:
             enabled: true
-            browser: chrome
+            browser_type: chromium
         analysis:
           ssl:
             warning_days: 30

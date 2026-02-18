@@ -45,9 +45,9 @@ scraping:
   dynamic:
     enabled: false
     wait_timeout: 10.0
-    wait_for_selector: null
+    wait_selector: null
     headless: true
-    browser: chrome
+    browser_type: chromium
   pagination:
     enabled: false
     max_pages: 10
@@ -169,9 +169,9 @@ scraping:
   dynamic:
     enabled: false
     wait_timeout: 10.0
-    wait_for_selector: null
+    wait_selector: null
     headless: true
-    browser: chrome
+    browser_type: chromium
   pagination:
     enabled: false
     max_pages: 10
@@ -294,9 +294,9 @@ scraping:
   dynamic:
     enabled: false
     wait_timeout: 10.0
-    wait_for_selector: null
+    wait_selector: null
     headless: true
-    browser: chrome
+    browser_type: chromium
   pagination:
     enabled: false
     max_pages: 10
@@ -413,9 +413,9 @@ scraping:
   dynamic:
     enabled: false
     wait_timeout: 10.0
-    wait_for_selector: null
+    wait_selector: null
     headless: true
-    browser: chrome
+    browser_type: chromium
   pagination:
     enabled: false
     max_pages: 10

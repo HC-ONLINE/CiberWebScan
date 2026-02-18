@@ -23,7 +23,7 @@ class ScrapeRequest(BaseModel):
         default=False,
         description="Use playwright for JavaScript-rendered pages",
     )
-    wait_for_selector: str | None = Field(
+    wait_selector: str | None = Field(
         None,
         description="CSS selector to wait for (dynamic mode only)",
     )
