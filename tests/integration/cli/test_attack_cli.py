@@ -81,6 +81,7 @@ def run_cli_command(args: list[str]) -> dict[str, Any]:
 
     # Override config via environment variables to disable all attacks by default
     # This ensures tests have a clean baseline and only enable what they explicitly request
+    env["CIBERWEBSCAN_ATTACK_ENABLED"] = "true"
     env["CIBERWEBSCAN_ATTACK_XSS"] = "false"
     env["CIBERWEBSCAN_ATTACK_SQLI"] = "false"
     env["CIBERWEBSCAN_ATTACK_TRAVERSAL"] = "false"

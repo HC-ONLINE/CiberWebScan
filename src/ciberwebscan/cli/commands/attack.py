@@ -193,8 +193,12 @@ def attack_test(
         ciberwebscan attack test https://example.com --consent --xss --payloads my_xss.json
     """
     try:
+        # Get config first — it may pre-authorise consent
+        app_config = get_config()
+        effective_consent = consent or app_config.attack.user_consent
+
         # CRITICAL: Validate user consent first!
-        if not consent:
+        if not effective_consent:
             print_error("USER CONSENT REQUIRED")
             print_warning("You must confirm you have permission to test this system.")
             print_warning(
@@ -237,9 +241,6 @@ def attack_test(
                     cookies_dict[key.strip()] = value.strip()
 
         from ciberwebscan.services import AttackOptions, AttackService
-
-        # Get config for defaults
-        app_config = get_config()
 
         options = AttackOptions(
             url=validated_url,
@@ -403,7 +404,9 @@ def attack_xss(
         ciberwebscan attack xss https://example.com --consent
     """
     try:
-        if not consent:
+        app_config = get_config()
+        effective_consent = consent or app_config.attack.user_consent
+        if not effective_consent:
             print_error("USER CONSENT REQUIRED. Use --consent flag.")
             sys.exit(2)
 
@@ -467,7 +470,9 @@ def attack_sqli(
         ciberwebscan attack sqli https://example.com/product?id=1 --consent
     """
     try:
-        if not consent:
+        app_config = get_config()
+        effective_consent = consent or app_config.attack.user_consent
+        if not effective_consent:
             print_error("USER CONSENT REQUIRED. Use --consent flag.")
             sys.exit(2)
 

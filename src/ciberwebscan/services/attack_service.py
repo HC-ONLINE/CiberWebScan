@@ -92,6 +92,9 @@ class AttackOptions:
     def __post_init__(self):
         """Apply config defaults for fields set to None."""
         if self.config is not None:
+            # Propagate config.user_consent: if config pre-authorises, honour it
+            if not self.user_consent and self.config.user_consent:
+                self.user_consent = True
             # Apply attack type defaults from config
             if self.xss is None:
                 self.xss = self.config.xss
@@ -218,6 +221,32 @@ class AttackService(BaseService):
         result = ServiceResult[AttackResult](success=False)
 
         try:
+            # Check if attack simulation is enabled in config
+            attack_cfg = self.app_config.attack
+            if not attack_cfg.enabled:
+                raise ValidationError(
+                    "Attack simulation is disabled in configuration. "
+                    "Set attack.enabled=true in config.yaml to allow attacks.",
+                    details={"url": options.url},
+                )
+
+            # Validate target is in whitelist (if whitelist is configured)
+            if attack_cfg.whitelist:
+                from urllib.parse import urlparse
+
+                parsed = urlparse(options.url)
+                host = parsed.hostname or ""
+                if host not in attack_cfg.whitelist:
+                    raise ValidationError(
+                        f"Target host '{host}' is not in the attack whitelist. "
+                        "Add it to attack.whitelist in config.yaml to allow testing.",
+                        details={
+                            "url": options.url,
+                            "host": host,
+                            "whitelist": attack_cfg.whitelist,
+                        },
+                    )
+
             # CRITICAL: Verify user consent
             if not options.user_consent:
                 raise ValidationError(

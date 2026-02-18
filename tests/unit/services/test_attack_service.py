@@ -21,8 +21,12 @@ from ciberwebscan.services import (
 
 @pytest.fixture
 def attack_service() -> AttackService:
-    """Create attack service instance."""
-    return AttackService()
+    """Create attack service instance with attacks enabled and whitelist cleared."""
+    service = AttackService()
+    # Enable attacks and remove whitelist restriction so existing tests can run
+    service.app_config.attack.enabled = True
+    service.app_config.attack.whitelist = []
+    return service
 
 
 @pytest.fixture
@@ -209,6 +213,7 @@ class TestAttackService:
             user_agent=Mock(
                 mode="static", custom="TestAgent", rotate_interval=1, agents=None
             ),
+            attack=Mock(enabled=True, whitelist=[]),
         )
 
         mock_attacker = Mock()
@@ -690,6 +695,7 @@ class TestAttackServiceProxyRotation:
             user_agent=Mock(
                 mode="static", custom="TestAgent", rotate_interval=1, agents=None
             ),
+            attack=Mock(enabled=True, whitelist=[]),
         )
 
         mock_attacker = Mock()
@@ -702,3 +708,171 @@ class TestAttackServiceProxyRotation:
         service.attack(options)
 
         assert mock_http_client_class.call_args.kwargs["proxy"] == "http://p1:8080"
+
+
+# =============================================================================
+# Config gating: enabled / whitelist / user_consent propagation
+# =============================================================================
+
+
+class TestAttackConfigGating:
+    """Tests for attack.enabled, attack.whitelist and config.user_consent propagation."""
+
+    # ------------------------------------------------------------------
+    # attack.enabled
+    # ------------------------------------------------------------------
+
+    def test_attack_disabled_in_config_raises(self):
+        """attack.enabled=False blocks execution even with consent."""
+        service = AttackService()
+        service.app_config.attack.enabled = False
+        service.app_config.attack.whitelist = []
+
+        options = AttackOptions(
+            url="https://example.com",
+            user_consent=True,
+            xss=True,
+        )
+
+        with pytest.raises(ValidationError) as exc_info:
+            service.attack(options)
+
+        assert "disabled" in str(exc_info.value).lower()
+
+    @patch("ciberwebscan.services.attack_service.HTTPClient")
+    @patch("ciberwebscan.services.attack_service.XSSAttacker")
+    def test_attack_enabled_in_config_proceeds(
+        self,
+        mock_xss_class: Mock,
+        mock_http_class: Mock,
+    ):
+        """attack.enabled=True allows execution."""
+        mock_xss_class.return_value = Mock(execute=AsyncMock(return_value=[]))
+        mock_http_class.return_value = Mock()
+
+        service = AttackService()
+        service.app_config.attack.enabled = True
+        service.app_config.attack.whitelist = []
+
+        options = AttackOptions(
+            url="https://example.com",
+            user_consent=True,
+            xss=True,
+        )
+        result = service.attack(options)
+        assert result.success is True
+
+    # ------------------------------------------------------------------
+    # attack.whitelist
+    # ------------------------------------------------------------------
+
+    def test_whitelist_blocks_unlisted_host(self):
+        """Target host not in whitelist raises ValidationError."""
+        service = AttackService()
+        service.app_config.attack.enabled = True
+        service.app_config.attack.whitelist = ["127.0.0.1", "localhost"]
+
+        options = AttackOptions(
+            url="https://external.com",
+            user_consent=True,
+            xss=True,
+        )
+
+        with pytest.raises(ValidationError) as exc_info:
+            service.attack(options)
+
+        assert "whitelist" in str(exc_info.value).lower()
+        assert "external.com" in str(exc_info.value).lower()
+
+    @patch("ciberwebscan.services.attack_service.HTTPClient")
+    @patch("ciberwebscan.services.attack_service.XSSAttacker")
+    def test_whitelist_allows_listed_host(
+        self,
+        mock_xss_class: Mock,
+        mock_http_class: Mock,
+    ):
+        """Target host in whitelist is permitted."""
+        mock_xss_class.return_value = Mock(execute=AsyncMock(return_value=[]))
+        mock_http_class.return_value = Mock()
+
+        service = AttackService()
+        service.app_config.attack.enabled = True
+        service.app_config.attack.whitelist = ["allowed.example.com"]
+
+        options = AttackOptions(
+            url="https://allowed.example.com/page",
+            user_consent=True,
+            xss=True,
+        )
+        result = service.attack(options)
+        assert result.success is True
+
+    @patch("ciberwebscan.services.attack_service.HTTPClient")
+    @patch("ciberwebscan.services.attack_service.XSSAttacker")
+    def test_empty_whitelist_allows_any_host(
+        self,
+        mock_xss_class: Mock,
+        mock_http_class: Mock,
+    ):
+        """Empty whitelist imposes no restriction."""
+        mock_xss_class.return_value = Mock(execute=AsyncMock(return_value=[]))
+        mock_http_class.return_value = Mock()
+
+        service = AttackService()
+        service.app_config.attack.enabled = True
+        service.app_config.attack.whitelist = []
+
+        options = AttackOptions(
+            url="https://any.host.example.com",
+            user_consent=True,
+            xss=True,
+        )
+        result = service.attack(options)
+        assert result.success is True
+
+    # ------------------------------------------------------------------
+    # config.user_consent propagation
+    # ------------------------------------------------------------------
+
+    def test_config_user_consent_propagates_to_options(self):
+        """config.user_consent=True sets options.user_consent without --consent flag."""
+        from ciberwebscan.config.models import AttackConfig
+
+        cfg = AttackConfig(enabled=True, user_consent=True, xss=True)
+
+        options = AttackOptions(
+            url="https://example.com",
+            user_consent=False,  # not passed by caller
+            config=cfg,
+        )
+
+        # __post_init__ should propagate config.user_consent
+        assert options.user_consent is True
+
+    def test_config_user_consent_false_does_not_override_options_false(self):
+        """config.user_consent=False keeps options.user_consent as-is."""
+        from ciberwebscan.config.models import AttackConfig
+
+        cfg = AttackConfig(enabled=True, user_consent=False, xss=True)
+
+        options = AttackOptions(
+            url="https://example.com",
+            user_consent=False,
+            config=cfg,
+        )
+
+        assert options.user_consent is False
+
+    def test_options_user_consent_true_not_overridden_by_config_false(self):
+        """Explicit options.user_consent=True is never overridden by config."""
+        from ciberwebscan.config.models import AttackConfig
+
+        cfg = AttackConfig(enabled=True, user_consent=False)
+
+        options = AttackOptions(
+            url="https://example.com",
+            user_consent=True,
+            config=cfg,
+        )
+
+        assert options.user_consent is True
