@@ -134,7 +134,6 @@ class UserAgentConfig(BaseModel):
 class PaginationConfig(BaseModel):
     """Pagination handling for scraping."""
 
-    enabled: bool = False
     max_pages: Annotated[int, Field(ge=1, le=1000)] = 10
     next_selector: str | None = Field(
         default=None,

@@ -49,7 +49,6 @@ scraping:
     headless: true
     browser_type: chromium
   pagination:
-    enabled: false
     max_pages: 10
     next_selector: null
     page_param: null
@@ -173,7 +172,6 @@ scraping:
     headless: true
     browser_type: chromium
   pagination:
-    enabled: false
     max_pages: 10
     next_selector: null
     page_param: null
@@ -298,7 +296,6 @@ scraping:
     headless: true
     browser_type: chromium
   pagination:
-    enabled: false
     max_pages: 10
     next_selector: null
     page_param: null
@@ -417,7 +414,6 @@ scraping:
     headless: true
     browser_type: chromium
   pagination:
-    enabled: false
     max_pages: 10
     next_selector: null
     page_param: null
