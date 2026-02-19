@@ -12,6 +12,7 @@ from typing import Any, Generic, TypeVar
 
 from ciberwebscan.config.loader import get_config
 from ciberwebscan.export import CSVExporter, ExportError, JSONExporter, JSONLExporter
+from ciberwebscan.export.json import dumps as _json_dumps
 
 logger = logging.getLogger(__name__)
 
@@ -124,15 +125,30 @@ class BaseService:
         """
         Export result data to file.
 
+        Uses ``config.export.output_dir`` as the base directory for relative
+        paths. Absolute paths are used as-is.
+
+        When ``config.export.streaming`` is ``True`` (default) items are
+        written one by one via the ``write_item`` streaming API. When
+        ``False`` and the format is JSON, list/tuple data is serialised as a
+        single JSON array in one write (batch mode); other formats always use
+        streaming regardless of this flag.
+
         Args:
             data: Data to export (must be serializable).
-            output_path: Path for output file.
+            output_path: Path for the output file. Relative paths are
+                resolved under ``config.export.output_dir``.
             format: Export format ('json', 'jsonl', 'csv').
 
         Returns:
             Tuple of (success, actual_path).
         """
+        config = get_config()
+
         path = Path(output_path)
+        # Resolve relative paths under the configured output directory
+        if not path.is_absolute():
+            path = Path(config.export.output_dir) / path
 
         # Create parent directories if they don't exist
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -145,10 +161,10 @@ class BaseService:
             )
 
         try:
-            config = get_config()
             indent = 2 if config.export.pretty else None
             include_raw = config.export.include_raw_html
             buffer_size = config.export.buffer_size
+            streaming = config.export.streaming
 
             exporters = {
                 "json": JSONExporter,
@@ -172,8 +188,18 @@ class BaseService:
             exporter.buffer_size = buffer_size
 
             # Export data
+            # AnalysisReport objects always use batch export_report()
             if hasattr(data, "meta") and hasattr(data, "calculate_summary"):
                 exporter.export_report(data)
+            elif not streaming and format == "json" and isinstance(data, list | tuple):
+                # Batch mode (streaming=False, JSON): serialise the whole
+                # collection at once — produces a clean JSON array instead
+                # of the streaming {"items":[...]} wrapper.
+                serialized = [exporter._serialize_item(item) for item in data]
+                path.write_text(
+                    _json_dumps(serialized, indent=indent),
+                    encoding="utf-8",
+                )
             elif isinstance(data, list | tuple):
                 with exporter:
                     for item in data:

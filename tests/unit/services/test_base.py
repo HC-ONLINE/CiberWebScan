@@ -357,3 +357,151 @@ class TestServiceExport:
             service._export_result(data, str(output_path), "json")
 
             assert mock_json.call_args.kwargs["include_raw"] is False
+
+    # -------------------------------------------------------------------------
+    # output_dir tests
+    # -------------------------------------------------------------------------
+
+    def test_export_relative_path_resolved_under_output_dir(
+        self, service: ConcreteService, tmp_path: Path
+    ):
+        """Relative output_path is joined with config.export.output_dir."""
+        from unittest.mock import Mock, patch
+
+        data = {"key": "value"}
+
+        with patch("ciberwebscan.services.base.get_config") as mock_cfg:
+            mock_cfg.return_value = Mock(
+                export=Mock(
+                    output_dir=str(tmp_path),
+                    pretty=True,
+                    include_raw_html=False,
+                    buffer_size=100,
+                    streaming=True,
+                )
+            )
+            exported, path = service._export_result(data, "out.json", "json")
+
+        assert exported is True
+        assert path == tmp_path / "out.json"
+        assert path.exists()
+
+    def test_export_absolute_path_ignores_output_dir(
+        self, service: ConcreteService, tmp_path: Path
+    ):
+        """Absolute output_path is used as-is, output_dir is not prepended."""
+        from unittest.mock import Mock, patch
+
+        data = {"key": "value"}
+        output_path = tmp_path / "subdir" / "out.json"
+
+        with patch("ciberwebscan.services.base.get_config") as mock_cfg:
+            mock_cfg.return_value = Mock(
+                export=Mock(
+                    output_dir="/some/other/dir",
+                    pretty=True,
+                    include_raw_html=False,
+                    buffer_size=100,
+                    streaming=True,
+                )
+            )
+            exported, path = service._export_result(data, str(output_path), "json")
+
+        assert exported is True
+        assert path == output_path
+        assert path.exists()
+
+    # -------------------------------------------------------------------------
+    # streaming tests
+    # -------------------------------------------------------------------------
+
+    def test_export_streaming_false_json_list_produces_plain_array(
+        self, service: ConcreteService, tmp_path: Path
+    ):
+        """streaming=False + JSON + list → clean JSON array (no 'items' wrapper)."""
+        import json
+        from unittest.mock import Mock, patch
+
+        data = [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]
+        output_path = tmp_path / "batch.json"
+
+        with patch("ciberwebscan.services.base.get_config") as mock_cfg:
+            mock_cfg.return_value = Mock(
+                export=Mock(
+                    output_dir=str(tmp_path),
+                    pretty=True,
+                    include_raw_html=False,
+                    buffer_size=100,
+                    streaming=False,
+                )
+            )
+            exported, path = service._export_result(data, str(output_path), "json")
+
+        assert exported is True
+        assert path is not None
+
+        with open(path) as f:
+            loaded = json.load(f)
+
+        assert isinstance(loaded, list)
+        assert len(loaded) == 2
+        assert loaded[0] == {"id": 1, "name": "Alice"}
+        assert loaded[1] == {"id": 2, "name": "Bob"}
+
+    def test_export_streaming_true_json_list_wraps_in_items(
+        self, service: ConcreteService, tmp_path: Path
+    ):
+        """streaming=True + JSON + list → {"items": [...]} wrapper via write_item."""
+        import json
+        from unittest.mock import Mock, patch
+
+        data = [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]
+        output_path = tmp_path / "streaming.json"
+
+        with patch("ciberwebscan.services.base.get_config") as mock_cfg:
+            mock_cfg.return_value = Mock(
+                export=Mock(
+                    output_dir=str(tmp_path),
+                    pretty=True,
+                    include_raw_html=False,
+                    buffer_size=100,
+                    streaming=True,
+                )
+            )
+            exported, path = service._export_result(data, str(output_path), "json")
+
+        assert exported is True
+        assert path is not None
+
+        with open(path) as f:
+            loaded = json.load(f)
+
+        assert isinstance(loaded, dict)
+        assert "items" in loaded
+        assert len(loaded["items"]) == 2
+        assert loaded["items"][0] == {"id": 1, "name": "Alice"}
+
+    def test_export_streaming_false_jsonl_still_streams(
+        self, service: ConcreteService, tmp_path: Path
+    ):
+        """streaming=False has no effect for JSONL (always per-line writes)."""
+        from unittest.mock import Mock, patch
+
+        data = [{"id": 1}, {"id": 2}]
+        output_path = tmp_path / "out.jsonl"
+
+        with patch("ciberwebscan.services.base.get_config") as mock_cfg:
+            mock_cfg.return_value = Mock(
+                export=Mock(
+                    output_dir=str(tmp_path),
+                    pretty=False,
+                    include_raw_html=False,
+                    buffer_size=100,
+                    streaming=False,
+                )
+            )
+            exported, path = service._export_result(data, str(output_path), "jsonl")
+
+        assert exported is True
+        lines = path.read_text(encoding="utf-8").strip().splitlines()
+        assert len(lines) == 2
