@@ -5,6 +5,7 @@ CiberWebScan uses a flexible configuration system that allows customization of v
 ## Table of Contents
 
 1. [Configuration Sources](#configuration-sources)
+   - [Environment Variable Limitations](#environment-variable-limitations)
 2. [Configuration File](#configuration-file)
 3. [Configuration Sections](#configuration-sections)
    - [HTTP Client](#http-client)
@@ -40,6 +41,33 @@ Environment variable overrides (prefix & mapping)
   - `CIBERWEBSCAN_USER_AGENT_AGENTS="a,b"` → `user_agent.agents: ["a","b"]`
 
 See implementation: `ConfigLoader._load_env` (`src/ciberwebscan/config/loader.py`).
+
+### Environment Variable Limitations
+
+Our current `ConfigLoader` maps every underscore (`_`) in the environment variable name to a dot (`.`) when building the config path. That works for many simple keys (for example `CIBERWEBSCAN_HTTP_TIMEOUT_CONNECT` → `http.timeout.connect`), but it prevents overriding model fields that themselves contain underscores (for example `user_agent`, `rate_limit`, `include_screenshots`).
+
+What this means in practice:
+
+- Supported via `CIBERWEBSCAN_` envs (examples):
+
+  - `CIBERWEBSCAN_HTTP_TIMEOUT_CONNECT` → `http.timeout.connect`
+  - `CIBERWEBSCAN_HTTP_TIMEOUT_READ` → `http.timeout.read`
+  - `CIBERWEBSCAN_HTTP_PROXY_ROTATE` → `http.proxy.rotate`
+  - `CIBERWEBSCAN_SCRAPING_DYNAMIC_ENABLED` → `scraping.dynamic.enabled`
+  - `CIBERWEBSCAN_SCRAPING_DYNAMIC_HEADLESS` → `scraping.dynamic.headless`
+  - `CIBERWEBSCAN_ATTACK_ENABLED` → `attack.enabled`
+  - `CIBERWEBSCAN_ATTACK_XSS` → `attack.xss`
+  - `CIBERWEBSCAN_CACHE_ENABLED` → `cache.enabled`
+  - `NVD_API_KEY`, `VULNERS_API_KEY` (read directly by CVE clients)
+
+- NOT supported via `CIBERWEBSCAN_` envs (must use `config.yaml` or change loader):
+  - `CIBERWEBSCAN_USER_AGENT_AGENTS` / `CIBERWEBSCAN_USER_AGENT_MODE` → `user_agent.*`
+  - `CIBERWEBSCAN_HTTP_RATE_LIMIT_REQUESTS_PER_SECOND` → `http.rate_limit.requests_per_second`
+  - `CIBERWEBSCAN_EXPORT_INCLUDE_SCREENSHOTS` → `export.include_screenshots`
+  - `CIBERWEBSCAN_ANALYSIS_CVE_NVD_API_KEY` → `analysis.cve.nvd_api_key`
+  - `CIBERWEBSCAN_ATTACK_USER_CONSENT` → `attack.user_consent`
+
+Recommendation: for complex/underscore-containing fields, set them in `~/.ciberwebscan/config.yaml`. If you prefer env-based overrides for those fields, we can update `ConfigLoader` to support a double-underscore convention (e.g. `CIBERWEBSCAN_HTTP__RATE_LIMIT__REQUESTS_PER_SECOND`) — tell us if you want that behavior added.
 
 **Note**: Command-line options are specific to individual commands and do not override global configuration. They are used to customize behavior for that particular command execution.
 
