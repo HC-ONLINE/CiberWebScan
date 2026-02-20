@@ -192,6 +192,18 @@ ciberwebscan --help
 
 ---
 
+## Documentation
+
+- **[Installation Guide](docs/INSTALLATION.md)** - Complete setup and installation instructions
+- **[CLI Reference](docs/CLI.md)** - Detailed command-line interface documentation
+- **[API Documentation](docs/API.md)** - REST API endpoints and usage (in development)
+- **[Configuration Guide](docs/CONFIGURATION.md)** - Configuration options and customization
+- **[Development Guide](docs/DEVELOPMENT.md)** - Contributing, testing, and development setup
+- **[Contributing](docs/CONTRIBUTING.md)** - How to contribute to the project
+- **[Changelog](docs/CHANGELOG.md)** - Version history and changes
+
+---
+
 ## Developed with ❤️ by HC-ONLINE
 
 _Transform your approach to web application security assessment with CiberWebScan's comprehensive, professional-grade toolkit._
