@@ -7,7 +7,7 @@ They extend the export models with API-specific fields.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel, Field
@@ -36,7 +36,7 @@ class APIResponse(BaseModel, Generic[T]):
     success: bool = True
     data: T | None = None
     error: str | None = None
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class ErrorResponse(BaseModel):
@@ -46,7 +46,7 @@ class ErrorResponse(BaseModel):
     error: str
     error_code: str | None = None
     details: dict[str, Any] | None = None
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class ValidationErrorDetail(BaseModel):
@@ -64,7 +64,7 @@ class ValidationErrorResponse(BaseModel):
     error: str = "Validation error"
     error_code: str = "VALIDATION_ERROR"
     details: list[ValidationErrorDetail]
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # =============================================================================
@@ -83,7 +83,7 @@ class PaginatedResponse(BaseModel, Generic[T]):
     total_pages: int
     has_next: bool
     has_prev: bool
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     @classmethod
     def create(
@@ -137,7 +137,7 @@ class JobCreatedResponse(BaseModel):
     status: str = "pending"
     status_url: str
     message: str = "Job created successfully"
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # =============================================================================
@@ -158,7 +158,7 @@ class ScrapeBatchResponse(BaseModel):
     job_id: str
     total_urls: int
     status_url: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class ScrapeBatchResultResponse(BaseModel):
@@ -174,7 +174,7 @@ class ScrapeBatchResultResponse(BaseModel):
     total_success: int
     total_failed: int
     elapsed_seconds: float
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # =============================================================================
@@ -237,7 +237,7 @@ class HealthCheckResponse(BaseModel):
     status: str = "healthy"
     version: str
     uptime_seconds: float
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class ServiceStatus(BaseModel):
@@ -256,7 +256,7 @@ class DetailedHealthResponse(BaseModel):
     version: str
     uptime_seconds: float
     services: list[ServiceStatus] = Field(default_factory=list)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # =============================================================================
@@ -288,7 +288,7 @@ class ScanSummaryResponse(BaseModel):
         default_factory=list,
         description="Top 5 most critical issues found",
     )
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # =============================================================================
@@ -304,7 +304,7 @@ class ExportResponse(BaseModel):
     format: str
     file_size_bytes: int
     expires_at: datetime
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # =============================================================================
@@ -317,7 +317,7 @@ class ConfigResponse(BaseModel):
 
     success: bool = True
     config: dict[str, Any]
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class ConfigUpdateResponse(BaseModel):
@@ -328,4 +328,4 @@ class ConfigUpdateResponse(BaseModel):
     old_value: Any
     new_value: Any
     message: str = "Configuration updated successfully"
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
