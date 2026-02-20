@@ -9,8 +9,18 @@ from __future__ import annotations
 
 import logging
 
+import pytest
 from fastapi import FastAPI, Form, Query
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
+
+# when running under a bare CLI installation the API packages may not be
+# available; tests that depend on this server should skip themselves
+# instead of crashing during import. pytest.importorskip will raise a
+# Skip exception but evaluating it here would skip import of the whole
+# module which is fine because nothing else uses it without checking.
+pytest.importorskip("fastapi")
+pytest.importorskip("python_multipart")
+
 
 # Disable uvicorn logging in tests
 log = logging.getLogger("uvicorn")
