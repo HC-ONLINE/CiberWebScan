@@ -297,20 +297,6 @@ class APIAuthConfig(BaseModel):
         description="List of valid API keys (can be comma-separated string)",
     )
 
-    # JWT settings
-    jwt_secret_key: str = Field(
-        default="",
-        description="Secret key for JWT signing. Auto-generated if empty.",
-    )
-    jwt_algorithm: str = "HS256"
-    jwt_expire_minutes: Annotated[int, Field(ge=1, le=10080)] = 60  # Max 7 days
-
-    # Access control
-    allow_anonymous: bool = Field(
-        default=False,
-        description="Allow unauthenticated access (for development only)",
-    )
-
     @field_validator("api_keys", mode="before")
     @classmethod
     def parse_api_keys(cls, v: str | list[str]) -> list[str]:
