@@ -284,6 +284,71 @@ class ExportConfig(BaseModel):
 
 
 # =============================================================================
+# API Configuration
+# =============================================================================
+
+
+class APIAuthConfig(BaseModel):
+    """API authentication settings."""
+
+    # API Key settings
+    api_keys: list[str] = Field(
+        default=[],
+        description="List of valid API keys (can be comma-separated string)",
+    )
+
+    # JWT settings
+    jwt_secret_key: str = Field(
+        default="",
+        description="Secret key for JWT signing. Auto-generated if empty.",
+    )
+    jwt_algorithm: str = "HS256"
+    jwt_expire_minutes: Annotated[int, Field(ge=1, le=10080)] = 60  # Max 7 days
+
+    # Access control
+    allow_anonymous: bool = Field(
+        default=False,
+        description="Allow unauthenticated access (for development only)",
+    )
+
+    @field_validator("api_keys", mode="before")
+    @classmethod
+    def parse_api_keys(cls, v: str | list[str]) -> list[str]:
+        """Parse API keys from comma-separated string or list."""
+        if isinstance(v, str):
+            return [k.strip() for k in v.split(",") if k.strip()]
+        return [k for k in v if k]
+
+
+class APIRateLimitConfig(BaseModel):
+    """API rate limiting settings."""
+
+    enabled: bool = True
+    requests_per_minute: Annotated[int, Field(ge=1, le=10000)] = 60
+
+
+class APIConfig(BaseModel):
+    """API server configuration."""
+
+    host: str = "0.0.0.0"
+    port: Annotated[int, Field(ge=1, le=65535)] = 8000
+    auth: APIAuthConfig = Field(default_factory=lambda: APIAuthConfig())
+    rate_limit: APIRateLimitConfig = Field(default_factory=lambda: APIRateLimitConfig())
+    cors_origins: list[str] = Field(
+        default=["*"],
+        description="Allowed CORS origins",
+    )
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, v: str | list[str]) -> list[str]:
+        """Parse CORS origins from comma-separated string or list."""
+        if isinstance(v, str):
+            return [o.strip() for o in v.split(",") if o.strip()]
+        return v
+
+
+# =============================================================================
 # Logging Configuration
 # =============================================================================
 
@@ -344,6 +409,16 @@ class AppConfig(BaseModel):
         export:
           format: jsonl
           streaming: true
+        api:
+          host: 0.0.0.0
+          port: 8000
+            auth:
+                api_keys: "key1,key2,key3"
+        logging:
+          level: INFO
+          file: app.log
+        cache:
+          enabled: true
         ```
     """
 
@@ -353,6 +428,7 @@ class AppConfig(BaseModel):
     analysis: AnalysisConfig = Field(default_factory=lambda: AnalysisConfig())
     attack: AttackConfig = Field(default_factory=lambda: AttackConfig())
     export: ExportConfig = Field(default_factory=lambda: ExportConfig())
+    api: APIConfig = Field(default_factory=lambda: APIConfig())
     logging: LoggingConfig = Field(default_factory=lambda: LoggingConfig())
     cache: CacheConfig = Field(default_factory=lambda: CacheConfig())
 
