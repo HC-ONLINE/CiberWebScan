@@ -312,20 +312,26 @@ class ExportResponse(BaseModel):
 # =============================================================================
 
 
-class ConfigResponse(BaseModel):
-    """Response for config endpoints."""
+class ConfigValueResponse(BaseModel):
+    """Response containing a configuration value and metadata."""
 
-    success: bool = True
-    config: dict[str, Any]
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    key: str
+    value: Any
+    default: Any
+    source: str  # 'file', 'env', 'default', 'runtime'
+    description: str = ""
 
 
-class ConfigUpdateResponse(BaseModel):
-    """Response for config update endpoint."""
+class ConfigKeysResponse(BaseModel):
+    """Response containing a list of configuration keys."""
 
-    success: bool = True
-    path: str
-    old_value: Any
-    new_value: Any
-    message: str = "Configuration updated successfully"
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    keys: list[str]
+    count: int
+
+
+class ConfigFileResponse(BaseModel):
+    """Response containing file operation result."""
+
+    file_path: str
+    operation: str  # 'export', 'load', 'save'
+    format: str | None = None

@@ -6,7 +6,7 @@ These Pydantic models define and validate all incoming API request payloads.
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, HttpUrl, field_validator
 
@@ -136,15 +136,51 @@ class ExportRequest(BaseModel):
 
 
 class ConfigUpdateRequest(BaseModel):
-    """Request to update configuration."""
+    """Request to update a configuration value."""
 
-    path: str = Field(
-        ...,
-        description="Dot-separated path to config key (e.g., 'http.timeout.connect')",
+    path: str = Field(..., description="Configuration key (dot-notation)")
+    value: Any = Field(..., description="New value (str, int, float, bool, list, dict)")
+    save: bool = Field(
+        False,
+        description="If True, persist changes to disk immediately",
     )
-    value: str | int | float | bool | list | dict = Field(
-        ...,
-        description="New value for the configuration key",
+
+
+class ConfigResetRequest(BaseModel):
+    """Request to reset configuration."""
+
+    path: str | None = Field(
+        None,
+        description="Specific key to reset, or None to reset all",
+    )
+    save: bool = Field(
+        False,
+        description="If True, persist reset to disk immediately",
+    )
+
+
+class ConfigExportRequest(BaseModel):
+    """Request to export configuration."""
+
+    path: str = Field(..., description="Output file path")
+    format: str = Field(
+        "yaml",
+        description="Export format (yaml or json)",
+    )
+
+
+class ConfigLoadRequest(BaseModel):
+    """Request to load configuration from file."""
+
+    path: str = Field(..., description="Input file path")
+
+
+class ConfigSaveRequest(BaseModel):
+    """Request to save configuration to file."""
+
+    path: str | None = Field(
+        None,
+        description="Output file path (uses default if not provided)",
     )
 
 
