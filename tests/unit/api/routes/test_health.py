@@ -13,7 +13,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from ciberwebscan.api.routes.health import HealthResponse, router
+from ciberwebscan.api.models.responses import HealthCheckResponse
+from ciberwebscan.api.routes.health import router
 
 # =============================================================================
 # Fixtures
@@ -35,17 +36,17 @@ def client(app: FastAPI) -> TestClient:
 
 
 # =============================================================================
-# HealthResponse Model Tests
+# HealthCheckResponse Model Tests
 # =============================================================================
 
 
-class TestHealthResponseModel:
-    """Tests for HealthResponse Pydantic model."""
+class TestHealthCheckResponseModel:
+    """Tests for HealthCheckResponse Pydantic model."""
 
     def test_health_response_creation(self):
-        """Test HealthResponse model instantiation."""
+        """Test HealthCheckResponse model instantiation."""
         now = datetime.now(timezone.utc)
-        response = HealthResponse(
+        response = HealthCheckResponse(
             status="healthy",
             timestamp=now,
             version="2.0.0",
@@ -58,9 +59,9 @@ class TestHealthResponseModel:
         assert response.message == "Test message"
 
     def test_health_response_serialization(self):
-        """Test HealthResponse JSON serialization."""
+        """Test HealthCheckResponse JSON serialization."""
         now = datetime.now(timezone.utc)
-        response = HealthResponse(
+        response = HealthCheckResponse(
             status="ready",
             timestamp=now,
             version="1.0.0",
@@ -125,7 +126,7 @@ class TestHealthCheckEndpoint:
         response = client.get("/health")
         data = response.json()
 
-        expected_keys = {"status", "timestamp", "version", "message"}
+        expected_keys = {"status", "timestamp", "version", "message", "uptime_seconds"}
         assert set(data.keys()) == expected_keys
 
     @patch("ciberwebscan.api.routes.health.__version__", "3.0.0-test")
@@ -186,7 +187,7 @@ class TestReadinessCheckEndpoint:
         response = client.get("/health/ready")
         data = response.json()
 
-        expected_keys = {"status", "timestamp", "version", "message"}
+        expected_keys = {"status", "timestamp", "version", "message", "uptime_seconds"}
         assert set(data.keys()) == expected_keys
 
     @patch("ciberwebscan.api.routes.health.__version__", "2.5.0-beta")

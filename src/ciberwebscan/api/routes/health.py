@@ -7,27 +7,17 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from fastapi import APIRouter
-from pydantic import BaseModel
 
 from ciberwebscan import __version__
-
-
-class HealthResponse(BaseModel):
-    """Health check response model."""
-
-    status: str
-    timestamp: datetime
-    version: str
-    message: str
-
+from ciberwebscan.api.models.responses import HealthCheckResponse
 
 router = APIRouter()
 
 
-@router.get("/health", response_model=HealthResponse)
-async def health_check() -> HealthResponse:
+@router.get("/health", response_model=HealthCheckResponse)
+async def health_check() -> HealthCheckResponse:
     """Basic health check endpoint."""
-    return HealthResponse(
+    return HealthCheckResponse(
         status="healthy",
         timestamp=datetime.now(timezone.utc),
         version=__version__,
@@ -35,11 +25,11 @@ async def health_check() -> HealthResponse:
     )
 
 
-@router.get("/health/ready", response_model=HealthResponse)
-async def readiness_check() -> HealthResponse:
+@router.get("/health/ready", response_model=HealthCheckResponse)
+async def readiness_check() -> HealthCheckResponse:
     """Readiness check endpoint for container orchestration."""
     # Could add checks for database, external services, etc.
-    return HealthResponse(
+    return HealthCheckResponse(
         status="ready",
         timestamp=datetime.now(timezone.utc),
         version=__version__,
