@@ -6,6 +6,7 @@ These Pydantic models define and validate all incoming API request payloads.
 
 from __future__ import annotations
 
+import json
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, HttpUrl, field_validator
@@ -23,15 +24,35 @@ class ScrapeRequest(BaseModel):
         default=False,
         description="Use playwright for JavaScript-rendered pages",
     )
-    wait_selector: str | None = Field(
+    wait_for: str | None = Field(
         None,
         description="CSS selector to wait for (dynamic mode only)",
+    )
+    selector: str | None = Field(
+        default=None,
+        description="CSS selector used for focused extraction",
+    )
+    attributes: list[str] = Field(
+        default_factory=list,
+        description="Attributes to extract from matched elements",
+    )
+    pagination_selector: str | None = Field(
+        default=None,
+        description="Selector for pagination links",
+    )
+    pagination_limit: Annotated[int, Field(ge=1, le=1000)] = Field(
+        default=1,
+        description="Maximum number of pages to traverse",
     )
     extract_links: bool = True
     extract_images: bool = True
     extract_forms: bool = True
     extract_scripts: bool = True
     include_raw_html: bool = False
+    extract_schema: dict[str, Any] | None = Field(
+        default=None,
+        description="Structured extraction schema",
+    )
     timeout: Annotated[float, Field(ge=1.0, le=120.0)] = 30.0
     headers: dict[str, str] = Field(
         default_factory=dict,
@@ -41,6 +62,28 @@ class ScrapeRequest(BaseModel):
         default_factory=dict,
         description="Cookies to include in request",
     )
+    proxy: str | None = Field(
+        default=None,
+        description="HTTP/HTTPS proxy URL",
+    )
+    user_agent: str | None = Field(
+        default=None,
+        description="Custom User-Agent string",
+    )
+    check_robots: bool = Field(
+        default=True,
+        description="Respect robots.txt when scraping",
+    )
+
+    @field_validator("attributes", mode="before")
+    @classmethod
+    def parse_attributes(cls, value: list[str] | str | None) -> list[str]:
+        """Allow attributes as list or comma-separated string."""
+        if value is None:
+            return []
+        if isinstance(value, str):
+            return [item.strip() for item in value.split(",") if item.strip()]
+        return value
 
 
 class ScrapeBatchRequest(BaseModel):
@@ -49,7 +92,13 @@ class ScrapeBatchRequest(BaseModel):
     urls: list[HttpUrl] = Field(..., min_length=1, max_length=100)
     dynamic: bool = False
     concurrency: Annotated[int, Field(ge=1, le=10)] = 5
+    selector: str | None = None
+    timeout: Annotated[float, Field(ge=1.0, le=120.0)] = 30.0
     include_raw_html: bool = False
+    headers: dict[str, str] = Field(default_factory=dict)
+    cookies: dict[str, str] = Field(default_factory=dict)
+    proxy: str | None = None
+    user_agent: str | None = None
 
     @field_validator("urls")
     @classmethod
@@ -76,13 +125,50 @@ class AnalyzeRequest(BaseModel):
     url: HttpUrl
     ssl: bool = Field(default=True, description="Perform SSL/TLS analysis")
     fingerprint: bool = Field(default=True, description="Detect technologies")
-    headers: bool = Field(default=True, description="Analyze security headers")
+    analyze_headers: bool = Field(
+        default=True,
+        description="Analyze security headers",
+    )
     cve: bool = Field(default=True, description="Lookup CVEs for detected technologies")
+    deep: bool = Field(
+        default=False,
+        description="Enable deeper technology fingerprinting",
+    )
+    timeout: Annotated[float, Field(ge=1.0, le=300.0)] = 30.0
+    ssl_timeout: Annotated[float, Field(ge=1.0, le=120.0)] = 10.0
     cve_api: Literal["nvd", "vulners", "circl", "all"] = "all"
+    cve_sources: list[Literal["nvd", "vulners", "circl"]] = Field(
+        default_factory=list,
+        description="Explicit CVE sources. If empty, cve_api is used",
+    )
+    cve_limit: Annotated[int, Field(ge=1, le=1000)] = 100
+    cve_severity: Literal["critical", "high", "medium", "low", "info"] | None = None
+    request_headers: dict[str, str] = Field(
+        default_factory=dict,
+        description="Custom HTTP headers for analysis requests",
+    )
+    cookies: dict[str, str] = Field(default_factory=dict)
+    proxy: str | None = None
+    user_agent: str | None = None
+    check_robots: bool = False
+    enrich_exploits: bool = False
     full_report: bool = Field(
         default=True,
         description="Include scrape results in report",
     )
+
+    @field_validator("cve_sources", mode="before")
+    @classmethod
+    def parse_cve_sources(
+        cls,
+        value: list[str] | str | None,
+    ) -> list[str]:
+        """Allow CVE sources as list or comma-separated string."""
+        if value is None:
+            return []
+        if isinstance(value, str):
+            return [item.strip() for item in value.split(",") if item.strip()]
+        return value
 
 
 # =============================================================================
@@ -94,11 +180,42 @@ class AttackRequest(BaseModel):
     """Request payload for attack simulation endpoint."""
 
     url: HttpUrl
-    xss: bool = Field(default=True, description="Test for XSS vulnerabilities")
-    sqli: bool = Field(default=True, description="Test for SQL injection")
-    traversal: bool = Field(default=True, description="Test for path traversal")
-    enumeration: bool = Field(default=True, description="Directory enumeration")
-    max_payloads: Annotated[int, Field(ge=1, le=1000)] = 50
+    xss: bool | None = Field(
+        default=None,
+        description="Test for XSS vulnerabilities (None uses config default)",
+    )
+    sqli: bool | None = Field(
+        default=None,
+        description="Test for SQL injection (None uses config default)",
+    )
+    traversal: bool | None = Field(
+        default=None,
+        description="Test for path traversal (None uses config default)",
+    )
+    enumeration: bool | None = Field(
+        default=None,
+        description="Directory enumeration (None uses config default)",
+    )
+    all_attacks: bool = Field(
+        default=False,
+        description="Enable all attack types",
+    )
+    intensity: Literal["low", "medium", "high"] = "medium"
+    max_payloads: Annotated[int | None, Field(ge=1, le=1000)] = None
+    payloads_file: str | None = Field(
+        default=None,
+        description="Path to custom payloads file",
+    )
+    wordlist: str | None = Field(
+        default=None,
+        description="Custom wordlist path for enumeration",
+    )
+    timeout: Annotated[float, Field(ge=1.0, le=300.0)] = 10.0
+    headers: dict[str, str] = Field(default_factory=dict)
+    cookies: dict[str, str] = Field(default_factory=dict)
+    proxy: str | None = None
+    user_agent: str | None = None
+    verbose: bool = False
     user_consent: bool = Field(
         default=False,
         description="User confirms authorization to test this target",
@@ -114,6 +231,25 @@ class AttackRequest(BaseModel):
                 "Only test systems you own or have explicit permission to test."
             )
         return v
+
+    @field_validator("headers", "cookies", mode="before")
+    @classmethod
+    def parse_key_value_map(
+        cls,
+        value: dict[str, str] | str | None,
+    ) -> dict[str, str]:
+        """Allow maps as dict or JSON object string."""
+        if value is None:
+            return {}
+        if isinstance(value, str):
+            try:
+                loaded = json.loads(value)
+                if isinstance(loaded, dict):
+                    return {str(k): str(v) for k, v in loaded.items()}
+            except json.JSONDecodeError:
+                return {}
+            return {}
+        return value
 
 
 # =============================================================================
@@ -138,7 +274,11 @@ class ExportRequest(BaseModel):
 class ConfigUpdateRequest(BaseModel):
     """Request to update a configuration value."""
 
-    path: str = Field(..., description="Configuration key (dot-notation)")
+    path: str = Field(
+        ...,
+        min_length=1,
+        description="Configuration key (dot-notation)",
+    )
     value: Any = Field(..., description="New value (str, int, float, bool, list, dict)")
     save: bool = Field(
         False,
@@ -149,7 +289,7 @@ class ConfigUpdateRequest(BaseModel):
 class ConfigResetRequest(BaseModel):
     """Request to reset configuration."""
 
-    path: str | None = Field(
+    path: Annotated[str | None, Field(min_length=1)] = Field(
         None,
         description="Specific key to reset, or None to reset all",
     )
@@ -162,7 +302,7 @@ class ConfigResetRequest(BaseModel):
 class ConfigExportRequest(BaseModel):
     """Request to export configuration."""
 
-    path: str = Field(..., description="Output file path")
+    path: str = Field(..., min_length=1, description="Output file path")
     format: str = Field(
         "yaml",
         description="Export format (yaml or json)",
@@ -172,13 +312,13 @@ class ConfigExportRequest(BaseModel):
 class ConfigLoadRequest(BaseModel):
     """Request to load configuration from file."""
 
-    path: str = Field(..., description="Input file path")
+    path: str = Field(..., min_length=1, description="Input file path")
 
 
 class ConfigSaveRequest(BaseModel):
     """Request to save configuration to file."""
 
-    path: str | None = Field(
+    path: Annotated[str | None, Field(min_length=1)] = Field(
         None,
         description="Output file path (uses default if not provided)",
     )

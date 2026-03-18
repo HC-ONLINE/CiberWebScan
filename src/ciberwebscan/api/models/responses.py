@@ -12,15 +12,7 @@ from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel, Field
 
-from ciberwebscan.export.models import (
-    AnalysisReport,
-    AttackResult,
-    CVEResult,
-    FingerprintResult,
-    HeadersResult,
-    ScrapeResult,
-    SSLResult,
-)
+from ciberwebscan.export.models import ScrapeResult
 
 T = TypeVar("T")
 
@@ -140,17 +132,6 @@ class JobCreatedResponse(BaseModel):
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
-# =============================================================================
-# Scrape Responses
-# =============================================================================
-
-
-class ScrapeResponse(APIResponse[ScrapeResult]):
-    """Response for scrape endpoint."""
-
-    elapsed_ms: float = 0.0
-
-
 class ScrapeBatchResponse(BaseModel):
     """Response for batch scrape endpoint."""
 
@@ -178,55 +159,6 @@ class ScrapeBatchResultResponse(BaseModel):
 
 
 # =============================================================================
-# Analysis Responses
-# =============================================================================
-
-
-class AnalyzeResponse(APIResponse[AnalysisReport]):
-    """Response for analysis endpoint."""
-
-    pass
-
-
-class SSLAnalysisResponse(APIResponse[SSLResult]):
-    """Response for SSL analysis endpoint."""
-
-    pass
-
-
-class FingerprintResponse(APIResponse[FingerprintResult]):
-    """Response for fingerprint endpoint."""
-
-    pass
-
-
-class HeadersAnalysisResponse(APIResponse[HeadersResult]):
-    """Response for headers analysis endpoint."""
-
-    pass
-
-
-class CVESearchResponse(PaginatedResponse[CVEResult]):
-    """Response for CVE search endpoint."""
-
-    pass
-
-
-# =============================================================================
-# Attack Responses
-# =============================================================================
-
-
-class AttackResponse(APIResponse[AttackResult]):
-    """Response for attack simulation endpoint."""
-
-    warnings: list[str] = Field(
-        default_factory=list,
-        description="Legal/ethical warnings for user",
-    )
-
-
-# =============================================================================
 # Health/Status Responses
 # =============================================================================
 
@@ -236,7 +168,8 @@ class HealthCheckResponse(BaseModel):
 
     status: str = "healthy"
     version: str
-    uptime_seconds: float
+    message: str = ""
+    uptime_seconds: float = 0.0
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
