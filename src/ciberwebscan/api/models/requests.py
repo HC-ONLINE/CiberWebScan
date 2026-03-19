@@ -36,6 +36,10 @@ class ScrapeRequest(BaseModel):
         default_factory=list,
         description="Attributes to extract from matched elements",
     )
+    schema: dict[str, Any] | None = Field(
+        default=None,
+        description="Structured extraction schema",
+    )
     pagination_selector: str | None = Field(
         default=None,
         description="Selector for pagination links",
@@ -43,15 +47,6 @@ class ScrapeRequest(BaseModel):
     pagination_limit: Annotated[int, Field(ge=1, le=1000)] = Field(
         default=1,
         description="Maximum number of pages to traverse",
-    )
-    extract_links: bool = True
-    extract_images: bool = True
-    extract_forms: bool = True
-    extract_scripts: bool = True
-    include_raw_html: bool = False
-    extract_schema: dict[str, Any] | None = Field(
-        default=None,
-        description="Structured extraction schema",
     )
     timeout: Annotated[float, Field(ge=1.0, le=120.0)] = 30.0
     headers: dict[str, str] = Field(
@@ -74,6 +69,14 @@ class ScrapeRequest(BaseModel):
         default=True,
         description="Respect robots.txt when scraping",
     )
+    export: str | None = Field(
+        default=None,
+        description="Optional output file path for exported results",
+    )
+    export_format: Literal["json", "jsonl", "csv"] = Field(
+        default="json",
+        description="Export format when export path is provided",
+    )
 
     @field_validator("attributes", mode="before")
     @classmethod
@@ -91,14 +94,20 @@ class ScrapeBatchRequest(BaseModel):
 
     urls: list[HttpUrl] = Field(..., min_length=1, max_length=100)
     dynamic: bool = False
-    concurrency: Annotated[int, Field(ge=1, le=10)] = 5
     selector: str | None = None
     timeout: Annotated[float, Field(ge=1.0, le=120.0)] = 30.0
-    include_raw_html: bool = False
     headers: dict[str, str] = Field(default_factory=dict)
     cookies: dict[str, str] = Field(default_factory=dict)
     proxy: str | None = None
     user_agent: str | None = None
+    export: str | None = Field(
+        default=None,
+        description="Optional output file path for exported batch results",
+    )
+    export_format: Literal["json", "jsonl", "csv"] = Field(
+        default="jsonl",
+        description="Export format when export path is provided",
+    )
 
     @field_validator("urls")
     @classmethod
@@ -130,20 +139,23 @@ class AnalyzeRequest(BaseModel):
         description="Analyze security headers",
     )
     cve: bool = Field(default=True, description="Lookup CVEs for detected technologies")
-    deep: bool = Field(
-        default=False,
-        description="Enable deeper technology fingerprinting",
+    ssl_verify: bool = Field(
+        default=True,
+        description="Verify SSL certificates when fetching target page",
     )
     timeout: Annotated[float, Field(ge=1.0, le=300.0)] = 30.0
     ssl_timeout: Annotated[float, Field(ge=1.0, le=120.0)] = 10.0
-    cve_api: Literal["nvd", "vulners", "circl", "all"] = "all"
+    deep_scan: bool = Field(
+        default=False,
+        description="Enable deeper technology fingerprinting",
+    )
     cve_sources: list[Literal["nvd", "vulners", "circl"]] = Field(
         default_factory=list,
-        description="Explicit CVE sources. If empty, cve_api is used",
+        description="Explicit CVE sources. If empty, config value is used",
     )
     cve_limit: Annotated[int, Field(ge=1, le=1000)] = 100
     cve_severity: Literal["critical", "high", "medium", "low", "info"] | None = None
-    request_headers: dict[str, str] = Field(
+    headers: dict[str, str] = Field(
         default_factory=dict,
         description="Custom HTTP headers for analysis requests",
     )
@@ -152,10 +164,6 @@ class AnalyzeRequest(BaseModel):
     user_agent: str | None = None
     check_robots: bool = False
     enrich_exploits: bool = False
-    full_report: bool = Field(
-        default=True,
-        description="Include scrape results in report",
-    )
 
     @field_validator("cve_sources", mode="before")
     @classmethod
@@ -202,15 +210,33 @@ class AttackRequest(BaseModel):
     )
     intensity: Literal["low", "medium", "high"] = "medium"
     max_payloads: Annotated[int | None, Field(ge=1, le=1000)] = None
-    payloads_file: str | None = Field(
+    custom_payloads_file: str | None = Field(
         default=None,
         description="Path to custom payloads file",
     )
-    wordlist: str | None = Field(
+    custom_wordlist: str | None = Field(
         default=None,
         description="Custom wordlist path for enumeration",
     )
     timeout: Annotated[float, Field(ge=1.0, le=300.0)] = 10.0
+    delay_between_requests: float = 0.1
+    concurrent_requests: Annotated[int, Field(ge=1, le=10)] = 1
+    scope_urls: list[str] = Field(
+        default_factory=list,
+        description="Optional list of URLs to scope the attack to",
+    )
+    skip_dangerous_payloads: bool = Field(
+        default=True,
+        description="Skip payloads marked as dangerous",
+    )
+    export: str | None = Field(
+        default=None,
+        description="Optional output file path for exported results",
+    )
+    export_format: Literal["json", "jsonl", "csv"] = Field(
+        default="json",
+        description="Export format when export path is provided",
+    )
     headers: dict[str, str] = Field(default_factory=dict)
     cookies: dict[str, str] = Field(default_factory=dict)
     proxy: str | None = None
