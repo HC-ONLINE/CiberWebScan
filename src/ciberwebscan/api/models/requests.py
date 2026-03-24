@@ -36,7 +36,7 @@ class ScrapeRequest(BaseModel):
         default_factory=list,
         description="Attributes to extract from matched elements",
     )
-    schema: dict[str, Any] | None = Field(
+    extraction_schema: dict[str, Any] | None = Field(
         default=None,
         description="Structured extraction schema",
     )
