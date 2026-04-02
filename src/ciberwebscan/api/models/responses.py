@@ -29,6 +29,8 @@ class APIResponse(BaseModel, Generic[T]):
     data: T | None = None
     error: str | None = None
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    download_token: str | None = None
+    download_url: str | None = None
 
 
 class ErrorResponse(BaseModel):
@@ -238,6 +240,33 @@ class ExportResponse(BaseModel):
     file_size_bytes: int
     expires_at: datetime
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+# =============================================================================
+# Download Responses
+# =============================================================================
+
+
+class DownloadTokenResponse(BaseModel):
+    """Response when a download token is generated."""
+
+    token: str = Field(..., description="Unique download token")
+    expires_at: datetime = Field(..., description="Token expiration timestamp")
+    download_url: str = Field(..., description="URL to download the file")
+
+
+class DownloadInfo(BaseModel):
+    """Metadata about a download token and associated file."""
+
+    token: str
+    user_id: str
+    file_size_bytes: int
+    created_at: datetime
+    expires_at: datetime
+    attempts_remaining: int
+    file_format: str = Field(
+        default="json", description="Export format (json/jsonl/csv)"
+    )
 
 
 # =============================================================================
