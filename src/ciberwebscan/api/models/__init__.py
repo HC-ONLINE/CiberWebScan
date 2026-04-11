@@ -12,6 +12,7 @@ from ciberwebscan.api.models.requests import (
     ConfigResetRequest,
     ConfigSaveRequest,
     ConfigUpdateRequest,
+    DownloadRequest,
     ExportRequest,
     FilterParams,
     PaginationParams,
@@ -24,6 +25,8 @@ from ciberwebscan.api.models.responses import (
     ConfigKeysResponse,
     ConfigValueResponse,
     DetailedHealthResponse,
+    DownloadInfo,
+    DownloadTokenResponse,
     ErrorResponse,
     ExportResponse,
     HealthCheckResponse,
@@ -50,6 +53,7 @@ __all__ = [
     "ConfigExportRequest",
     "ConfigLoadRequest",
     "ConfigSaveRequest",
+    "DownloadRequest",
     "PaginationParams",
     "FilterParams",
     # Response models
@@ -70,4 +74,6 @@ __all__ = [
     "ConfigValueResponse",
     "ConfigKeysResponse",
     "ConfigFileResponse",
+    "DownloadTokenResponse",
+    "DownloadInfo",
 ]

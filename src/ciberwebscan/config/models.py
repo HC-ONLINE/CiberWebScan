@@ -284,6 +284,23 @@ class ExportConfig(BaseModel):
 
 
 # =============================================================================
+# Download Configuration
+# =============================================================================
+
+
+class DownloadConfig(BaseModel):
+    """Download/streaming result settings."""
+
+    enabled: bool = True
+    retention_seconds: Annotated[int, Field(ge=60, le=86400)] = 1800
+    max_file_size_mb: Annotated[int, Field(ge=1, le=10240)] = 500
+    max_retries: Annotated[int, Field(ge=1, le=10)] = 3
+    cleanup_interval_seconds: Annotated[int, Field(ge=60, le=3600)] = 300
+    require_same_user: bool = True
+    stream_chunk_size: Annotated[int, Field(ge=1024, le=10 * 1024 * 1024)] = 1024 * 1024
+
+
+# =============================================================================
 # API Configuration
 # =============================================================================
 
@@ -414,6 +431,7 @@ class AppConfig(BaseModel):
     analysis: AnalysisConfig = Field(default_factory=lambda: AnalysisConfig())
     attack: AttackConfig = Field(default_factory=lambda: AttackConfig())
     export: ExportConfig = Field(default_factory=lambda: ExportConfig())
+    download: DownloadConfig = Field(default_factory=lambda: DownloadConfig())
     api: APIConfig = Field(default_factory=lambda: APIConfig())
     logging: LoggingConfig = Field(default_factory=lambda: LoggingConfig())
     cache: CacheConfig = Field(default_factory=lambda: CacheConfig())

@@ -351,6 +351,22 @@ class ConfigSaveRequest(BaseModel):
 
 
 # =============================================================================
+# Download Requests
+# =============================================================================
+
+
+class DownloadRequest(BaseModel):
+    """Request to download a file using a token."""
+
+    token: str = Field(
+        ...,
+        min_length=36,
+        max_length=36,
+        description="Download token (UUID format)",
+    )
+
+
+# =============================================================================
 # Common Query Parameters (for use with FastAPI Depends)
 # =============================================================================
 
