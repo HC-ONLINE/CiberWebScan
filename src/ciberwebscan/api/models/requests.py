@@ -164,6 +164,14 @@ class AnalyzeRequest(BaseModel):
     user_agent: str | None = None
     check_robots: bool = False
     enrich_exploits: bool = False
+    export: str | None = Field(
+        default=None,
+        description="Optional output file path for exported results",
+    )
+    export_format: Literal["json", "jsonl", "csv"] = Field(
+        default="json",
+        description="Export format when export path is provided",
+    )
 
     @field_validator("cve_sources", mode="before")
     @classmethod
