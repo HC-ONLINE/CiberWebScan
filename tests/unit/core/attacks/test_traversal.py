@@ -246,7 +246,8 @@ class TestPathTraversalAttacker:
         assert traversal_attacker._is_file_parameter("path") is True
         assert traversal_attacker._is_file_parameter("template") is True
 
-    def test_basic_payloads_and_execution(
+    @pytest.mark.asyncio
+    async def test_basic_payloads_and_execution(
         self, traversal_attacker, attack_context, safe_response
     ):
         """Minimal checks for payload generation and execution flow."""
@@ -260,10 +261,5 @@ class TestPathTraversalAttacker:
         attack_context.http_client.post.return_value = safe_response
 
         # Run execute (async) to ensure integration path works
-        async def _run_execute():
-            return await traversal_attacker.execute(attack_context)
-
-        import asyncio
-
-        vulnerabilities = asyncio.get_event_loop().run_until_complete(_run_execute())
+        vulnerabilities = await traversal_attacker.execute(attack_context)
         assert isinstance(vulnerabilities, list)

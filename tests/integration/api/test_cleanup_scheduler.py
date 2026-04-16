@@ -9,7 +9,10 @@ from pathlib import Path
 
 import pytest
 
-from ciberwebscan.services.cleanup_scheduler import DownloadCleanupScheduler
+from ciberwebscan.services.cleanup_scheduler import (
+    DownloadCleanupScheduler,
+    get_scheduler,
+)
 from ciberwebscan.services.download_service import DownloadService
 
 # =============================================================================
@@ -39,7 +42,10 @@ def test_file() -> Path:
 class TestDownloadCleanupScheduler:
     """Tests for cleanup scheduler."""
 
-    def test_scheduler_starts_and_stops(self, scheduler: DownloadCleanupScheduler):
+    @pytest.mark.asyncio
+    async def test_scheduler_starts_and_stops(
+        self, scheduler: DownloadCleanupScheduler
+    ):
         """Scheduler starts and stops correctly."""
         scheduler.start()
         assert scheduler._running is True
@@ -49,9 +55,9 @@ class TestDownloadCleanupScheduler:
         assert scheduler._running is False
 
     def test_scheduler_singleton_pattern(self):
-        """Scheduler follows singleton pattern."""
-        sched1 = DownloadCleanupScheduler()
-        sched2 = DownloadCleanupScheduler()
+        """Scheduler follows singleton pattern via get_scheduler."""
+        sched1 = get_scheduler()
+        sched2 = get_scheduler()
 
         assert sched1 is sched2, "Should return same instance"
 
