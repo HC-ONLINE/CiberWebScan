@@ -21,8 +21,17 @@ from ciberwebscan.api.middleware import (
     add_request_logging_middleware,
 )
 from ciberwebscan.api.models.responses import ErrorResponse
-from ciberwebscan.api.routes import analyze, attack, auth, config, health, scrape
+from ciberwebscan.api.routes import (
+    analyze,
+    attack,
+    auth,
+    config,
+    download,
+    health,
+    scrape,
+)
 from ciberwebscan.config.loader import get_config
+from ciberwebscan.services.cleanup_scheduler import get_scheduler
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +42,20 @@ prefix = "/api"
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Handle application startup and shutdown."""
     logger.info("Starting CiberWebScan API")
+
+    # Start cleanup scheduler
+    app_config = get_config()
+    if app_config.download.enabled:
+        scheduler = get_scheduler()
+        scheduler.start()
+
     yield
+
+    # Stop cleanup scheduler
+    if app_config.download.enabled:
+        scheduler = get_scheduler()
+        scheduler.stop()
+
     logger.info("Shutting down CiberWebScan API")
 
 
@@ -105,6 +127,7 @@ def create_app() -> FastAPI:
     app.include_router(scrape.router, prefix=prefix, tags=["scraping"])
     app.include_router(analyze.router, prefix=prefix, tags=["analysis"])
     app.include_router(attack.router, prefix=prefix, tags=["attacks"])
+    app.include_router(download.router, prefix=prefix, tags=["download"])
 
     return app
 
