@@ -30,7 +30,13 @@ This guide covers the installation and setup of CiberWebScan.
    pip install -e .
    ```
 
-4. (Optional) Install development dependencies:
+4. (Optional) API Setup:
+
+   ```bash
+   pip install -e ".[api]"
+   ```
+
+5. (Optional) Install development dependencies:
 
    ```bash
    pip install -e ".[dev]"
