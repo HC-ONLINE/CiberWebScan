@@ -134,9 +134,9 @@ class TestScrapeBatchEndpoint:
         assert response.status_code == 200
         body = response.json()
         assert body["success"] is True
-        assert body["total_success"] == 2
-        assert body["total_failed"] == 1
-        assert body["failed_urls"][0]["url"] == "https://example.net/"
+        assert body["data"]["total_success"] == 2
+        assert body["data"]["total_failed"] == 1
+        assert body["data"]["failed_urls"][0]["url"] == "https://example.net/"
 
     def test_post_scrape_batch_service_failure_returns_500(self, client: TestClient):
         with patch("ciberwebscan.api.routes.scrape.ScrapeService") as mock_service_cls:

@@ -101,11 +101,11 @@ async def scrape_url(
         ) from e
 
 
-@router.post("/scrape/batch", response_model=ScrapeBatchResultResponse)
+@router.post("/scrape/batch", response_model=APIResponse[ScrapeBatchResultResponse])
 async def scrape_batch(
     request: ScrapeBatchRequest,
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],
-) -> ScrapeBatchResultResponse:
+) -> APIResponse[ScrapeBatchResultResponse]:
     """
     Scrape multiple URLs in batch.
     """
@@ -149,13 +149,36 @@ async def scrape_batch(
             len(failed_urls),
         )
 
-        return ScrapeBatchResultResponse(
+        # Create batch result data
+        batch_data = ScrapeBatchResultResponse(
             job_id=job_id,
             results=successful_results,
             failed_urls=failed_urls,
             total_success=len(successful_results),
             total_failed=len(failed_urls),
             elapsed_seconds=result.duration_seconds,
+        )
+
+        # Enrich response with download token if exported
+        download_service = DownloadService()
+        download_token = None
+        download_url = None
+
+        if result.export_path:
+            token_result = download_service.generate_download_token(
+                file_path=result.export_path,
+                user_id=user.identifier,
+                file_format=request.export_format,
+            )
+            if token_result.success and token_result.data:
+                download_token = token_result.data.token
+                download_url = token_result.data.download_url
+
+        return APIResponse[ScrapeBatchResultResponse](
+            success=True,
+            data=batch_data,
+            download_token=download_token,
+            download_url=download_url,
         )
 
     except ValidationError as e:
