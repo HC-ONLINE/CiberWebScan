@@ -147,7 +147,6 @@ class ScrapeBatchResponse(BaseModel):
 class ScrapeBatchResultResponse(BaseModel):
     """Result of completed batch scrape."""
 
-    success: bool = True
     job_id: str
     results: list[ScrapeResult]
     failed_urls: list[dict[str, str]] = Field(
