@@ -51,7 +51,7 @@ Includes safe, controlled penetration testing capabilities for XSS detection, SQ
 
 ### Professional Integration
 
-- **REST API (In Development)**: Planned full-featured API for seamless integration with existing security workflows and tools (currently not publicly available)
+- **REST API (Beta)**: A powerful REST interface for seamless integration with existing security workflows. Built with FastAPI, it includes interactive documentation and allows for remote orchestration of scans.
 - **Command Line Interface**: Powerful CLI with rich formatting and automation support for security professionals
 - **Flexible Export Options**: Generate comprehensive reports in JSON, CSV, and structured formats
 - **Configuration Management**: Centralized, persistent configuration system for enterprise deployment
@@ -82,12 +82,27 @@ Enhance your methodology with systematic reconnaissance tools that uncover hidde
 ### Installation
 
 ```bash
-# Install from source
+# 1. clone the repository and install the package
 git clone https://github.com/HC-ONLINE/CiberWebScan.git
 cd CiberWebScan
+
+# 2. create a virtual environment (optional but recommended)
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# 3. install the package and dependencies
+
+# CLI only
 pip install -e .
 
-# Verify installation
+# CLI + API
+pip install -e "[api]"
+
+# Full Developer Setup
+# if you are running the developer tests you will also want the dev dependencies, which include testing frameworks and tools
+pip install -e "[api,dev]"
+
+# verify that the tool is available
 ciberwebscan --help
 ```
 
@@ -123,20 +138,37 @@ ciberwebscan attack --url https://testsite.example.com --xss
 ciberwebscan attack --url https://testsite.example.com --enumeration
 ```
 
-### REST API Integration (In Development)
+### REST API Integration
 
-> **Note**: The REST API is currently under development and not publicly available. This section shows planned usage examples for future releases.
+> **API Preview**: The REST interface is functional but considered "unstable." Endpoint signatures and JSON schemas may change as we refine the 2.0.0 specification.
+
+To start the server:
+
+```bash
+ciberwebscan api run
+```
+
+### Interactive Documentation
+
+Once the server is running, you can explore and test all available endpoints through the built-in interactive UI:
+
+- **Swagger UI**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
+
+### Programmatic Access Example
+
+You can also integrate CiberWebScan into your own scripts using the requests library:
 
 ```python
 import requests
 
-# Security analysis via API (planned)
-response = requests.post("http://localhost:5000/api/analyze", json={
-    "url": "https://target.example.com",
-    "checks": ["fingerprint", "ssl", "headers", "cve"]
+# Security analysis via REST API
+response = requests.post("http://localhost:8000/api/analyze", json={
+    "url": "https://target.example.com"
 })
 
-analysis_results = response.json()
+results = response.json()
+# Returns: {"success": true, "data": {"technologies": [...], "vulnerabilities": [...]}, ...}
 ```
 
 ---
