@@ -12,12 +12,14 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import ValidationError
 
 from ciberwebscan.api.auth import AuthenticatedUser, get_current_user
+from ciberwebscan.api.helpers.download_helper import enrich_response_with_token
 from ciberwebscan.api.models.requests import ScrapeBatchRequest, ScrapeRequest
 from ciberwebscan.api.models.responses import (
     APIResponse,
     ScrapeBatchResultResponse,
 )
 from ciberwebscan.export.models import ScrapeResult
+from ciberwebscan.services.download_service import DownloadService
 from ciberwebscan.services.scrape_service import ScrapeOptions, ScrapeService
 
 logger = logging.getLogger(__name__)
@@ -71,7 +73,19 @@ async def scrape_url(
                 detail="Scraping returned no data",
             )
 
-        return APIResponse[ScrapeResult | list[dict[str, Any]]](data=result.data)
+        # Enrich response with download token
+        download_service = DownloadService()
+        data, download_token = enrich_response_with_token(
+            result, user.identifier, download_service
+        )
+        download_url = f"/api/v1/download/{download_token}" if download_token else None
+
+        return APIResponse[ScrapeResult | list[dict[str, Any]]](
+            success=True,
+            data=data,
+            download_token=download_token,
+            download_url=download_url,
+        )
 
     except ValidationError as e:
         logger.warning(f"Validation error in scrape request: {e}")

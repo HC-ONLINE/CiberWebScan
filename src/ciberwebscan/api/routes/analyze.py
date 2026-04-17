@@ -11,10 +11,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import ValidationError
 
 from ciberwebscan.api.auth import AuthenticatedUser, get_current_user
+from ciberwebscan.api.helpers.download_helper import enrich_response_with_token
 from ciberwebscan.api.models.requests import AnalyzeRequest
 from ciberwebscan.api.models.responses import APIResponse
 from ciberwebscan.export.models import AnalysisReport
 from ciberwebscan.services.analyze_service import AnalyzeOptions, AnalyzeService
+from ciberwebscan.services.download_service import DownloadService
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +54,8 @@ async def analyze_url(
             user_agent=request.user_agent,
             check_robots=request.check_robots,
             enrich_exploits=request.enrich_exploits,
+            export=request.export,
+            export_format=request.export_format,
         )
 
         # Execute analysis
@@ -64,7 +68,19 @@ async def analyze_url(
                 detail=result.error or "Analysis failed",
             )
 
-        return APIResponse[AnalysisReport](data=result.data)
+        # Enrich response with download token
+        download_service = DownloadService()
+        data, download_token = enrich_response_with_token(
+            result, user.identifier, download_service
+        )
+        download_url = f"/api/v1/download/{download_token}" if download_token else None
+
+        return APIResponse[AnalysisReport](
+            success=True,
+            data=data,
+            download_token=download_token,
+            download_url=download_url,
+        )
 
     except ValidationError as e:
         logger.warning(f"Validation error in analyze request: {e}")
