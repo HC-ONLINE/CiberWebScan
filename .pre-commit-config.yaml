@@ -40,7 +40,6 @@ repos:
           - pyright==1.1.405
           - pydantic
           - python-dotenv
-          - flask
           - typer
           - rich
           - httpx
@@ -48,4 +47,8 @@ repos:
           - beautifulsoup4
           - pyyaml
           - cryptography
+          - fastapi
+          - uvicorn
+          - python-multipart
+          - starlette
           - orjson
