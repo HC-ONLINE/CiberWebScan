@@ -224,6 +224,18 @@ ciberwebscan --help
 
 ---
 
+## Community & Support
+
+Contributions are what make the open-source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
+
+- **Found a bug?** Open an [Issue](https://github.com/HC-ONLINE/CiberWebScan/issues) describing the problem.
+- **Want a new feature?** Feel free to submit a [Pull Request](https://github.com/HC-ONLINE/CiberWebScan/pulls) with your proposal.
+- **Enjoying the tool?** Give us a ⭐ on GitHub to show your support!
+
+## Before contributing, please read our [Contributing Guide](docs/CONTRIBUTING.md) to maintain code quality and consistency.
+
+---
+
 ## Documentation
 
 - **[Installation Guide](docs/INSTALLATION.md)** - Complete setup and installation instructions
