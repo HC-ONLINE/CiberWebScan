@@ -78,6 +78,6 @@ class TestDownloadEndpoint:
         # Try with valid API key - should not be auth error
         response = client.get(f"/api/download/{token}", headers={"X-API-Key": api_key})
         # Should be 200 (success) or 400/404 (token error), not 401 (auth error)
-        assert (
-            response.status_code != 401
-        ), f"Auth should work with valid API key, got {response.status_code}"
+        assert response.status_code != 401, (
+            f"Auth should work with valid API key, got {response.status_code}"
+        )
