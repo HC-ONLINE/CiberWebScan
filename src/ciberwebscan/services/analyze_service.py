@@ -67,7 +67,7 @@ class AnalyzeOptions:
     deep_scan: bool = False
 
     # CVE options
-    cve_sources: list[str] = field(default_factory=lambda: ["nvd"])
+    cve_sources: Sequence[str] = field(default_factory=lambda: ["nvd"])
     cve_limit: int = 100
     cve_severity: str | None = None  # Filter by severity
 

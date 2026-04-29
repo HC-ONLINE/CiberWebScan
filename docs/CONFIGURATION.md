@@ -9,11 +9,14 @@ CiberWebScan uses a flexible configuration system that allows customization of v
 2. [Configuration File](#configuration-file)
 3. [Configuration Sections](#configuration-sections)
    - [HTTP Client](#http-client)
+   - [User Agent](#user-agent)
    - [Scraping](#scraping)
    - [Analysis](#analysis)
    - [Attack](#attack)
    - [Export](#export)
    - [Cache](#cache)
+   - [API](#api)
+   - [Logging](#logging)
 4. [CLI Commands](#cli-configuration-commands)
 5. [Validation & Troubleshooting](#validation)
 6. [Development Roadmap](#development-notes)
@@ -443,6 +446,40 @@ Configure caching behavior.
 | `cache.directory`   | `.cache` | Default cache directory    |
 | `cache.ttl`         |   `3600` | Cache TTL (seconds)        |
 | `cache.max_size_mb` |    `100` | Max cache size (MB)        |
+
+### API
+
+Configure the FastAPI server and authentication settings.
+
+```json
+{
+  "api": {
+    "host": "0.0.0.0",
+    "port": 8000,
+    "auth": {
+      "api_keys": ["your-api-key-1", "your-api-key-2"]
+    },
+    "rate_limit": {
+      "enabled": true,
+      "requests_per_minute": 60
+    },
+    "cors_origins": ["*"]
+  }
+}
+```
+
+#### Default values (quick reference)
+
+| Key                                  |   Default | Description                               |
+| ------------------------------------ | --------: | ----------------------------------------- |
+| `api.host`                           | `0.0.0.0` | API server bind address                   |
+| `api.port`                           |    `8000` | API server port (1-65535)                 |
+| `api.auth.api_keys`                  |      `[]` | List of valid API keys for authentication |
+| `api.rate_limit.enabled`             |    `true` | Rate limiting enabled by default          |
+| `api.rate_limit.requests_per_minute` |      `60` | Max requests per minute (1-10000)         |
+| `api.cors_origins`                   |   `["*"]` | CORS allowed origins                      |
+
+> Note: Use specific domains in cors_origins for production environments to improve security.
 
 ### Logging
 

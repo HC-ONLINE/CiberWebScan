@@ -284,6 +284,74 @@ class ExportConfig(BaseModel):
 
 
 # =============================================================================
+# Download Configuration
+# =============================================================================
+
+
+class DownloadConfig(BaseModel):
+    """Download/streaming result settings."""
+
+    enabled: bool = True
+    retention_seconds: Annotated[int, Field(ge=60, le=86400)] = 1800
+    max_file_size_mb: Annotated[int, Field(ge=1, le=10240)] = 500
+    max_retries: Annotated[int, Field(ge=1, le=10)] = 3
+    cleanup_interval_seconds: Annotated[int, Field(ge=60, le=3600)] = 300
+    require_same_user: bool = True
+    stream_chunk_size: Annotated[int, Field(ge=1024, le=10 * 1024 * 1024)] = 1024 * 1024
+
+
+# =============================================================================
+# API Configuration
+# =============================================================================
+
+
+class APIAuthConfig(BaseModel):
+    """API authentication settings."""
+
+    # API Key settings
+    api_keys: list[str] = Field(
+        default=[],
+        description="List of valid API keys (can be comma-separated string)",
+    )
+
+    @field_validator("api_keys", mode="before")
+    @classmethod
+    def parse_api_keys(cls, v: str | list[str]) -> list[str]:
+        """Parse API keys from comma-separated string or list."""
+        if isinstance(v, str):
+            return [k.strip() for k in v.split(",") if k.strip()]
+        return [k for k in v if k]
+
+
+class APIRateLimitConfig(BaseModel):
+    """API rate limiting settings."""
+
+    enabled: bool = True
+    requests_per_minute: Annotated[int, Field(ge=1, le=10000)] = 60
+
+
+class APIConfig(BaseModel):
+    """API server configuration."""
+
+    host: str = "0.0.0.0"
+    port: Annotated[int, Field(ge=1, le=65535)] = 8000
+    auth: APIAuthConfig = Field(default_factory=lambda: APIAuthConfig())
+    rate_limit: APIRateLimitConfig = Field(default_factory=lambda: APIRateLimitConfig())
+    cors_origins: list[str] = Field(
+        default=["*"],
+        description="Allowed CORS origins",
+    )
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, v: str | list[str]) -> list[str]:
+        """Parse CORS origins from comma-separated string or list."""
+        if isinstance(v, str):
+            return [o.strip() for o in v.split(",") if o.strip()]
+        return v
+
+
+# =============================================================================
 # Logging Configuration
 # =============================================================================
 
@@ -344,6 +412,16 @@ class AppConfig(BaseModel):
         export:
           format: jsonl
           streaming: true
+        api:
+          host: 0.0.0.0
+          port: 8000
+            auth:
+                api_keys: "key1,key2,key3"
+        logging:
+          level: INFO
+          file: app.log
+        cache:
+          enabled: true
         ```
     """
 
@@ -353,6 +431,8 @@ class AppConfig(BaseModel):
     analysis: AnalysisConfig = Field(default_factory=lambda: AnalysisConfig())
     attack: AttackConfig = Field(default_factory=lambda: AttackConfig())
     export: ExportConfig = Field(default_factory=lambda: ExportConfig())
+    download: DownloadConfig = Field(default_factory=lambda: DownloadConfig())
+    api: APIConfig = Field(default_factory=lambda: APIConfig())
     logging: LoggingConfig = Field(default_factory=lambda: LoggingConfig())
     cache: CacheConfig = Field(default_factory=lambda: CacheConfig())
 

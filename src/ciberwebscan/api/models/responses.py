@@ -7,20 +7,12 @@ They extend the export models with API-specific fields.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel, Field
 
-from ciberwebscan.export.models import (
-    AnalysisReport,
-    AttackResult,
-    CVEResult,
-    FingerprintResult,
-    HeadersResult,
-    ScrapeResult,
-    SSLResult,
-)
+from ciberwebscan.export.models import ScrapeResult
 
 T = TypeVar("T")
 
@@ -36,7 +28,9 @@ class APIResponse(BaseModel, Generic[T]):
     success: bool = True
     data: T | None = None
     error: str | None = None
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    download_token: str | None = None
+    download_url: str | None = None
 
 
 class ErrorResponse(BaseModel):
@@ -46,7 +40,7 @@ class ErrorResponse(BaseModel):
     error: str
     error_code: str | None = None
     details: dict[str, Any] | None = None
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class ValidationErrorDetail(BaseModel):
@@ -64,7 +58,7 @@ class ValidationErrorResponse(BaseModel):
     error: str = "Validation error"
     error_code: str = "VALIDATION_ERROR"
     details: list[ValidationErrorDetail]
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # =============================================================================
@@ -83,7 +77,7 @@ class PaginatedResponse(BaseModel, Generic[T]):
     total_pages: int
     has_next: bool
     has_prev: bool
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     @classmethod
     def create(
@@ -137,18 +131,7 @@ class JobCreatedResponse(BaseModel):
     status: str = "pending"
     status_url: str
     message: str = "Job created successfully"
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
-
-
-# =============================================================================
-# Scrape Responses
-# =============================================================================
-
-
-class ScrapeResponse(APIResponse[ScrapeResult]):
-    """Response for scrape endpoint."""
-
-    elapsed_ms: float = 0.0
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class ScrapeBatchResponse(BaseModel):
@@ -158,13 +141,12 @@ class ScrapeBatchResponse(BaseModel):
     job_id: str
     total_urls: int
     status_url: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class ScrapeBatchResultResponse(BaseModel):
     """Result of completed batch scrape."""
 
-    success: bool = True
     job_id: str
     results: list[ScrapeResult]
     failed_urls: list[dict[str, str]] = Field(
@@ -174,56 +156,7 @@ class ScrapeBatchResultResponse(BaseModel):
     total_success: int
     total_failed: int
     elapsed_seconds: float
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
-
-
-# =============================================================================
-# Analysis Responses
-# =============================================================================
-
-
-class AnalyzeResponse(APIResponse[AnalysisReport]):
-    """Response for analysis endpoint."""
-
-    pass
-
-
-class SSLAnalysisResponse(APIResponse[SSLResult]):
-    """Response for SSL analysis endpoint."""
-
-    pass
-
-
-class FingerprintResponse(APIResponse[FingerprintResult]):
-    """Response for fingerprint endpoint."""
-
-    pass
-
-
-class HeadersAnalysisResponse(APIResponse[HeadersResult]):
-    """Response for headers analysis endpoint."""
-
-    pass
-
-
-class CVESearchResponse(PaginatedResponse[CVEResult]):
-    """Response for CVE search endpoint."""
-
-    pass
-
-
-# =============================================================================
-# Attack Responses
-# =============================================================================
-
-
-class AttackResponse(APIResponse[AttackResult]):
-    """Response for attack simulation endpoint."""
-
-    warnings: list[str] = Field(
-        default_factory=list,
-        description="Legal/ethical warnings for user",
-    )
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # =============================================================================
@@ -236,8 +169,9 @@ class HealthCheckResponse(BaseModel):
 
     status: str = "healthy"
     version: str
-    uptime_seconds: float
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    message: str = ""
+    uptime_seconds: float = 0.0
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class ServiceStatus(BaseModel):
@@ -256,7 +190,7 @@ class DetailedHealthResponse(BaseModel):
     version: str
     uptime_seconds: float
     services: list[ServiceStatus] = Field(default_factory=list)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # =============================================================================
@@ -288,7 +222,7 @@ class ScanSummaryResponse(BaseModel):
         default_factory=list,
         description="Top 5 most critical issues found",
     )
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # =============================================================================
@@ -304,7 +238,34 @@ class ExportResponse(BaseModel):
     format: str
     file_size_bytes: int
     expires_at: datetime
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+# =============================================================================
+# Download Responses
+# =============================================================================
+
+
+class DownloadTokenResponse(BaseModel):
+    """Response when a download token is generated."""
+
+    token: str = Field(..., description="Unique download token")
+    expires_at: datetime = Field(..., description="Token expiration timestamp")
+    download_url: str = Field(..., description="URL to download the file")
+
+
+class DownloadInfo(BaseModel):
+    """Metadata about a download token and associated file."""
+
+    token: str
+    user_id: str
+    file_size_bytes: int
+    created_at: datetime
+    expires_at: datetime
+    attempts_remaining: int
+    file_format: str = Field(
+        default="json", description="Export format (json/jsonl/csv)"
+    )
 
 
 # =============================================================================
@@ -312,20 +273,26 @@ class ExportResponse(BaseModel):
 # =============================================================================
 
 
-class ConfigResponse(BaseModel):
-    """Response for config endpoints."""
+class ConfigValueResponse(BaseModel):
+    """Response containing a configuration value and metadata."""
 
-    success: bool = True
-    config: dict[str, Any]
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    key: str
+    value: Any
+    default: Any
+    source: str  # 'file', 'env', 'default', 'runtime'
+    description: str = ""
 
 
-class ConfigUpdateResponse(BaseModel):
-    """Response for config update endpoint."""
+class ConfigKeysResponse(BaseModel):
+    """Response containing a list of configuration keys."""
 
-    success: bool = True
-    path: str
-    old_value: Any
-    new_value: Any
-    message: str = "Configuration updated successfully"
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    keys: list[str]
+    count: int
+
+
+class ConfigFileResponse(BaseModel):
+    """Response containing file operation result."""
+
+    file_path: str
+    operation: str  # 'export', 'load', 'save'
+    format: str | None = None

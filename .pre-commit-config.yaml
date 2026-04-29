@@ -1,7 +1,7 @@
 fail_fast: true
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.4
+    rev: v0.15.12
     hooks:
       - id: ruff
         args: [--fix]
@@ -40,7 +40,6 @@ repos:
           - pyright==1.1.405
           - pydantic
           - python-dotenv
-          - flask
           - typer
           - rich
           - httpx
@@ -48,4 +47,8 @@ repos:
           - beautifulsoup4
           - pyyaml
           - cryptography
+          - fastapi
+          - uvicorn
+          - python-multipart
+          - starlette
           - orjson
