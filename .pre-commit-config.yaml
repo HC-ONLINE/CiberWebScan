@@ -33,22 +33,6 @@ repos:
       - id: pyright
         name: pyright
         entry: pyright
-        language: python
+        language: system
         types: [python]
         pass_filenames: false
-        additional_dependencies:
-          - pyright==1.1.405
-          - pydantic
-          - python-dotenv
-          - typer
-          - rich
-          - httpx
-          - playwright
-          - beautifulsoup4
-          - pyyaml
-          - cryptography
-          - fastapi
-          - uvicorn
-          - python-multipart
-          - starlette
-          - orjson
