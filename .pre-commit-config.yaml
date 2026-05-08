@@ -14,6 +14,9 @@ repos:
       - id: end-of-file-fixer
       - id: check-added-large-files
         args: ["--maxkb=500"]
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
 
   - repo: https://github.com/pre-commit/mirrors-prettier
     rev: v3.1.0
@@ -29,26 +32,11 @@ repos:
         language: system
         types: [python]
         pass_filenames: false
+        stages: [pre-push]
 
       - id: pyright
         name: pyright
         entry: pyright
-        language: python
+        language: system
         types: [python]
         pass_filenames: false
-        additional_dependencies:
-          - pyright==1.1.405
-          - pydantic
-          - python-dotenv
-          - typer
-          - rich
-          - httpx
-          - playwright
-          - beautifulsoup4
-          - pyyaml
-          - cryptography
-          - fastapi
-          - uvicorn
-          - python-multipart
-          - starlette
-          - orjson
