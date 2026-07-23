@@ -177,9 +177,9 @@ You can also integrate CiberWebScan into your own scripts using the requests lib
 import requests
 
 # Security analysis via REST API
-response = requests.post("http://localhost:8000/api/analyze", json={
-    "url": "https://target.example.com"
-})
+response = requests.post(
+    "http://localhost:8000/api/analyze", json={"url": "https://target.example.com"}
+)
 
 results = response.json()
 # Returns: {"success": true, "data": {"technologies": [...], "vulnerabilities": [...]}, ...}
