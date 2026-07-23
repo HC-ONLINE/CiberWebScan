@@ -375,6 +375,51 @@ class DownloadRequest(BaseModel):
 
 
 # =============================================================================
+# Quick Scan Requests
+# =============================================================================
+
+
+class QuickScanRequest(BaseModel):
+    """Request payload for quick scan endpoint."""
+
+    url: HttpUrl
+    preset: Literal["low", "medium", "high"] = Field(
+        default="low",
+        description="Scan preset: low (analysis only), medium (+ moderate attacks), high (full scan)",
+    )
+    timeout: Annotated[float, Field(ge=1.0, le=300.0)] | None = Field(
+        None,
+        description="Request timeout in seconds (overrides preset default)",
+    )
+    proxy: str | None = Field(None, description="HTTP/HTTPS proxy URL")
+    user_agent: str | None = Field(None, description="Custom User-Agent string")
+    headers: dict[str, str] = Field(
+        default_factory=dict,
+        description="Custom headers to send with requests",
+    )
+    cookies: dict[str, str] = Field(
+        default_factory=dict,
+        description="Cookies to include in requests",
+    )
+    user_consent: bool = Field(
+        default=False,
+        description="User confirms authorization to test this target (REQUIRED for medium/high)",
+    )
+    selector: str | None = Field(
+        None,
+        description="CSS selector to extract (enables scraping)",
+    )
+    dynamic: bool = Field(
+        default=False,
+        description="Use browser-based scraping (Playwright) - preset high only",
+    )
+    output_format: Literal["json", "csv", "jsonl"] = Field(
+        default="json",
+        description="Export format for results",
+    )
+
+
+# =============================================================================
 # Common Query Parameters (for use with FastAPI Depends)
 # =============================================================================
 

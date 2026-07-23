@@ -16,6 +16,7 @@ from ciberwebscan.api.models.requests import (
     ExportRequest,
     FilterParams,
     PaginationParams,
+    QuickScanRequest,
     ScrapeBatchRequest,
     ScrapeRequest,
 )
@@ -33,6 +34,7 @@ from ciberwebscan.api.models.responses import (
     JobCreatedResponse,
     JobStatus,
     PaginatedResponse,
+    QuickScanResponse,
     ScanSummaryResponse,
     ScrapeBatchResponse,
     ScrapeBatchResultResponse,
@@ -54,6 +56,7 @@ __all__ = [
     "ConfigLoadRequest",
     "ConfigSaveRequest",
     "DownloadRequest",
+    "QuickScanRequest",
     "PaginationParams",
     "FilterParams",
     # Response models
@@ -76,4 +79,5 @@ __all__ = [
     "ConfigFileResponse",
     "DownloadTokenResponse",
     "DownloadInfo",
+    "QuickScanResponse",
 ]
