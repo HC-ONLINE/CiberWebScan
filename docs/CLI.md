@@ -13,7 +13,6 @@ ciberwebscan --help
 ### Global Commands
 
 - `version`: Show version information
-- `quick`: Quick scan - scrape and analyze in one command
 
 ### Global Options
 
@@ -298,6 +297,61 @@ ciberwebscan attack sqli <URL> --consent [OPTIONS]
 ciberwebscan attack sqli https://example.com/product?id=1 --consent
 ```
 
+### Quick Scan Command
+
+Combined scan using presets: analysis + attacks + scraping in one command.
+
+```bash
+ciberwebscan quick scan <URL> [OPTIONS]
+```
+
+**Options:**
+
+- `--preset, -p <PRESET>`: Scan preset: low, medium, high (default: low)
+- `--consent`: Confirm you have permission to test (REQUIRED for medium/high)
+- `--selector, -s <SELECTOR>`: CSS selector to extract (enables scraping)
+- `--dynamic, -d`: Use browser-based scraping (Playwright) - preset high only
+- `--timeout, -t <SECONDS>`: Request timeout (overrides preset)
+- `--proxy <PROXY>`: HTTP/HTTPS proxy URL
+- `--user-agent, -ua <AGENT>`: Custom User-Agent string
+- `--headers, -H <HEADERS>`: Custom headers (format: 'Key: Value, Key2: Value2')
+- `--cookies, -c <COOKIES>`: Cookies (format: 'name1=value1; name2=value2')
+- `--output, -o <FILE>`: Output file path
+- `--format, -f <FORMAT>`: Export format: json, jsonl, csv (default: json)
+- `--json`: Output raw JSON
+- `--quiet, -q`: Minimal output
+- `--verbose, -v`: Verbose output
+
+**Presets:**
+
+| Preset   | Analysis                     | Attacks                      | Consent Required |
+| -------- | ---------------------------- | ---------------------------- | ---------------- |
+| `low`    | SSL, fingerprint, headers    | None                         | No               |
+| `medium` | + CVE lookup                 | XSS, SQLi (medium intensity) | Yes              |
+| `high`   | + exploit enrichment, deeper | All types (high intensity)   | Yes              |
+
+**Examples:**
+
+```bash
+# Basic analysis (preset low)
+ciberwebscan quick scan https://example.com
+
+# Analysis with scraping
+ciberwebscan quick scan https://example.com -s ".content"
+
+# Medium scan with attacks (requires consent)
+ciberwebscan quick scan https://example.com --preset medium --consent
+
+# Full scan with dynamic scraping
+ciberwebscan quick scan https://example.com --preset high --consent -d
+
+# Export combined report
+ciberwebscan quick scan https://example.com --preset high --consent -o report.json
+
+# JSON output for automation
+ciberwebscan quick scan https://example.com --json --quiet
+```
+
 ### API Command
 
 Manage and run the CiberWebScan REST API server.
@@ -542,5 +596,12 @@ ciberwebscan attack test https://testsite.com \
 ### Quick Scan
 
 ```bash
-ciberwebscan quick https://example.com -o quick_report.json
+# Basic analysis
+ciberwebscan quick scan https://example.com
+
+# With scraping and export
+ciberwebscan quick scan https://example.com -s ".data" -o quick_report.json
+
+# Full scan with attacks
+ciberwebscan quick scan https://example.com --preset high --consent -o report.json
 ```

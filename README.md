@@ -53,6 +53,7 @@ Includes safe, controlled penetration testing capabilities for XSS detection, SQ
 
 - **REST API (Beta)**: A powerful REST interface for seamless integration with existing security workflows. Built with FastAPI, it includes interactive documentation and allows for remote orchestration of scans.
 - **Command Line Interface**: Powerful CLI with rich formatting and automation support for security professionals
+- **Quick Scan**: Combined analysis + attacks + scraping with presets (`low`/`medium`/`high`) for streamlined assessments
 - **Flexible Export Options**: Generate comprehensive reports in JSON, CSV, and structured formats
 - **Configuration Management**: Centralized, persistent configuration system for enterprise deployment
 
@@ -138,6 +139,19 @@ ciberwebscan attack --url https://testsite.example.com --xss
 ciberwebscan attack --url https://testsite.example.com --enumeration
 ```
 
+#### Quick Scan (Combined)
+
+```bash
+# Basic analysis
+ciberwebscan quick scan https://example.com
+
+# Analysis + scraping
+ciberwebscan quick scan https://example.com -s ".content"
+
+# Full scan with attacks (requires consent)
+ciberwebscan quick scan https://example.com --preset high --consent
+```
+
 ### REST API Integration
 
 > **API Preview**: The REST interface is functional but considered "unstable." Endpoint signatures and JSON schemas may change as we refine the 2.0.0 specification.
@@ -208,19 +222,6 @@ CiberWebScan is designed for professional use with enterprise-grade features:
 CiberWebScan is developed for authorized security testing, research, and educational purposes. Users must ensure they have proper authorization before testing any systems and must comply with applicable laws and regulations.
 
 **Always obtain explicit permission before testing systems you don't own.**
-
----
-
-## Get Started Today
-
-Ready to enhance your web security assessment capabilities? Get started with CiberWebScan and discover what makes it the preferred choice for security professionals worldwide.
-
-```bash
-git clone https://github.com/HC-ONLINE/CiberWebScan.git
-cd CiberWebScan
-pip install -e .
-ciberwebscan --help
-```
 
 ---
 
