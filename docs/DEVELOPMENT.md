@@ -152,6 +152,7 @@ ruff format .
 import pytest
 from ciberwebscan.core.analyzers.ssl import SSLAnalyzer
 
+
 class TestSSLAnalyzer:
     def test_analyze_valid_cert(self):
         analyzer = SSLAnalyzer()
@@ -180,6 +181,7 @@ Quick, copy‑paste examples showing recommended patterns used across the test-s
 ```python
 from unittest.mock import Mock, patch
 from ciberwebscan.services.analyze_service import AnalyzeService, AnalyzeOptions
+
 
 @patch("ciberwebscan.core.client.http_client.HTTPClient")
 def test_analyze_with_mock_http_client(mock_http_client):
@@ -237,9 +239,11 @@ Notes / best practices
 ```python
 from pydantic import BaseModel
 
+
 class MyRequest(BaseModel):
     url: str
     option: bool = True
+
 
 class MyResponse(BaseModel):
     result: str
@@ -253,6 +257,7 @@ from fastapi import APIRouter
 from ciberwebscan.api.models import MyRequest, MyResponse
 
 router = APIRouter()
+
 
 @router.post("/my-endpoint", response_model=MyResponse)
 async def my_endpoint(request: MyRequest) -> MyResponse:
@@ -277,10 +282,11 @@ from ciberwebscan.cli.validators import validate_url
 
 my_command = typer.Typer()
 
+
 @my_command.command("subcommand")
 def my_subcommand(
     url: str = typer.Argument(..., help="URL to process"),
-    option: bool = typer.Option(False, help="Enable option")
+    option: bool = typer.Option(False, help="Enable option"),
 ):
     validated_url = validate_url(url)
     # Implementation
@@ -300,6 +306,7 @@ def my_subcommand(
 ```python
 from ciberwebscan.core.analyzers.base import Analyzer
 
+
 class MyAnalyzer(Analyzer):
     def analyze(self, target: str) -> AnalysisResult:
         # Analysis logic
@@ -317,6 +324,7 @@ class MyAnalyzer(Analyzer):
 
 ```python
 from ciberwebscan.core.attacks.base import AttackEngine
+
 
 class MyAttack(AttackEngine):
     def __init__(self):
@@ -349,10 +357,13 @@ class MyAttack(AttackEngine):
 ```python
 class CiberWebScanError(Exception):
     """Base exception for CiberWebScan."""
+
     pass
+
 
 class AnalysisError(CiberWebScanError):
     """Analysis-related errors."""
+
     pass
 ```
 
@@ -365,10 +376,7 @@ from ciberwebscan.api.models.responses import ErrorResponse
 
 raise HTTPException(
     status_code=400,
-    detail=ErrorResponse(
-        error="Invalid input",
-        error_code="VALIDATION_ERROR"
-    ).dict()
+    detail=ErrorResponse(error="Invalid input", error_code="VALIDATION_ERROR").dict(),
 )
 ```
 

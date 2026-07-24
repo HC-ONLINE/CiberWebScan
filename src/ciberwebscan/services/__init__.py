@@ -8,6 +8,7 @@ Services:
     - ScrapeService: Web scraping with optional export
     - AnalyzeService: Security analysis with optional export
     - AttackService: Attack simulation with optional export
+    - QuickService: Combined scan (analysis + attacks + scraping)
     - ConfigService: Configuration management
 
 Each service that produces results supports an optional export flag.
@@ -23,6 +24,7 @@ from ciberwebscan.services.base import (
     ValidationError,
 )
 from ciberwebscan.services.config_service import ConfigService, ConfigValue
+from ciberwebscan.services.quick_service import QuickOptions, QuickService
 from ciberwebscan.services.scrape_service import ScrapeOptions, ScrapeService
 
 __all__ = [
@@ -39,6 +41,8 @@ __all__ = [
     "AnalyzeOptions",
     "AttackService",
     "AttackOptions",
+    "QuickService",
+    "QuickOptions",
     "ConfigService",
     "ConfigValue",
 ]

@@ -12,7 +12,7 @@ from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel, Field
 
-from ciberwebscan.export.models import ScrapeResult
+from ciberwebscan.export.models import AnalysisReport, ScrapeResult
 
 T = TypeVar("T")
 
@@ -296,3 +296,19 @@ class ConfigFileResponse(BaseModel):
     file_path: str
     operation: str  # 'export', 'load', 'save'
     format: str | None = None
+
+
+# =============================================================================
+# Quick Scan Responses
+# =============================================================================
+
+
+class QuickScanResponse(APIResponse[AnalysisReport]):
+    """Response for quick scan endpoint."""
+
+    preset: str = Field(description="Preset used for the scan")
+    duration_seconds: float = 0.0
+    warnings: list[str] = Field(
+        default_factory=list,
+        description="Warnings during scan execution",
+    )

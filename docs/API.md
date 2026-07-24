@@ -417,6 +417,146 @@ Perform controlled security attack simulations.
 }
 ```
 
+### Quick Scan
+
+#### POST /api/quick/scan
+
+Perform a combined scan using presets: analysis + attacks + scraping in a single request.
+
+**Presets:**
+
+| Preset   | Analysis                     | Attacks                      | Consent Required |
+| -------- | ---------------------------- | ---------------------------- | ---------------- |
+| `low`    | SSL, fingerprint, headers    | None                         | No               |
+| `medium` | + CVE lookup                 | XSS, SQLi (medium intensity) | Yes              |
+| `high`   | + exploit enrichment, deeper | All types (high intensity)   | Yes              |
+
+**Request:**
+
+```json
+{
+  "url": "https://example.com",
+  "preset": "low",
+  "user_consent": false,
+  "timeout": 30.0,
+  "selector": null,
+  "dynamic": false,
+  "headers": {},
+  "cookies": {},
+  "proxy": null,
+  "user_agent": null,
+  "output_format": "json"
+}
+```
+
+**Parameters:**
+
+| Parameter       | Type    | Default  | Description                                           |
+| --------------- | ------- | -------- | ----------------------------------------------------- |
+| `url`           | string  | required | Target URL                                            |
+| `preset`        | string  | low      | Scan preset: low, medium, high                        |
+| `user_consent`  | boolean | false    | Must be true for medium/high presets                  |
+| `timeout`       | float   | null     | Request timeout in seconds (overrides preset default) |
+| `selector`      | string  | null     | CSS selector to extract (enables scraping)            |
+| `dynamic`       | boolean | false    | Use Playwright for JS rendering                       |
+| `headers`       | object  | {}       | Custom HTTP headers                                   |
+| `cookies`       | object  | {}       | Cookies                                               |
+| `proxy`         | string  | null     | HTTP/HTTPS proxy URL                                  |
+| `user_agent`    | string  | null     | Custom User-Agent                                     |
+| `output_format` | string  | json     | Export format: json, jsonl, csv                       |
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "url": "https://example.com",
+    "timestamp": "2026-01-01T00:00:00Z",
+    "ssl_analysis": { ... },
+    "fingerprint": { ... },
+    "headers_analysis": { ... },
+    "cve_results": [ ... ],
+    "attack_results": { ... },
+    "scrape_result": { ... },
+    "risk_score": 40,
+    "summary": {
+      "critical": 0,
+      "high": 0,
+      "medium": 4,
+      "low": 0
+    }
+  },
+  "preset": "low",
+  "duration_seconds": 5.89,
+  "warnings": [],
+  "download_token": "uuid-token",
+  "download_url": "/api/download/uuid-token",
+  "timestamp": "2026-01-01T00:00:00Z"
+}
+```
+
+**Error Response (Missing Consent):**
+
+```json
+{
+  "success": false,
+  "error": "User consent is required for 'medium' preset. Set user_consent=true to confirm you have permission to test this system.",
+  "error_code": "CONSENT_REQUIRED",
+  "timestamp": "2026-01-01T00:00:00Z"
+}
+```
+
+#### GET /api/quick/presets
+
+List available scan presets and their configurations (no authentication required).
+
+**Response:**
+
+```json
+{
+  "presets": {
+    "low": {
+      "analyze": {
+        "ssl": true,
+        "fingerprint": true,
+        "cve": false,
+        "analyze_headers": true
+      },
+      "has_attacks": false,
+      "attack_types": [],
+      "intensity": null,
+      "scrape_dynamic": false
+    },
+    "medium": {
+      "analyze": {
+        "ssl": true,
+        "fingerprint": true,
+        "cve": true,
+        "analyze_headers": true
+      },
+      "has_attacks": true,
+      "attack_types": ["xss", "sqli"],
+      "intensity": "medium",
+      "scrape_dynamic": false
+    },
+    "high": {
+      "analyze": {
+        "ssl": true,
+        "fingerprint": true,
+        "cve": true,
+        "analyze_headers": true,
+        "enrich_exploits": true
+      },
+      "has_attacks": true,
+      "attack_types": ["xss", "sqli", "traversal", "enumeration"],
+      "intensity": "high",
+      "scrape_dynamic": true
+    }
+  }
+}
+```
+
 ### Downloads
 
 #### GET /api/download/{token}
@@ -755,6 +895,24 @@ curl -X POST "http://localhost:8000/api/attack" \
     "xss": true,
     "user_consent": true
   }'
+```
+
+**Quick Scan:**
+
+```bash
+curl -X POST "http://localhost:8000/api/quick/scan" \
+  -H "X-API-Key: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://example.com",
+    "preset": "low"
+  }'
+```
+
+**List Quick Scan Presets:**
+
+```bash
+curl "http://localhost:8000/api/quick/presets"
 ```
 
 ## Best Practices

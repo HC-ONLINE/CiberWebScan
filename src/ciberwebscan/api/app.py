@@ -28,6 +28,7 @@ from ciberwebscan.api.routes import (
     config,
     download,
     health,
+    quick,
     scrape,
 )
 from ciberwebscan.config.loader import get_config
@@ -127,6 +128,7 @@ def create_app() -> FastAPI:
     app.include_router(scrape.router, prefix=prefix, tags=["scraping"])
     app.include_router(analyze.router, prefix=prefix, tags=["analysis"])
     app.include_router(attack.router, prefix=prefix, tags=["attacks"])
+    app.include_router(quick.router, prefix=prefix + "/quick", tags=["quick"])
     app.include_router(download.router, prefix=prefix, tags=["download"])
 
     return app

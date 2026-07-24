@@ -36,7 +36,7 @@ repos:
 
       - id: pyright
         name: pyright
-        entry: pyright
+        entry: python -m pyright
         language: system
         types: [python]
         pass_filenames: false

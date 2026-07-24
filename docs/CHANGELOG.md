@@ -5,6 +5,20 @@ All notable changes to CiberWebScan will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.2.0 - 2026-07-23
+
+### Added
+
+- Quick scan service (`QuickService`) for combined analysis + attacks + scraping
+- Preset-based scanning with three levels:
+  - `low` - SSL, fingerprint, headers (no attacks, no CVEs)
+  - `medium` - Analysis + moderate attacks (XSS, SQLi) - requires consent
+  - `high` - Full analysis + all attacks + CVEs - requires consent
+- CLI command `ciberwebscan quick scan <URL>` with preset support
+- API endpoint `POST /api/quick/scan` for combined scans via REST
+- API endpoint `GET /api/quick/presets` to list available presets
+- Scraping integration in quick scan via `--selector` / `--dynamic` options
+
 ## 2.1.0 - 2026-04-29
 
 ### Added
