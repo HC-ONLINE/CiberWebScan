@@ -1,7 +1,7 @@
 """
 Export package for CiberWebScan.
 
-Provides exporters for different formats (JSON, JSONL, CSV) with streaming support.
+Provides exporters for different formats (JSON, JSONL, CSV, HTML) with streaming support.
 All exporters share a common interface through the BaseExporter class.
 
 Example usage:
@@ -21,6 +21,10 @@ Example usage:
     with export_to_file("results.jsonl", format="jsonl") as exporter:
         for item in items:
             exporter.write_item(item)
+
+    # HTML visual report
+    exporter = HTMLExporter("report.html")
+    exporter.export_report(analysis_report)
 """
 
 # Base classes and utilities
@@ -40,6 +44,12 @@ from ciberwebscan.export.csv import (
     csv_to_dicts,
     export_to_csv,
     flatten_dict,
+)
+
+# HTML exporter
+from ciberwebscan.export.html import (
+    HTMLExporter,
+    export_to_html,
 )
 
 # JSON exporter
@@ -107,6 +117,9 @@ __all__ = [
     "export_to_csv",
     "csv_to_dicts",
     "flatten_dict",
+    # HTML
+    "HTMLExporter",
+    "export_to_html",
     # Enums
     "Severity",
     "ConfidenceLevel",
