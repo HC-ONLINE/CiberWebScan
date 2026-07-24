@@ -142,7 +142,7 @@ def validate_format(
     Raises:
         ValidationError: If format is not allowed.
     """
-    allowed = allowed or ["json", "jsonl", "csv"]
+    allowed = allowed or ["json", "jsonl", "csv", "html"]
     fmt = format_str.lower()
 
     if fmt not in allowed:

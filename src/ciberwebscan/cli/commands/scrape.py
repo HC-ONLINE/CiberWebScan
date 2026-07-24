@@ -87,7 +87,7 @@ def scrape_url(
     ] = None,
     format: Annotated[
         str,
-        typer.Option("--format", "-f", help="Export format: json, jsonl, csv"),
+        typer.Option("--format", "-f", help="Export format: json, jsonl, csv, html"),
     ] = "json",
     # Output options
     json_output: Annotated[
