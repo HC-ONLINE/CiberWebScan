@@ -244,7 +244,7 @@ def export_to_file(
 
     Args:
         path: Output file path.
-        format: Export format ('json', 'jsonl', 'csv').
+        format: Export format ('json', 'jsonl', 'csv', 'html').
         **kwargs: Additional arguments passed to exporter.
 
     Yields:
@@ -257,6 +257,7 @@ def export_to_file(
                 exporter.write_item(result)
     """
     from ciberwebscan.export.csv import CSVExporter
+    from ciberwebscan.export.html import HTMLExporter
     from ciberwebscan.export.json import JSONExporter
     from ciberwebscan.export.jsonl import JSONLExporter
 
@@ -264,6 +265,7 @@ def export_to_file(
         "json": JSONExporter,
         "jsonl": JSONLExporter,
         "csv": CSVExporter,
+        "html": HTMLExporter,
     }
 
     format_lower = format.lower()
@@ -288,7 +290,7 @@ def get_exporter(
     Factory function to get an exporter instance.
 
     Args:
-        format: Export format ('json', 'jsonl', 'csv').
+        format: Export format ('json', 'jsonl', 'csv', 'html').
         output_path: Optional output file path.
         **kwargs: Additional arguments for the exporter.
 
@@ -296,6 +298,7 @@ def get_exporter(
         Configured exporter instance (not opened).
     """
     from ciberwebscan.export.csv import CSVExporter
+    from ciberwebscan.export.html import HTMLExporter
     from ciberwebscan.export.json import JSONExporter
     from ciberwebscan.export.jsonl import JSONLExporter
 
@@ -303,6 +306,7 @@ def get_exporter(
         "json": JSONExporter,
         "jsonl": JSONLExporter,
         "csv": CSVExporter,
+        "html": HTMLExporter,
     }
 
     format_lower = format.lower()

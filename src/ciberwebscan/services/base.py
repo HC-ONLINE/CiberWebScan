@@ -11,7 +11,13 @@ from pathlib import Path
 from typing import Any, Generic, TypeVar
 
 from ciberwebscan.config.loader import get_config
-from ciberwebscan.export import CSVExporter, ExportError, JSONExporter, JSONLExporter
+from ciberwebscan.export import (
+    CSVExporter,
+    ExportError,
+    HTMLExporter,
+    JSONExporter,
+    JSONLExporter,
+)
 from ciberwebscan.export.json import dumps as _json_dumps
 
 logger = logging.getLogger(__name__)
@@ -156,9 +162,12 @@ class BaseService:
         # Auto-detect format from extension if not specified
         if format == "auto":
             ext = path.suffix.lower()
-            format = {".json": "json", ".jsonl": "jsonl", ".csv": "csv"}.get(
-                ext, "json"
-            )
+            format = {
+                ".json": "json",
+                ".jsonl": "jsonl",
+                ".csv": "csv",
+                ".html": "html",
+            }.get(ext, "json")
 
         try:
             indent = 2 if config.export.pretty else None
@@ -170,6 +179,7 @@ class BaseService:
                 "json": JSONExporter,
                 "jsonl": JSONLExporter,
                 "csv": CSVExporter,
+                "html": HTMLExporter,
             }
 
             if format not in exporters:

@@ -130,7 +130,7 @@ Perform comprehensive security analysis on a URL.
 | `check_robots`    | boolean | false    | Respect robots.txt                                    |
 | `enrich_exploits` | boolean | false    | Enrich CVEs with exploit info                         |
 | `export`          | string  | null     | Export file path                                      |
-| `export_format`   | string  | json     | json, jsonl, or csv                                   |
+| `export_format`   | string  | json     | json, jsonl, csv, or html                             |
 
 **Response:**
 
@@ -228,7 +228,7 @@ Scrape a single URL with flexible extraction options.
 | `user_agent`          | string  | null     | Custom User-Agent                           |
 | `check_robots`        | boolean | true     | Respect robots.txt                          |
 | `export`              | string  | null     | Export file path                            |
-| `export_format`       | string  | json     | json, jsonl, or csv                         |
+| `export_format`       | string  | json     | json, jsonl, csv, or html                   |
 
 **Response:**
 
@@ -351,7 +351,7 @@ Perform controlled security attack simulations.
 | `skip_dangerous_payloads` | boolean     | true         | Skip dangerous payloads          |
 | `scope_urls`              | array       | []           | URLs to scope attack to          |
 | `export`                  | string      | null         | Export file path                 |
-| `export_format`           | string      | json         | json, jsonl, or csv              |
+| `export_format`           | string      | json         | json, jsonl, csv, or html        |
 | `headers`                 | object      | {}           | Custom HTTP headers              |
 | `cookies`                 | object      | {}           | Cookies                          |
 | `proxy`                   | string      | null         | HTTP proxy URL                   |
@@ -463,7 +463,7 @@ Perform a combined scan using presets: analysis + attacks + scraping in a single
 | `cookies`       | object  | {}       | Cookies                                               |
 | `proxy`         | string  | null     | HTTP/HTTPS proxy URL                                  |
 | `user_agent`    | string  | null     | Custom User-Agent                                     |
-| `output_format` | string  | json     | Export format: json, jsonl, csv                       |
+| `output_format` | string  | json     | Export format: json, jsonl, csv, html                 |
 
 **Response:**
 
