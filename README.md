@@ -54,7 +54,7 @@ Includes safe, controlled penetration testing capabilities for XSS detection, SQ
 - **REST API (Beta)**: A powerful REST interface for seamless integration with existing security workflows. Built with FastAPI, it includes interactive documentation and allows for remote orchestration of scans.
 - **Command Line Interface**: Powerful CLI with rich formatting and automation support for security professionals
 - **Quick Scan**: Combined analysis + attacks + scraping with presets (`low`/`medium`/`high`) for streamlined assessments
-- **Flexible Export Options**: Generate comprehensive reports in JSON, CSV, and structured formats
+- **Flexible Export Options**: Generate comprehensive reports in JSON, CSV, JSONL, and HTML
 - **Configuration Management**: Centralized, persistent configuration system for enterprise deployment
 
 ---

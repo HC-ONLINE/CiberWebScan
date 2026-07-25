@@ -42,7 +42,7 @@ ciberwebscan analyze url <URL> [OPTIONS]
 - `--cve-limit <NUMBER>`: Maximum CVEs to retrieve (default: 100)
 - `--enrich-exploits, -ee`: Enrich CVEs with exploit info from Vulners
 - `--output, -o <FILE>`: Output file path
-- `--format, -f <FORMAT>`: Export format: json, jsonl, csv (default: json)
+- `--format, -f <FORMAT>`: Export format: json, jsonl, csv, html (default: json)
 - `--json`: Output raw JSON
 - `--quiet, -q`: Minimal output
 - `--user-agent, -ua <AGENT>`: Custom user agent
@@ -156,7 +156,7 @@ ciberwebscan scrape url <URL> [OPTIONS]
 - `--check-robots/--no-check-robots, -cr`: Respect robots.txt (default: enabled)
 - `--timeout, -t <SECONDS>`: Request timeout (default: 30.0)
 - `--output, -o <FILE>`: Output file path
-- `--format, -f <FORMAT>`: Export format: json, jsonl, csv (default: json)
+- `--format, -f <FORMAT>`: Export format: json, jsonl, csv, html (default: json)
 - `--json`: Output raw JSON
 - `--quiet, -q`: Minimal output
 - `--user-agent, -ua <AGENT>`: Custom user agent
@@ -234,7 +234,7 @@ ciberwebscan attack test <URL> --consent [OPTIONS]
 - `--wordlist, -w <FILE>`: Custom wordlist for enumeration
 - `--timeout, -t <SECONDS>`: Request timeout (default: 10.0)
 - `--output, -o <FILE>`: Output file path
-- `--format, -f <FORMAT>`: Export format: json, jsonl, csv (default: json)
+- `--format, -f <FORMAT>`: Export format: json, jsonl, csv, html (default: json)
 - `--json`: Output raw JSON
 - `--quiet, -q`: Minimal output
 - `--verbose, -v`: Verbose output
@@ -317,7 +317,7 @@ ciberwebscan quick scan <URL> [OPTIONS]
 - `--headers, -H <HEADERS>`: Custom headers (format: 'Key: Value, Key2: Value2')
 - `--cookies, -c <COOKIES>`: Cookies (format: 'name1=value1; name2=value2')
 - `--output, -o <FILE>`: Output file path
-- `--format, -f <FORMAT>`: Export format: json, jsonl, csv (default: json)
+- `--format, -f <FORMAT>`: Export format: json, jsonl, csv, html (default: json)
 - `--json`: Output raw JSON
 - `--quiet, -q`: Minimal output
 - `--verbose, -v`: Verbose output

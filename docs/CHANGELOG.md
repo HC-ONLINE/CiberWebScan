@@ -5,6 +5,25 @@ All notable changes to CiberWebScan will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.3.0 - 2026-07-25
+
+### Added
+
+- HTML export format for visual security reports with embedded CSS (dark theme)
+- `HTMLExporter` class with professional report layout:
+  - Risk score cards with color-coded severity
+  - SSL/TLS analysis section with grade badge
+  - Technology fingerprint grid
+  - Security headers table with score
+  - CVE findings table with CVSS scores
+  - Attack simulation results with evidence and remediation
+  - Scraping results (links, forms, scripts)
+- CLI support: `--format html` on all export-capable commands
+- API support: `export_format: "html"` on analyze, scrape, attack, and quick endpoints
+- Auto-detection of `.html` extension in export path
+- `export_to_html()` convenience function
+- 49 unit tests for HTML exporter
+
 ## 2.2.0 - 2026-07-23
 
 ### Added
