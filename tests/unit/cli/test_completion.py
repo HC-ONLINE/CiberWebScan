@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
+from click.testing import CliRunner as ClickRunner
 from typer.testing import CliRunner
 
 from ciberwebscan.cli.app import app
@@ -19,6 +20,7 @@ from ciberwebscan.cli.commands.completion import (
 )
 
 runner = CliRunner()
+click_runner = ClickRunner()
 
 
 class TestCompletionHelpers:
@@ -147,21 +149,36 @@ class TestCompletionCommands:
 
     def test_completion_install_help(self):
         """Test completion install --help."""
-        result = runner.invoke(app, ["completion", "install", "--help"])
+        import typer.main
+
+        from ciberwebscan.cli.commands.completion import completion_app
+
+        click_cmd = typer.main.get_command(completion_app)
+        result = click_runner.invoke(click_cmd, ["install", "--help"])
         assert result.exit_code == 0
-        assert "--shell" in result.stdout
+        assert "--shell" in result.output
 
     def test_completion_show_help(self):
         """Test completion show --help."""
-        result = runner.invoke(app, ["completion", "show", "--help"])
+        import typer.main
+
+        from ciberwebscan.cli.commands.completion import completion_app
+
+        click_cmd = typer.main.get_command(completion_app)
+        result = click_runner.invoke(click_cmd, ["show", "--help"])
         assert result.exit_code == 0
-        assert "--shell" in result.stdout
+        assert "--shell" in result.output
 
     def test_completion_uninstall_help(self):
         """Test completion uninstall --help."""
-        result = runner.invoke(app, ["completion", "uninstall", "--help"])
+        import typer.main
+
+        from ciberwebscan.cli.commands.completion import completion_app
+
+        click_cmd = typer.main.get_command(completion_app)
+        result = click_runner.invoke(click_cmd, ["uninstall", "--help"])
         assert result.exit_code == 0
-        assert "--shell" in result.stdout
+        assert "--shell" in result.output
 
     @patch("ciberwebscan.cli.commands.completion._detect_shell")
     @patch("ciberwebscan.cli.commands.completion._write_completion_file")
