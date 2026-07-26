@@ -1,0 +1,72 @@
+# CiberWebScan Profile: Bug Bounty
+# Optimizado para programas de bug bounty
+# Uso: ciberwebscan config load examples/profiles/bugbounty.yaml
+
+http:
+  timeout:
+    connect: 5.0
+    read: 15.0
+    write: 15.0
+    pool: 5.0
+  retry:
+    max_attempts: 3
+    backoff_factor: 1.0
+  rate_limit:
+    requests_per_second: 2.0
+    per_domain: true
+  follow_redirects: true
+  max_redirects: 10
+  verify_ssl: true
+
+user_agent:
+  mode: rotate
+  rotate_interval: 10
+
+scraping:
+  dynamic:
+    enabled: false
+  pagination:
+    max_pages: 20
+  extract_links: true
+  extract_images: true
+  extract_scripts: true
+  extract_forms: true
+
+analysis:
+  ssl:
+    enabled: true
+    check_chain: true
+    check_revocation: true
+    check_expiry: true
+    warning_days: 30
+  fingerprint:
+    enabled: true
+    check_headers: true
+    check_html: true
+    check_scripts: true
+    check_cookies: true
+    check_dns: false
+  cve:
+    enabled: true
+    api: all
+    cache_ttl: 86400
+  headers:
+    enabled: true
+
+attack:
+  enabled: true
+  user_consent: true
+  xss: true
+  sqli: true
+  traversal: false
+  enumeration: false
+  max_payloads: 100
+
+export:
+  format: json
+  output_dir: exports/bugbounty
+  streaming: true
+  pretty: true
+
+logging:
+  level: INFO

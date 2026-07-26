@@ -5,6 +5,19 @@ All notable changes to CiberWebScan will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.4.0 - 2026-07-25
+
+### Added
+
+- Configuration profiles system with pre-configured YAML files for different use cases
+- 4 built-in profiles in `examples/profiles/`:
+  - `bugbounty.yaml` - Optimized for bug bounty programs (CVE enabled, moderate rate limit, XSS/SQLi attacks)
+  - `pentest.yaml` - Full penetration testing configuration (all attacks, dynamic scraping, DEBUG logging)
+  - `recon.yaml` - Passive reconnaissance only (SSL + fingerprint + headers, no CVE or attacks)
+  - `stealth.yaml` - Low-profile scanning (0.5 req/s, static user-agent, minimal fingerprinting)
+- Documentation for configuration profiles in `CONFIGURATION.md`
+- Guide for creating custom profiles
+
 ## 2.3.0 - 2026-07-25
 
 ### Added
