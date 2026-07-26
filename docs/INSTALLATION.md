@@ -62,6 +62,22 @@ ciberwebscan --help
 
 You should see the main help output with available commands.
 
+### Shell Completion
+
+CiberWebScan supports shell completion for bash, zsh, and fish. After installation, enable it with:
+
+```bash
+# Auto-detect your shell and install completion
+ciberwebscan completion install
+
+# Or specify a shell explicitly
+ciberwebscan completion install --shell zsh
+ciberwebscan completion install --shell bash
+ciberwebscan completion install --shell fish
+```
+
+The command will print post-installation instructions specific to your shell. See `ciberwebscan completion --help` for more options.
+
 ## Troubleshooting
 
 ### Common Issues
