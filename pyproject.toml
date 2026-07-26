@@ -151,5 +151,7 @@ indent-style = "space"
 [tool.pyright]
 include = ["src/ciberwebscan"]
 exclude = ["**/__pycache__", "**/tests/**", "**/node_modules/**", "**/.venv/**", "**/.*", "**/build/**", "**/dist/**","**/*.egg-info"]
+venvPath = "."
+venv = ".venv"
 pythonVersion = "3.10"
 typeCheckingMode = "basic"
