@@ -46,11 +46,12 @@ All services extend `BaseService` and return `ServiceResult[T]`:
 ```python
 from ciberwebscan.services.base import BaseService, ServiceResult
 
+
 class MyService(BaseService):
     def do_work(self, options: MyOptions) -> ServiceResult[MyData]:
         # Use factory methods for convenience:
-        return ServiceResult.ok(data)           # Success
-        return ServiceResult.fail("msg")        # Failure
+        return ServiceResult.ok(data)  # Success
+        return ServiceResult.fail("msg")  # Failure
         # Or construct manually:
         result = ServiceResult[MyData](success=True, data=data)
         return result.finalize()  # Always call finalize() to set timing
@@ -340,6 +341,7 @@ Patch at the import path and set `__enter__.return_value`:
 
 ```python
 from unittest.mock import Mock, patch
+
 
 @patch("ciberwebscan.core.client.http_client.HTTPClient")
 def test_with_mock(mock_http):
