@@ -28,7 +28,7 @@ repos:
     hooks:
       - id: pytest
         name: pytest
-        entry: pytest
+        entry: pytest --override-ini='addopts='
         language: system
         types: [python]
         pass_filenames: false
