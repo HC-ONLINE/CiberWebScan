@@ -40,10 +40,7 @@ app.add_typer(completion_app, name="completion")
 @app.command("version")
 def version() -> None:
     """Show version information."""
-    try:
-        from ciberwebscan import __version__
-    except ImportError:
-        __version__ = "2.4.0"
+    from ciberwebscan import __version__
 
     print_info(f"CiberWebScan v{__version__}")
 

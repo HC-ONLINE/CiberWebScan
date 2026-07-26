@@ -19,6 +19,13 @@ def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _get_version() -> str:
+    """Return CiberWebScan version from package metadata."""
+    from ciberwebscan import __version__
+
+    return __version__
+
+
 # =============================================================================
 # Common Types
 # =============================================================================
@@ -51,7 +58,9 @@ class ConfidenceLevel(str, Enum):
 class ExportMeta(BaseModel):
     """Metadata included in every export."""
 
-    version: str = Field(default="2.4.0", description="CiberWebScan version")
+    version: str = Field(
+        default_factory=_get_version, description="CiberWebScan version"
+    )
     timestamp: datetime = Field(default_factory=_utc_now)
     target_url: str
     duration_seconds: float = 0.0
