@@ -1,0 +1,47 @@
+# Git
+.git/
+.gitignore
+
+# Python
+__pycache__/
+*.py[codz]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE / Editor
+.vscode/
+.idea/
+.cursor/
+.cursorignore
+
+# Testing / Coverage
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+coverage.xml
+.coverage
+.coverage.*
+
+# Documentation (not needed in image)
+docs/
+*.md
+LICENSE
+
+# CI / GitHub
+.github/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Exports / Data
+exports/
