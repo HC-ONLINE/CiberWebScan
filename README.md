@@ -1,7 +1,7 @@
 # CiberWebScan
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Version 2.0.0](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/HC-ONLINE/CiberWebScan)
+[![Version 2.4.0](https://img.shields.io/badge/version-2.4.0-blue.svg)](https://github.com/HC-ONLINE/CiberWebScan)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Beta](https://img.shields.io/badge/status-beta-orange.svg)](https://github.com/HC-ONLINE/CiberWebScan)
 
@@ -9,7 +9,7 @@
 
 CiberWebScan is a modern, powerful toolkit that combines intelligent web scraping, comprehensive security analysis, and ethical penetration testing capabilities in one unified platform. Whether you're a cybersecurity professional, penetration tester, or security researcher, CiberWebScan provides the tools you need to thoroughly assess web applications and identify potential vulnerabilities.
 
-> **Note**: This is version 2.0.0, a complete refactor of the previous version that addressed numerous issues. Currently in beta, with some features still under development.
+> **Note**: This is version 2.4.0, a complete refactor of the previous version that addressed numerous issues. Currently in beta, with some features still under development.
 
 ## Why Choose CiberWebScan?
 
@@ -154,7 +154,7 @@ ciberwebscan quick scan https://example.com --preset high --consent
 
 ### REST API Integration
 
-> **API Preview**: The REST interface is functional but considered "unstable." Endpoint signatures and JSON schemas may change as we refine the 2.0.0 specification.
+> **API Preview**: The REST interface is functional but considered "unstable." Endpoint signatures and JSON schemas may change as we refine the 2.4.0 specification.
 
 To start the server:
 

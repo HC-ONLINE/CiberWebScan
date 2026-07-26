@@ -52,7 +52,7 @@ Basic health check endpoint (no authentication required).
 ```json
 {
   "status": "healthy",
-  "version": "2.0.0",
+  "version": "2.4.0",
   "message": "CiberWebScan API is running",
   "timestamp": "2026-01-01T00:00:00Z"
 }
@@ -67,7 +67,7 @@ Readiness check for container orchestration (no authentication required).
 ```json
 {
   "status": "ready",
-  "version": "2.0.0",
+  "version": "2.4.0",
   "message": "CiberWebScan API is ready to accept requests",
   "timestamp": "2026-01-01T00:00:00Z"
 }

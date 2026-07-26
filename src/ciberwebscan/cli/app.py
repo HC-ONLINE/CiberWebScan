@@ -41,7 +41,7 @@ def version() -> None:
     try:
         from ciberwebscan import __version__
     except ImportError:
-        __version__ = "2.0.0"
+        __version__ = "2.4.0"
 
     print_info(f"CiberWebScan v{__version__}")
 

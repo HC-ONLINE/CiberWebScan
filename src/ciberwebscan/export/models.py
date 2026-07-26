@@ -51,7 +51,7 @@ class ConfidenceLevel(str, Enum):
 class ExportMeta(BaseModel):
     """Metadata included in every export."""
 
-    version: str = Field(default="2.0.0", description="CiberWebScan version")
+    version: str = Field(default="2.4.0", description="CiberWebScan version")
     timestamp: datetime = Field(default_factory=_utc_now)
     target_url: str
     duration_seconds: float = 0.0
