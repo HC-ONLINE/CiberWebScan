@@ -5,6 +5,18 @@ All notable changes to CiberWebScan will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.5.0 - 2026-07-26
+
+### Added
+
+- Shell completion command (`ciberwebscan completion`) for bash, zsh, and fish
+  - `completion install` - Install completion scripts with auto-detected or explicit shell
+  - `completion show` - Display generated completion script for manual inspection
+  - `completion uninstall` - Remove installed completion scripts
+- Uses Click's internal `shell_completion` module for dynamic script generation (stays synced with Click/Typer updates)
+- Portable `~` paths in post-install instructions for dotfiles compatibility
+- 31 unit tests for completion module
+
 ## 2.4.0 - 2026-07-25
 
 ### Added

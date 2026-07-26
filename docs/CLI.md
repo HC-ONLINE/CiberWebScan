@@ -385,6 +385,78 @@ ciberwebscan api run --host 127.0.0.1 --port 9000
 ciberwebscan api run --reload
 ```
 
+### Completion Command
+
+Manage shell completion for bash, zsh, and fish.
+
+#### completion install
+
+Install shell completion scripts.
+
+```bash
+ciberwebscan completion install [OPTIONS]
+```
+
+**Options:**
+
+- `--shell, -s <SHELL>`: Shell to install completion for (auto-detected if not specified). Options: bash, zsh, fish
+
+**Examples:**
+
+```bash
+# Auto-detect shell and install
+ciberwebscan completion install
+
+# Install for specific shell
+ciberwebscan completion install --shell zsh
+ciberwebscan completion install --shell bash
+ciberwebscan completion install --shell fish
+```
+
+#### completion show
+
+Display the generated completion script for manual installation or inspection.
+
+```bash
+ciberwebscan completion show [OPTIONS]
+```
+
+**Options:**
+
+- `--shell, -s <SHELL>`: Shell to show completion for (auto-detected if not specified). Options: bash, zsh, fish
+
+**Examples:**
+
+```bash
+# Show completion for detected shell
+ciberwebscan completion show
+
+# Show completion for specific shell
+ciberwebscan completion show --shell bash
+```
+
+#### completion uninstall
+
+Remove installed shell completion scripts.
+
+```bash
+ciberwebscan completion uninstall [OPTIONS]
+```
+
+**Options:**
+
+- `--shell, -s <SHELL>`: Shell to uninstall completion for (auto-detected if not specified). Options: bash, zsh, fish
+
+**Examples:**
+
+```bash
+# Uninstall completion for detected shell
+ciberwebscan completion uninstall
+
+# Uninstall for specific shell
+ciberwebscan completion uninstall --shell zsh
+```
+
 ### Config Command
 
 Manage application configuration.
