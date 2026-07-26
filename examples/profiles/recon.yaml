@@ -1,0 +1,64 @@
+# CiberWebScan Profile: Recon
+# Solo reconocimiento pasivo - sin attacks ni CVEs
+# Uso: ciberwebscan config load examples/profiles/recon.yaml
+
+http:
+  timeout:
+    connect: 10.0
+    read: 30.0
+    write: 30.0
+    pool: 10.0
+  retry:
+    max_attempts: 2
+    backoff_factor: 0.5
+  rate_limit:
+    requests_per_second: 3.0
+    per_domain: true
+  follow_redirects: true
+  max_redirects: 10
+  verify_ssl: true
+
+user_agent:
+  mode: rotate
+  rotate_interval: 10
+
+scraping:
+  dynamic:
+    enabled: false
+  pagination:
+    max_pages: 10
+  extract_links: true
+  extract_images: true
+  extract_scripts: true
+  extract_forms: true
+
+analysis:
+  ssl:
+    enabled: true
+    check_chain: true
+    check_revocation: true
+    check_expiry: true
+    warning_days: 30
+  fingerprint:
+    enabled: true
+    check_headers: true
+    check_html: true
+    check_scripts: true
+    check_cookies: true
+    check_dns: false
+  cve:
+    enabled: false
+  headers:
+    enabled: true
+
+attack:
+  enabled: false
+
+export:
+  format: json
+  output_dir: exports/recon
+  streaming: true
+  pretty: true
+
+logging:
+  level: INFO

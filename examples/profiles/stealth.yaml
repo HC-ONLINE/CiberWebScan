@@ -1,0 +1,64 @@
+# CiberWebScan Profile: Stealth
+# Modo sigiloso - rate limit bajo, sin attacks, fingerprinting minimo
+# Uso: ciberwebscan config load examples/profiles/stealth.yaml
+
+http:
+  timeout:
+    connect: 15.0
+    read: 45.0
+    write: 45.0
+    pool: 15.0
+  retry:
+    max_attempts: 2
+    backoff_factor: 2.0
+  rate_limit:
+    requests_per_second: 0.5
+    per_domain: true
+  follow_redirects: true
+  max_redirects: 5
+  verify_ssl: true
+
+user_agent:
+  mode: static
+  custom: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
+scraping:
+  dynamic:
+    enabled: false
+  pagination:
+    max_pages: 5
+  extract_links: true
+  extract_images: false
+  extract_scripts: false
+  extract_forms: true
+
+analysis:
+  ssl:
+    enabled: true
+    check_chain: false
+    check_revocation: false
+    check_expiry: true
+    warning_days: 30
+  fingerprint:
+    enabled: true
+    check_headers: true
+    check_html: false
+    check_scripts: false
+    check_cookies: false
+    check_dns: false
+  cve:
+    enabled: false
+  headers:
+    enabled: true
+
+attack:
+  enabled: false
+
+export:
+  format: json
+  output_dir: exports/stealth
+  streaming: true
+  pretty: true
+
+logging:
+  level: WARNING

@@ -560,6 +560,106 @@ ciberwebscan config export config.json --format json
 ciberwebscan config load config.yaml
 ```
 
+## Configuration Profiles
+
+Profiles are pre-configured configuration files optimized for specific use cases. You can load a profile to quickly switch between different scanning configurations.
+
+### Using Profiles
+
+```bash
+# Load a profile
+ciberwebscan config load examples/profiles/bugbounty.yaml
+
+# Run your scan
+ciberwebscan scrape url https://target.com
+
+# Switch to another profile
+ciberwebscan config load examples/profiles/pentest.yaml
+
+# Reset to default configuration
+ciberwebscan config reset -y
+```
+
+### Included Profiles
+
+| Profile          | Description                         | Use Case                                                                               |
+| ---------------- | ----------------------------------- | -------------------------------------------------------------------------------------- |
+| `bugbounty.yaml` | Balanced for bug bounty programs    | CVE enabled, moderate rate limit, XSS/SQLi attacks, no traversal/enumeration           |
+| `pentest.yaml`   | Full-authorized penetration testing | All attacks enabled, dynamic scraping, DEBUG logging, requires explicit consent        |
+| `recon.yaml`     | Passive reconnaissance only         | SSL + fingerprint + headers, no CVE, no attacks                                        |
+| `stealth.yaml`   | Low-profile scanning                | Very low rate limit (0.5 req/s), static user-agent, minimal fingerprinting, no attacks |
+
+### Profile Comparison
+
+| Feature          | bugbounty | pentest   | recon     | stealth   |
+| ---------------- | --------- | --------- | --------- | --------- |
+| Rate Limit       | 2.0 req/s | 5.0 req/s | 3.0 req/s | 0.5 req/s |
+| CVE Lookup       | Yes       | Yes       | No        | No        |
+| XSS/SQLi         | Yes       | Yes       | No        | No        |
+| Traversal        | No        | Yes       | No        | No        |
+| Enumeration      | No        | Yes       | No        | No        |
+| Dynamic Scraping | No        | Yes       | No        | No        |
+| DNS Fingerprint  | No        | Yes       | No        | No        |
+| Log Level        | INFO      | DEBUG     | INFO      | WARNING   |
+
+### Creating Custom Profiles
+
+There are two ways to create your own profiles:
+
+#### Method 1: Export and Modify
+
+```bash
+# Export current configuration
+ciberwebscan config export my-profile.yaml
+
+# Edit the file with your preferred settings
+# Then load it when needed
+ciberwebscan config load my-profile.yaml
+```
+
+#### Method 2: Create from Scratch
+
+Create a YAML file with only the settings you want to override:
+
+```yaml
+# my-custom-profile.yaml
+http:
+  timeout:
+    connect: 5.0
+    read: 15.0
+  rate_limit:
+    requests_per_second: 1.0
+
+analysis:
+  cve:
+    enabled: true
+    api: nvd
+
+attack:
+  enabled: true
+  xss: true
+  sqli: true
+  traversal: false
+  enumeration: false
+  max_payloads: 50
+
+logging:
+  level: DEBUG
+```
+
+Then load it:
+
+```bash
+ciberwebscan config load my-custom-profile.yaml
+```
+
+### Profile Storage Recommendations
+
+- Store profiles in a dedicated directory (e.g., `~/.ciberwebscan/profiles/` or project-specific)
+- Use descriptive names that indicate the use case
+- Keep profiles under version control for team environments
+- Document any custom profiles with comments in the YAML file
+
 ### Persistent configuration vs CLI / runtime options
 
 - Persistent configuration (`config.*`) is stored in the user config file (`~/.ciberwebscan/config.yaml`) and loaded by `ConfigLoader` at startup (or via `get_config()`). Environment variables with the `CIBERWEBSCAN_` prefix and the config file are merged; environment variables have higher precedence.
