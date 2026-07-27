@@ -30,7 +30,7 @@ class RetryConfig(BaseModel):
     """HTTP retry settings with exponential backoff."""
 
     max_attempts: Annotated[int, Field(ge=1, le=10)] = 3
-    backoff_factor: Annotated[float, Field(ge=0.1, le=10.0)] = 0.5
+    backoff_factor: Annotated[float, Field(ge=0.0, le=10.0)] = 0.5
     retryable_status_codes: list[int] = Field(
         default=[429, 500, 502, 503, 504],
         description="HTTP status codes that trigger a retry",
@@ -42,6 +42,13 @@ class RateLimitConfig(BaseModel):
 
     requests_per_second: Annotated[float, Field(ge=0.1, le=100.0)] = 5.0
     per_domain: bool = True
+    # Adaptive AIMD rate control
+    adaptive: bool = True
+    min_rate: Annotated[float, Field(ge=0.1, le=10.0)] = 0.5
+    increase_factor: Annotated[float, Field(ge=0.01, le=5.0)] = 0.5
+    decrease_factor: Annotated[float, Field(ge=0.01, le=1.0)] = 0.5
+    latency_spike_factor: Annotated[float, Field(ge=1.1, le=5.0)] = 1.5
+    latency_window: Annotated[int, Field(ge=5, le=50)] = 10
 
 
 class ProxyConfig(BaseModel):

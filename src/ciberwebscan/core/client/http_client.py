@@ -13,8 +13,13 @@ of a full compatibility layer while centralizing cross-cutting concerns.
 """
 
 import logging
+import random
+import threading
 import time
+from collections import deque
 from collections.abc import Callable
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from typing import Any
 from urllib.parse import urlparse
 
@@ -30,28 +35,87 @@ MetricsCallback = Callable[[str, str, int, float], None]
 
 class RateLimiter:
     """
-    Token bucket rate limiter per domain.
+    Token bucket rate limiter per domain with optional AIMD adaptive control.
 
-    Ensures requests to the same domain respect the configured rate limit,
-    preventing API throttling and being a good citizen.
+    When adaptive=False (legacy mode), uses a fixed rate limit per domain.
+    When adaptive=True, adjusts the effective request rate dynamically based
+    on server responses using the AIMD (Additive Increase / Multiplicative
+    Decrease) pattern, independently per domain:
 
-    Attributes:
-        requests_per_second: Maximum requests per second per domain.
+    - 429 Too Many Requests  -> multiplicative decrease (decrease_factor)
+    - 5xx Server Error      -> severe decrease (decrease_factor * 0.5)
+    - 2xx Success            -> additive increase (+increase_factor)
+                               paused during latency spikes
+
+    Thread-safe: all rate mutations are protected by a lock.
     """
 
-    def __init__(self, requests_per_second: float = 5.0):
+    def __init__(
+        self,
+        requests_per_second: float = 5.0,
+        *,
+        adaptive: bool = False,
+        min_rate: float = 0.5,
+        increase_factor: float = 0.5,
+        decrease_factor: float = 0.5,
+        latency_spike_factor: float = 1.5,
+        latency_window: int = 10,
+        initial_rate: float | None = None,
+    ):
         """
         Initialize the rate limiter.
 
         Args:
-            requests_per_second: Max requests per second. Default 5.0.
+            requests_per_second: Max requests per second (ceiling). Default 5.0.
+            adaptive: Enable AIMD adaptive rate control. Default False.
+            min_rate: Minimum allowed rate (floor). Default 0.5.
+            increase_factor: Additive increase per successful response. Default 0.5.
+            decrease_factor: Multiplicative decrease on 429. Default 0.5.
+            latency_spike_factor: Multiplier above avg latency to pause increase.
+                Default 1.5 (50% above average).
+            latency_window: Number of recent latencies to track per domain. Default 10.
+            initial_rate: Starting rate per domain (defaults to requests_per_second).
         """
+        if requests_per_second <= 0:
+            raise ValueError("requests_per_second must be > 0")
+
+        self._max_rate = requests_per_second
+        self._adaptive = adaptive
+        self._min_rate = min_rate
+        self._increase_factor = increase_factor
+        self._decrease_factor = decrease_factor
+        self._latency_spike_factor = latency_spike_factor
+        self._latency_window = latency_window
+
+        self._initial_rate: float = (
+            initial_rate if initial_rate is not None else requests_per_second
+        )
+        if self._initial_rate <= 0:
+            raise ValueError("initial_rate must be > 0")
+
+        # Thread-safe dynamic state
+        self._lock = threading.Lock()
+        self._current_rate: dict[str, float] = {}  # per-domain, lazy init
+
+        # Per-domain state (protected by _lock)
         self._last_request: dict[str, float] = {}
-        self._min_interval = 1.0 / requests_per_second
+        self._recent_latencies: dict[str, deque[float]] = {}
+
+    def _rate_for(self, domain: str) -> float:
+        """
+        Return the current effective rate for *domain*, initialising on first use.
+
+        MUST be called with ``self._lock`` held.
+        """
+        return self._current_rate.setdefault(domain, self._initial_rate)
 
     def wait(self, domain: str) -> float:
         """
         Wait if necessary to respect rate limit for domain.
+
+        Thread-safe: reads/writes per-domain state under lock. Records the
+        *reserved target slot* rather than the pre-sleep timestamp, so the
+        invariant holds even though the actual sleep happens outside the lock.
 
         Args:
             domain: The domain to rate limit.
@@ -59,17 +123,71 @@ class RateLimiter:
         Returns:
             Time waited in seconds (0 if no wait needed).
         """
-        now = time.monotonic()
-        waited = 0.0
+        with self._lock:
+            now = time.monotonic()
+            min_interval = 1.0 / self._rate_for(domain)
+            last_slot = self._last_request.get(domain)
+            target = last_slot + min_interval if last_slot is not None else now
+            target = max(target, now)
+            waited = target - now
+            self._last_request[domain] = target
 
-        if domain in self._last_request:
-            elapsed = now - self._last_request[domain]
-            if elapsed < self._min_interval:
-                waited = self._min_interval - elapsed
-                time.sleep(waited)
+        if waited > 0:
+            time.sleep(waited)
 
-        self._last_request[domain] = time.monotonic()
         return waited
+
+    def on_response(self, status_code: int, response_time: float, domain: str) -> None:
+        """
+        Adjust the effective rate for *domain* based on a server response.
+
+        Implements AIMD (Additive Increase / Multiplicative Decrease):
+        - 429: rate *= decrease_factor  (e.g. 50% cut)
+        - 5xx: rate *= decrease_factor * 0.5  (e.g. 75% cut — severe)
+        - 2xx: rate += increase_factor  (additive growth, unless latency spike)
+
+        This method is a no-op when adaptive=False.
+
+        Args:
+            status_code: HTTP status code of the response.
+            response_time: Duration of the request in seconds.
+            domain: The domain that was requested.
+        """
+        if not self._adaptive:
+            return
+
+        with self._lock:
+            rate = self._rate_for(domain)
+            if status_code == 429:
+                rate = max(self._min_rate, rate * self._decrease_factor)
+            elif status_code >= 500:
+                rate = max(self._min_rate, rate * self._decrease_factor * 0.5)
+            elif 200 <= status_code < 300 and not self._is_latency_spike(
+                domain,
+                response_time,
+            ):
+                rate = min(self._max_rate, rate + self._increase_factor)
+            self._current_rate[domain] = rate
+
+    def _is_latency_spike(self, domain: str, response_time: float) -> bool:
+        """
+        Return True if response_time is significantly above the recent average.
+
+        A latency spike signals possible server congestion. The rate increase
+        is paused during spikes but resumes once latencies normalise.
+        """
+        if domain not in self._recent_latencies:
+            self._recent_latencies[domain] = deque(maxlen=self._latency_window)
+
+        lats = self._recent_latencies[domain]
+
+        if len(lats) < 3:
+            lats.append(response_time)
+            return False
+
+        avg = sum(lats) / len(lats)
+        lats.append(response_time)
+        return response_time > avg * self._latency_spike_factor
 
     def clear(self, domain: str | None = None) -> None:
         """
@@ -78,10 +196,36 @@ class RateLimiter:
         Args:
             domain: Specific domain to clear, or None to clear all.
         """
-        if domain:
-            self._last_request.pop(domain, None)
-        else:
-            self._last_request.clear()
+        with self._lock:
+            if domain:
+                self._current_rate.pop(domain, None)
+                self._last_request.pop(domain, None)
+                self._recent_latencies.pop(domain, None)
+            else:
+                self._current_rate.clear()
+                self._last_request.clear()
+                self._recent_latencies.clear()
+
+    def current_rate(self, domain: str) -> float:
+        """
+        Return the current effective rate for *domain*.
+
+        For domains never seen, returns the initial configured rate.
+        Thread-safe: takes the lock for the duration of the read.
+
+        Args:
+            domain: The domain to query.
+
+        Returns:
+            Current requests-per-second for that domain.
+        """
+        with self._lock:
+            return self._rate_for(domain)
+
+    @property
+    def max_rate(self) -> float:
+        """Maximum configured rate (ceiling)."""
+        return self._max_rate
 
 
 class HTTPClient:
@@ -161,9 +305,13 @@ class HTTPClient:
         resolved_max_retries = (
             config.retry.max_attempts if max_retries is None else max_retries
         )
+        if resolved_max_retries < 0:
+            raise ValueError("max_retries must be >= 0")
         resolved_backoff_factor = (
             config.retry.backoff_factor if backoff_factor is None else backoff_factor
         )
+        if resolved_backoff_factor < 0:
+            raise ValueError("backoff_factor must be >= 0")
         resolved_rate_limit = (
             config.rate_limit.requests_per_second
             if rate_limit is None and config.rate_limit.per_domain
@@ -203,7 +351,17 @@ class HTTPClient:
 
         # Rate limiter (optional)
         self._rate_limiter = (
-            RateLimiter(resolved_rate_limit) if resolved_rate_limit else None
+            RateLimiter(
+                resolved_rate_limit,
+                adaptive=config.rate_limit.adaptive,
+                min_rate=config.rate_limit.min_rate,
+                increase_factor=config.rate_limit.increase_factor,
+                decrease_factor=config.rate_limit.decrease_factor,
+                latency_spike_factor=config.rate_limit.latency_spike_factor,
+                latency_window=config.rate_limit.latency_window,
+            )
+            if resolved_rate_limit
+            else None
         )
 
         # Build httpx client
@@ -227,6 +385,10 @@ class HTTPClient:
         """
         Perform an HTTP request with retry and rate limiting.
 
+        Each attempt applies rate limiting and feeds the adaptive AIMD
+        algorithm, so the rate limiter sees every response (including
+        intermediate 429/5xx that trigger retries).
+
         Args:
             method: HTTP method (GET, POST, PUT, DELETE, etc.)
             url: Target URL.
@@ -235,21 +397,27 @@ class HTTPClient:
                 Common: params, json, data, headers, cookies, files
 
         Returns:
-            httpx.Response object.
+            httpx.Response object (may be a retryable error response
+            if all retries are exhausted — caller should check status_code).
 
         Raises:
             httpx.TimeoutException: If all retry attempts timeout.
             httpx.ConnectError: If connection fails after all retries.
+            httpx.ReadError: If the server closes the connection mid-transfer.
+            httpx.WriteError: If sending the request body fails.
+            httpx.ProtocolError: If the server returns a malformed response.
+            httpx.ProxyError: If communication with the proxy fails.
             httpx.HTTPStatusError: If raise_for_status() is called and fails.
+
+        Note: All ``httpx.RequestError`` subclasses (network/transport errors)
+        are caught and retried. Only non-retryable errors (e.g. invalid URLs,
+            malformed arguments) will propagate immediately.
         """
         domain = urlparse(url).netloc
-        start_time = time.monotonic()
-
-        # Apply rate limiting
-        if self._rate_limiter:
-            wait_time = self._rate_limiter.wait(domain)
-            if wait_time > 0:
-                logger.debug(f"Rate limited: waited {wait_time:.3f}s for {domain}")
+        if not domain:
+            raise ValueError(
+                f"Invalid URL: must include a hostname (got: {url!r})",
+            )
 
         # Determine max attempts
         max_attempts = (self._max_retries + 1) if retry else 1
@@ -257,8 +425,34 @@ class HTTPClient:
         response: httpx.Response | None = None
 
         for attempt in range(max_attempts):
+            # rate-limit EVERY attempt, not just the first
+            if self._rate_limiter:
+                wait_time = self._rate_limiter.wait(domain)
+                if wait_time > 0:
+                    logger.debug(
+                        f"Rate limited: waited {wait_time:.3f}s for {domain} "
+                        f"(attempt {attempt + 1}/{max_attempts})",
+                    )
+
+            # measure only the actual request, not retries/backoff
+            request_start = time.monotonic()
             try:
                 response = self._client.request(method, url, **kwargs)
+                request_duration = time.monotonic() - request_start
+
+                # feed AIMD + log on EVERY response
+                if self._rate_limiter:
+                    self._rate_limiter.on_response(
+                        response.status_code,
+                        request_duration,
+                        domain,
+                    )
+                self._log_request(
+                    method,
+                    url,
+                    response.status_code,
+                    request_duration,
+                )
 
                 # Check if we should retry based on status code
                 if (
@@ -269,26 +463,35 @@ class HTTPClient:
                     wait_time = self._calculate_backoff(attempt, response)
                     logger.warning(
                         f"Retryable status {response.status_code} from {url}, "
-                        f"attempt {attempt + 1}/{max_attempts}, waiting {wait_time:.2f}s"
+                        f"attempt {attempt + 1}/{max_attempts}, "
+                        f"waiting {wait_time:.2f}s"
                     )
                     time.sleep(wait_time)
                     continue
 
-                # Success - log and return
-                self._log_request(method, url, response.status_code, start_time)
                 return response
 
-            except (httpx.TimeoutException, httpx.ConnectError) as e:
+            except httpx.RequestError as e:
                 last_exception = e
+                request_duration = time.monotonic() - request_start
+
+                # Feed AIMD: network failure = severe decrease (like 503)
+                if self._rate_limiter:
+                    self._rate_limiter.on_response(503, request_duration, domain)
+                self._log_request(method, url, 0, request_duration)
+
+                logger.warning(
+                    f"Request failed: {type(e).__name__} for {url}, "
+                    f"attempt {attempt + 1}/{max_attempts}"
+                )
+
                 if attempt < max_attempts - 1:
                     wait_time = self._backoff_factor * (2**attempt)
-                    logger.warning(
-                        f"Request failed: {type(e).__name__} for {url}, "
-                        f"attempt {attempt + 1}/{max_attempts}, waiting {wait_time:.2f}s"
-                    )
                     time.sleep(wait_time)
                 else:
-                    logger.error(f"Request failed after {max_attempts} attempts: {url}")
+                    logger.error(
+                        f"Request failed after {max_attempts} attempts: {url}",
+                    )
 
         # All retries exhausted
         if last_exception:
@@ -302,6 +505,13 @@ class HTTPClient:
         """
         Calculate backoff time, respecting Retry-After header if present.
 
+        Supports both formats per RFC 9110:
+        - Seconds (e.g. ``120``)
+        - HTTP-date (e.g. ``Fri, 31 Dec 1999 23:59:59 GMT``)
+
+        Falls back to exponential backoff if the header is missing or
+        cannot be parsed.
+
         Args:
             attempt: Current attempt number (0-indexed).
             response: HTTP response (may contain Retry-After header).
@@ -309,23 +519,34 @@ class HTTPClient:
         Returns:
             Time to wait in seconds.
         """
-        # Check for Retry-After header
         retry_after = response.headers.get("Retry-After")
         if retry_after:
+            # Try integer seconds first
             try:
-                return float(retry_after)
+                return max(0.0, float(retry_after))
             except ValueError:
-                pass  # Not a number, use exponential backoff
+                pass
 
-        # Exponential backoff
-        return self._backoff_factor * (2**attempt)
+            # Try HTTP-date format (RFC 2822 / RFC 9110)
+            try:
+                dt = parsedate_to_datetime(retry_after)
+                now = datetime.now(timezone.utc)
+                wait = (dt - now).total_seconds()
+                return max(0.0, wait)
+            except (ValueError, TypeError):
+                pass
+
+        # Exponential backoff with jitter to avoid thundering herd
+        wait = self._backoff_factor * (2**attempt)
+        wait *= random.uniform(0.8, 1.2)
+        return max(0.0, wait)
 
     def _log_request(
         self,
         method: str,
         url: str,
         status_code: int,
-        start_time: float,
+        duration: float,
     ) -> None:
         """
         Log request completion and call metrics callback.
@@ -333,10 +554,9 @@ class HTTPClient:
         Args:
             method: HTTP method used.
             url: Request URL.
-            status_code: Response status code.
-            start_time: Request start time (from time.monotonic()).
+            status_code: HTTP status code (0 for connection failures).
+            duration: Request duration in seconds (pre-computed by caller).
         """
-        duration = time.monotonic() - start_time
 
         # Structured log
         logger.info(
@@ -401,13 +621,16 @@ class HTTPClient:
 
 # Module-level convenience functions using a default client
 _default_client: HTTPClient | None = None
+_default_client_lock = threading.Lock()
 
 
 def get_client() -> HTTPClient:
-    """Get or create the default HTTP client."""
+    """Get or create the default HTTP client (thread-safe singleton)."""
     global _default_client
     if _default_client is None:
-        _default_client = HTTPClient()
+        with _default_client_lock:
+            if _default_client is None:
+                _default_client = HTTPClient()
     return _default_client
 
 
