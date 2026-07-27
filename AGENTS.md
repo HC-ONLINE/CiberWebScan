@@ -83,13 +83,13 @@ except ServiceError as e:
 
 ### HTTP Client Usage
 
-Use `HTTPClient` as a context manager (wraps httpx with retry and rate-limiting):
+Use `HTTPClient` as a context manager (wraps httpx with retry, rate-limiting, and adaptive AIMD):
 
 ```python
 from ciberwebscan.core.client.http_client import HTTPClient
 
 with HTTPClient(timeout=30) as client:
-    response = client.get(url)  # Automatic retry (exponential backoff)
+    response = client.get(url)  # Automatic retry with jittered exponential backoff
     response = client.post(url, json=data)  # Also supports HTTP/2
 ```
 

@@ -146,7 +146,13 @@ Configure HTTP request behavior.
     },
     "rate_limit": {
       "requests_per_second": 5.0,
-      "per_domain": true
+      "per_domain": true,
+      "adaptive": true,
+      "min_rate": 0.5,
+      "increase_factor": 0.5,
+      "decrease_factor": 0.5,
+      "latency_spike_factor": 1.5,
+      "latency_window": 10
     },
     "proxy": {
       "http": null,
@@ -166,22 +172,28 @@ Configure HTTP request behavior.
 
 ### Default values (quick reference)
 
-| Key                                   | Default | Description                        |
-| ------------------------------------- | ------: | ---------------------------------- |
-| `http.timeout.connect`                |  `10.0` | Connection timeout (seconds)       |
-| `http.timeout.read`                   |  `30.0` | Read timeout (seconds)             |
-| `http.timeout.write`                  |  `30.0` | Write timeout (seconds)            |
-| `http.timeout.pool`                   |  `10.0` | Connection pool timeout (seconds)  |
-| `http.retry.max_attempts`             |     `3` | Retry attempts                     |
-| `http.retry.backoff_factor`           |   `0.5` | Exponential backoff factor         |
-| `http.rate_limit.requests_per_second` |   `5.0` | Requests per second                |
-| `http.rate_limit.per_domain`          |  `true` | Rate limit per domain              |
-| `http.proxy.rotate`                   | `false` | Proxy rotation disabled by default |
-| `http.proxy.rotation_interval`        |    `10` | Requests per proxy when rotating   |
-| `http.http2`                          |  `true` | Enable HTTP/2 by default           |
-| `http.follow_redirects`               |  `true` | Follow redirects                   |
-| `http.max_redirects`                  |    `10` | Max redirects to follow            |
-| `http.verify_ssl`                     |  `true` | Verify TLS certificates            |
+| Key                                    | Default | Description                                   |
+| -------------------------------------- | ------: | --------------------------------------------- |
+| `http.timeout.connect`                 |  `10.0` | Connection timeout (seconds)                  |
+| `http.timeout.read`                    |  `30.0` | Read timeout (seconds)                        |
+| `http.timeout.write`                   |  `30.0` | Write timeout (seconds)                       |
+| `http.timeout.pool`                    |  `10.0` | Connection pool timeout (seconds)             |
+| `http.retry.max_attempts`              |     `3` | Retry attempts                                |
+| `http.retry.backoff_factor`            |   `0.5` | Exponential backoff factor (with ±20% jitter) |
+| `http.rate_limit.requests_per_second`  |   `5.0` | Requests per second                           |
+| `http.rate_limit.per_domain`           |  `true` | Rate limit per domain                         |
+| `http.rate_limit.adaptive`             |  `true` | Enable AIMD adaptive rate control             |
+| `http.rate_limit.min_rate`             |   `0.5` | Minimum allowed rate (req/s)                  |
+| `http.rate_limit.increase_factor`      |   `0.5` | Additive increase on 2xx responses            |
+| `http.rate_limit.decrease_factor`      |   `0.5` | Multiplicative decrease on 429 (×0.5)         |
+| `http.rate_limit.latency_spike_factor` |   `1.5` | Latency spike threshold (× median)            |
+| `http.rate_limit.latency_window`       |    `10` | Sliding window size for latency measurements  |
+| `http.proxy.rotate`                    | `false` | Proxy rotation disabled by default            |
+| `http.proxy.rotation_interval`         |    `10` | Requests per proxy when rotating              |
+| `http.http2`                           |  `true` | Enable HTTP/2 by default                      |
+| `http.follow_redirects`                |  `true` | Follow redirects                              |
+| `http.max_redirects`                   |    `10` | Max redirects to follow                       |
+| `http.verify_ssl`                      |  `true` | Verify TLS certificates                       |
 
 #### Proxy Rotation
 
@@ -594,6 +606,7 @@ ciberwebscan config reset -y
 | Feature          | bugbounty | pentest   | recon     | stealth   |
 | ---------------- | --------- | --------- | --------- | --------- |
 | Rate Limit       | 2.0 req/s | 5.0 req/s | 3.0 req/s | 0.5 req/s |
+| Adaptive AIMD    | Yes       | Yes       | Yes       | Yes       |
 | CVE Lookup       | Yes       | Yes       | No        | No        |
 | XSS/SQLi         | Yes       | Yes       | No        | No        |
 | Traversal        | No        | Yes       | No        | No        |
@@ -629,6 +642,9 @@ http:
     read: 15.0
   rate_limit:
     requests_per_second: 1.0
+    adaptive: true
+    min_rate: 0.3
+    decrease_factor: 0.4
 
 analysis:
   cve:
