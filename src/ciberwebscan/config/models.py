@@ -30,7 +30,7 @@ class RetryConfig(BaseModel):
     """HTTP retry settings with exponential backoff."""
 
     max_attempts: Annotated[int, Field(ge=1, le=10)] = 3
-    backoff_factor: Annotated[float, Field(ge=0.1, le=10.0)] = 0.5
+    backoff_factor: Annotated[float, Field(ge=0.0, le=10.0)] = 0.5
     retryable_status_codes: list[int] = Field(
         default=[429, 500, 502, 503, 504],
         description="HTTP status codes that trigger a retry",

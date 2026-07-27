@@ -310,8 +310,8 @@ class HTTPClient:
         resolved_backoff_factor = (
             config.retry.backoff_factor if backoff_factor is None else backoff_factor
         )
-        if resolved_backoff_factor < 0.1:
-            raise ValueError("backoff_factor must be >= 0.1")
+        if resolved_backoff_factor < 0:
+            raise ValueError("backoff_factor must be >= 0")
         resolved_rate_limit = (
             config.rate_limit.requests_per_second
             if rate_limit is None and config.rate_limit.per_domain

@@ -1,11 +1,80 @@
 """
-Unit tests for configuration models — proxy rotation fields.
+Unit tests for configuration models — proxy rotation fields, retry config,
+and rate limit config.
 """
 
 import pytest
 from pydantic import ValidationError
 
-from ciberwebscan.config.models import ProxyConfig
+from ciberwebscan.config.models import ProxyConfig, RateLimitConfig, RetryConfig
+
+
+class TestRetryConfig:
+    """Tests for RetryConfig validation."""
+
+    def test_default_values(self):
+        cfg = RetryConfig()
+        assert cfg.max_attempts == 3
+        assert cfg.backoff_factor == 0.5
+        assert cfg.retryable_status_codes == [429, 500, 502, 503, 504]
+
+    def test_backoff_factor_zero_allowed(self):
+        """backoff_factor=0 is valid (immediate retry, no delay)."""
+        cfg = RetryConfig(backoff_factor=0.0)
+        assert cfg.backoff_factor == 0.0
+
+    def test_backoff_factor_negative_rejected(self):
+        with pytest.raises(ValidationError):
+            RetryConfig(backoff_factor=-0.1)
+
+    def test_backoff_factor_max_allowed(self):
+        cfg = RetryConfig(backoff_factor=10.0)
+        assert cfg.backoff_factor == 10.0
+
+    def test_backoff_factor_above_max_rejected(self):
+        with pytest.raises(ValidationError):
+            RetryConfig(backoff_factor=10.1)
+
+    def test_max_attempts_zero_rejected(self):
+        with pytest.raises(ValidationError):
+            RetryConfig(max_attempts=0)
+
+
+class TestRateLimitConfig:
+    """Tests for RateLimitConfig validation."""
+
+    def test_default_values(self):
+        cfg = RateLimitConfig()
+        assert cfg.requests_per_second == 5.0
+        assert cfg.per_domain is True
+        assert cfg.adaptive is True
+        assert cfg.min_rate == 0.5
+
+    def test_adaptive_disabled(self):
+        cfg = RateLimitConfig(adaptive=False)
+        assert cfg.adaptive is False
+
+    def test_requests_per_second_zero_rejected(self):
+        with pytest.raises(ValidationError):
+            RateLimitConfig(requests_per_second=0.0)
+
+    def test_min_rate_at_boundary(self):
+        cfg = RateLimitConfig(min_rate=0.1)
+        assert cfg.min_rate == 0.1
+
+    def test_min_rate_below_boundary_rejected(self):
+        with pytest.raises(ValidationError):
+            RateLimitConfig(min_rate=0.05)
+
+    def test_latency_window_bounds(self):
+        cfg = RateLimitConfig(latency_window=5)
+        assert cfg.latency_window == 5
+        cfg = RateLimitConfig(latency_window=50)
+        assert cfg.latency_window == 50
+
+    def test_latency_window_below_min_rejected(self):
+        with pytest.raises(ValidationError):
+            RateLimitConfig(latency_window=4)
 
 
 class TestProxyConfigProxyList:

@@ -325,7 +325,7 @@ class TestHTTPClient:
         with HTTPClient(
             retryable_status_codes={408, 500},
             max_retries=2,
-            backoff_factor=0.01,
+            backoff_factor=0.1,
         ) as client:
             response = client.get("https://example.com")
 
@@ -344,7 +344,7 @@ class TestHTTPClient:
         with HTTPClient(
             retryable_status_codes={408},
             max_retries=3,
-            backoff_factor=0.01,
+            backoff_factor=0.1,
         ) as client:
             response = client.get("https://example.com")
 
@@ -406,7 +406,7 @@ class TestHTTPClient:
             mock_response,
         ]
 
-        with HTTPClient(max_retries=2, backoff_factor=0.01) as client:
+        with HTTPClient(max_retries=2, backoff_factor=0.1) as client:
             response = client.get("https://example.com")
 
         assert response.status_code == 200
@@ -435,7 +435,7 @@ class TestHTTPClient:
 
         mock_request.side_effect = [mock_response_503, mock_response_200]
 
-        with HTTPClient(max_retries=2, backoff_factor=0.01) as client:
+        with HTTPClient(max_retries=2, backoff_factor=0.1) as client:
             response = client.get("https://example.com")
 
         assert response.status_code == 200
