@@ -504,7 +504,7 @@ ciberwebscan config get <KEY> [OPTIONS]
 
 ```bash
 ciberwebscan config get scraping.timeout
-ciberwebscan config get http.max_retries --config custom_config.yaml
+ciberwebscan config get http.retry.max_attempts --config custom_config.yaml
 ```
 
 #### config set
@@ -524,7 +524,7 @@ ciberwebscan config set <KEY> <VALUE> [OPTIONS]
 
 ```bash
 ciberwebscan config set scraping.timeout 60
-ciberwebscan config set http.max_retries 5 --save
+ciberwebscan config set http.retry.max_attempts 5 --save
 ciberwebscan config set export.output_dir results --no-save
 ```
 

@@ -129,7 +129,7 @@ class ScrapeService(BaseService):
 
         return HTTPClient(
             timeout=http_config.timeout.read,
-            max_retries=http_config.retry.max_attempts,
+            max_attempts=http_config.retry.max_attempts,
             backoff_factor=http_config.retry.backoff_factor,
             rate_limit=(
                 http_config.rate_limit.requests_per_second

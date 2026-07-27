@@ -74,7 +74,7 @@ class CIRCLClient:
         self._http_client = HTTPClient(
             timeout=timeout,
             rate_limit=rate_limit,
-            max_retries=2,
+            max_attempts=2,
         )
 
         logger.debug(

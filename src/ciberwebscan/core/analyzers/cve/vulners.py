@@ -71,7 +71,7 @@ class VulnersClient:
         self._http_client = HTTPClient(
             timeout=timeout,
             rate_limit=2.0,  # 2 requests per second
-            max_retries=max_retries,
+            max_attempts=max_retries,
         )
 
         logger.debug(

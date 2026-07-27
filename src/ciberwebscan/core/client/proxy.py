@@ -225,7 +225,7 @@ async def check_proxy_connectivity(
 
         test_client = HTTPClient(
             timeout=timeout,
-            max_retries=1,
+            max_attempts=1,
             proxy=proxy,
         )
 

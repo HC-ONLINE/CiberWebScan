@@ -214,7 +214,7 @@ class TestScrapeService:
 
         mock_http_client.assert_called_once_with(
             timeout=45.0,
-            max_retries=4,
+            max_attempts=4,
             backoff_factor=0.7,
             rate_limit=3.0,
             http2=False,
