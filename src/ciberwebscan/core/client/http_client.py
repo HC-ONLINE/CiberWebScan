@@ -239,7 +239,7 @@ class HTTPClient:
     - Metrics collection hooks
 
     Example:
-        >>> client = HTTPClient(max_retries=3, rate_limit=2.0)
+        >>> client = HTTPClient(max_attempts=3, rate_limit=2.0)
         >>> response = client.get("https://example.com/api")
         >>> response.status_code
         200
@@ -254,7 +254,7 @@ class HTTPClient:
     def __init__(
         self,
         timeout: float | None = None,
-        max_retries: int | None = None,
+        max_attempts: int | None = None,
         backoff_factor: float | None = None,
         rate_limit: float | None = None,
         http2: bool | None = None,
@@ -271,7 +271,7 @@ class HTTPClient:
 
         Args:
             timeout: Request timeout in seconds. Default 30.0.
-            max_retries: Maximum retry attempts on failure. Default 3.
+            max_attempts: Maximum retry attempts on failure (0 = no retries). Default 3.
             backoff_factor: Multiplier for exponential backoff. Default 0.5.
                 Wait time = backoff_factor * (2 ** attempt)
                 With default: 0.5s, 1s, 2s, 4s...
@@ -302,11 +302,11 @@ class HTTPClient:
         else:
             resolved_timeout = timeout
 
-        resolved_max_retries = (
-            config.retry.max_attempts if max_retries is None else max_retries
+        resolved_max_attempts = (
+            config.retry.max_attempts if max_attempts is None else max_attempts
         )
-        if resolved_max_retries < 0:
-            raise ValueError("max_retries must be >= 0")
+        if resolved_max_attempts < 0:
+            raise ValueError("max_attempts must be >= 0")
         resolved_backoff_factor = (
             config.retry.backoff_factor if backoff_factor is None else backoff_factor
         )
@@ -337,7 +337,7 @@ class HTTPClient:
             )
 
         self._proxy = resolved_proxy
-        self._max_retries = resolved_max_retries
+        self._max_attempts = resolved_max_attempts
         self._backoff_factor = resolved_backoff_factor
         self._metrics_callback = metrics_callback
 
@@ -420,7 +420,7 @@ class HTTPClient:
             )
 
         # Determine max attempts
-        max_attempts = (self._max_retries + 1) if retry else 1
+        max_attempts = (self._max_attempts + 1) if retry else 1
         last_exception: Exception | None = None
         response: httpx.Response | None = None
 

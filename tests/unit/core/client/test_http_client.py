@@ -258,7 +258,7 @@ class TestHTTPClient:
         """Test HTTPClient with default parameters."""
         client = HTTPClient()
         # Check via internal client, not direct attributes
-        assert client._max_retries == 3
+        assert client._max_attempts == 3
         assert client._backoff_factor == 0.5
         assert client._proxy is None
         assert client._rate_limiter is not None
@@ -324,7 +324,7 @@ class TestHTTPClient:
 
         with HTTPClient(
             retryable_status_codes={408, 500},
-            max_retries=2,
+            max_attempts=2,
             backoff_factor=0.1,
         ) as client:
             response = client.get("https://example.com")
@@ -343,7 +343,7 @@ class TestHTTPClient:
 
         with HTTPClient(
             retryable_status_codes={408},
-            max_retries=3,
+            max_attempts=3,
             backoff_factor=0.1,
         ) as client:
             response = client.get("https://example.com")
@@ -406,7 +406,7 @@ class TestHTTPClient:
             mock_response,
         ]
 
-        with HTTPClient(max_retries=2, backoff_factor=0.1) as client:
+        with HTTPClient(max_attempts=2, backoff_factor=0.1) as client:
             response = client.get("https://example.com")
 
         assert response.status_code == 200
@@ -417,7 +417,10 @@ class TestHTTPClient:
         """Test that retry can be disabled per request."""
         mock_request.side_effect = httpx.TimeoutException("Timeout")
 
-        with HTTPClient(max_retries=3) as client, pytest.raises(httpx.TimeoutException):
+        with (
+            HTTPClient(max_attempts=3) as client,
+            pytest.raises(httpx.TimeoutException),
+        ):
             client.get("https://example.com", retry=False)
 
         # Should only try once when retry=False
@@ -435,7 +438,7 @@ class TestHTTPClient:
 
         mock_request.side_effect = [mock_response_503, mock_response_200]
 
-        with HTTPClient(max_retries=2, backoff_factor=0.1) as client:
+        with HTTPClient(max_attempts=2, backoff_factor=0.1) as client:
             response = client.get("https://example.com")
 
         assert response.status_code == 200
@@ -465,10 +468,10 @@ class TestHTTPClient:
         assert hasattr(client, "options")
         client.close()
 
-    def test_negative_max_retries_raises(self):
-        """Test that negative max_retries raises ValueError."""
-        with pytest.raises(ValueError, match="max_retries must be >= 0"):
-            HTTPClient(max_retries=-1)
+    def test_negative_max_attempts_raises(self):
+        """Test that negative max_attempts raises ValueError."""
+        with pytest.raises(ValueError, match="max_attempts must be >= 0"):
+            HTTPClient(max_attempts=-1)
 
     def test_negative_backoff_factor_raises(self):
         """Test that negative backoff_factor raises ValueError."""
