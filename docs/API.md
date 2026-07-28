@@ -309,6 +309,7 @@ Perform controlled security attack simulations.
 - SQL Injection testing
 - Path Traversal vulnerability testing
 - Directory Enumeration
+- CSRF (Cross-Site Request Forgery) detection
 - Custom payloads and wordlists
 
 **Request:**
@@ -320,6 +321,7 @@ Perform controlled security attack simulations.
   "sqli": true,
   "traversal": true,
   "enumeration": true,
+  "csrf": true,
   "all_attacks": false,
   "intensity": "medium",
   "max_payloads": 50,
@@ -340,6 +342,7 @@ Perform controlled security attack simulations.
 | `sqli`                    | boolean     | null         | Test SQL injection               |
 | `traversal`               | boolean     | null         | Test path traversal              |
 | `enumeration`             | boolean     | null         | Directory enumeration            |
+| `csrf`                    | boolean     | null         | Test CSRF vulnerabilities        |
 | `all_attacks`             | boolean     | false        | Enable all attack types          |
 | `intensity`               | string      | medium       | low, medium, or high             |
 | `max_payloads`            | integer     | null         | Max payloads per attack (1-1000) |
@@ -549,7 +552,7 @@ List available scan presets and their configurations (no authentication required
         "enrich_exploits": true
       },
       "has_attacks": true,
-      "attack_types": ["xss", "sqli", "traversal", "enumeration"],
+      "attack_types": ["xss", "sqli", "traversal", "enumeration", "csrf"],
       "intensity": "high",
       "scrape_dynamic": true
     }

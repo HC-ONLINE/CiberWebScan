@@ -227,6 +227,7 @@ ciberwebscan attack test <URL> --consent [OPTIONS]
 - `--sqli`: Test for SQL Injection vulnerabilities
 - `--traversal`: Test for Path Traversal vulnerabilities
 - `--enumeration`: Test for Directory/File enumeration
+- `--csrf`: Test for CSRF (Cross-Site Request Forgery) vulnerabilities
 - `--all`: Run all attack types
 - `--intensity, -i <LEVEL>`: Attack intensity: low, medium, high (default: medium)
 - `--max-payloads <NUMBER>`: Maximum payloads per attack (default: 50)
@@ -251,6 +252,9 @@ ciberwebscan attack test https://example.com --consent --xss
 
 # Multiple attack types
 ciberwebscan attack test https://example.com --consent --xss --sqli
+
+# CSRF testing
+ciberwebscan attack test https://example.com --consent --csrf
 
 # All attacks with low intensity
 ciberwebscan attack test https://example.com --consent --all --intensity low

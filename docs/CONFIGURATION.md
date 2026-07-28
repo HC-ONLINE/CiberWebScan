@@ -383,6 +383,7 @@ Configure attack simulation settings.
     "sqli": true,
     "traversal": true,
     "enumeration": true,
+    "csrf": true,
     "max_payloads": 50
   }
 }
@@ -399,6 +400,7 @@ Configure attack simulation settings.
 | `attack.sqli`         |                      `true` | Run SQLi checks by default                 |
 | `attack.traversal`    |                      `true` | Run path traversal checks by default       |
 | `attack.enumeration`  |                      `true` | Run enumeration by default                 |
+| `attack.csrf`         |                      `true` | Run CSRF checks by default                 |
 | `attack.max_payloads` |                        `50` | Default max payloads per target            |
 
 ### Export
@@ -609,6 +611,7 @@ ciberwebscan config reset -y
 | Adaptive AIMD    | Yes       | Yes       | Yes       | Yes       |
 | CVE Lookup       | Yes       | Yes       | No        | No        |
 | XSS/SQLi         | Yes       | Yes       | No        | No        |
+| CSRF             | Yes       | Yes       | No        | No        |
 | Traversal        | No        | Yes       | No        | No        |
 | Enumeration      | No        | Yes       | No        | No        |
 | Dynamic Scraping | No        | Yes       | No        | No        |
@@ -657,6 +660,7 @@ attack:
   sqli: true
   traversal: false
   enumeration: false
+  csrf: true
   max_payloads: 50
 
 logging:
