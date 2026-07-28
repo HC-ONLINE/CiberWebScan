@@ -325,6 +325,7 @@ class AttackResult(BaseModel):
     sqli_findings: int = 0
     traversal_findings: int = 0
     enumeration_findings: int = 0
+    csrf_findings: int = 0
     duration_seconds: float = 0.0
 
 

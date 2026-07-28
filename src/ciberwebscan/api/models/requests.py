@@ -212,6 +212,10 @@ class AttackRequest(BaseModel):
         default=None,
         description="Directory enumeration (None uses config default)",
     )
+    csrf: bool | None = Field(
+        default=None,
+        description="Test for CSRF vulnerabilities (None uses config default)",
+    )
     all_attacks: bool = Field(
         default=False,
         description="Enable all attack types",
