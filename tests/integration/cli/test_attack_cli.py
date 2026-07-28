@@ -95,6 +95,7 @@ def run_cli_command(args: list[str]) -> dict[str, Any]:
     env["CIBERWEBSCAN_ATTACK_SQLI"] = "false"
     env["CIBERWEBSCAN_ATTACK_TRAVERSAL"] = "false"
     env["CIBERWEBSCAN_ATTACK_ENUMERATION"] = "false"
+    env["CIBERWEBSCAN_ATTACK_CSRF"] = "false"
 
     result = subprocess.run(
         cmd,
