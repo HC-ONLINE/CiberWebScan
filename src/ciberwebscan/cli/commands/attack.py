@@ -83,6 +83,13 @@ def attack_test(
             help="Test for Directory/File enumeration (uses config default if not set)",
         ),
     ] = None,
+    csrf: Annotated[
+        bool | None,
+        typer.Option(
+            "--csrf",
+            help="Test for CSRF vulnerabilities (uses config default if not set)",
+        ),
+    ] = None,
     all_attacks: Annotated[
         bool,
         typer.Option("--all", help="Run all attack types"),
@@ -222,7 +229,7 @@ def attack_test(
 
         # Enable all attacks if --all flag is used
         if all_attacks:
-            xss = sqli = traversal = enumeration = True
+            xss = sqli = traversal = enumeration = csrf = True
 
         # Parse headers if provided
         headers_dict: dict[str, str] = {}
@@ -250,6 +257,7 @@ def attack_test(
             sqli=sqli,
             traversal=traversal,
             enumeration=enumeration,
+            csrf=csrf,
             intensity=intensity,
             max_payloads=max_payloads,
             custom_payloads_file=payloads,
@@ -265,9 +273,19 @@ def attack_test(
         )
 
         # Validate at least one attack type is enabled (after config defaults are applied)
-        if not any([options.xss, options.sqli, options.traversal, options.enumeration]):
+        if not any(
+            [
+                options.xss,
+                options.sqli,
+                options.traversal,
+                options.enumeration,
+                options.csrf,
+            ]
+        ):
             print_error("No attack types selected")
-            print_info("Use --xss, --sqli, --traversal, --enumeration, or --all")
+            print_info(
+                "Use --xss, --sqli, --traversal, --enumeration, --csrf, or --all"
+            )
             print_info("Or enable attack types in your config.yaml (config.attack.*)")
             sys.exit(2)
 
@@ -285,6 +303,8 @@ def attack_test(
                 attacks_list.append("Path Traversal")
             if enumeration:
                 attacks_list.append("Directory Enumeration")
+            if csrf:
+                attacks_list.append("CSRF")
 
             print_info(f"Attack Types: {', '.join(attacks_list)}")
             print_info(f"Intensity: {intensity.upper()}")
@@ -323,6 +343,8 @@ def attack_test(
                     print_subheader(
                         f"Enumeration Findings: {attack_result.enumeration_findings}"
                     )
+                if attack_result.csrf_findings > 0:
+                    print_subheader(f"CSRF Findings: {attack_result.csrf_findings}")
 
                 # Display individual vulnerabilities
                 if attack_result.vulnerabilities:

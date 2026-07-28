@@ -46,6 +46,7 @@ async def attack_target(
         sqli = True if request.all_attacks else request.sqli
         traversal = True if request.all_attacks else request.traversal
         enumeration = True if request.all_attacks else request.enumeration
+        csrf = True if request.all_attacks else request.csrf
 
         options = AttackOptions(
             url=str(request.url),
@@ -54,6 +55,7 @@ async def attack_target(
             sqli=sqli,
             traversal=traversal,
             enumeration=enumeration,
+            csrf=csrf,
             intensity=request.intensity,
             max_payloads=request.max_payloads,
             timeout=request.timeout,
