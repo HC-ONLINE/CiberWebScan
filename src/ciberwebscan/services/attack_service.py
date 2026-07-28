@@ -19,6 +19,7 @@ from ciberwebscan.config.models import AttackConfig as ConfigAttackConfig
 from ciberwebscan.core.attacks import (
     AttackConfig,
     AttackContext,
+    CSRFAttacker,
     DirectoryEnumerator,
     PathTraversalAttacker,
     SQLiAttacker,
@@ -62,6 +63,7 @@ class AttackOptions:
     sqli: bool | None = None
     traversal: bool | None = None
     enumeration: bool | None = None
+    csrf: bool | None = None
 
     # Attack configuration
     intensity: str = "medium"  # low, medium, high
@@ -104,6 +106,8 @@ class AttackOptions:
                 self.traversal = self.config.traversal
             if self.enumeration is None:
                 self.enumeration = self.config.enumeration
+            if self.csrf is None:
+                self.csrf = self.config.csrf
             if self.max_payloads is None:
                 self.max_payloads = self.config.max_payloads
         else:
@@ -116,6 +120,8 @@ class AttackOptions:
                 self.traversal = False
             if self.enumeration is None:
                 self.enumeration = False
+            if self.csrf is None:
+                self.csrf = False
             if self.max_payloads is None:
                 self.max_payloads = 50
 
@@ -258,10 +264,16 @@ class AttackService(BaseService):
 
             # Validate at least one attack type selected
             if not any(
-                [options.xss, options.sqli, options.traversal, options.enumeration]
+                [
+                    options.xss,
+                    options.sqli,
+                    options.traversal,
+                    options.enumeration,
+                    options.csrf,
+                ]
             ):
                 raise ValidationError(
-                    "At least one attack type must be enabled (xss, sqli, traversal, enumeration)",
+                    "At least one attack type must be enabled (xss, sqli, traversal, enumeration, csrf)",
                     details={"url": options.url},
                 )
 
@@ -284,6 +296,7 @@ class AttackService(BaseService):
             assert options.sqli is not None
             assert options.traversal is not None
             assert options.enumeration is not None
+            assert options.csrf is not None
             assert options.max_payloads is not None
 
             # Build attack configuration
@@ -373,6 +386,14 @@ class AttackService(BaseService):
                     f"Enumeration: Found {len(enum_vulns)} interesting resources"
                 )
 
+            if options.csrf:
+                self.logger.info("Running CSRF analysis...")
+                csrf_vulns = self._execute_csrf_attack(context)
+                all_vulnerabilities.extend(csrf_vulns)
+                self.logger.info(
+                    f"CSRF: Found {len(csrf_vulns)} potential vulnerabilities"
+                )
+
             # Create attack result
             attack_result = AttackResult(
                 target_url=url,
@@ -387,6 +408,7 @@ class AttackService(BaseService):
                 enumeration_findings=sum(
                     1 for v in all_vulnerabilities if v.type == "enumeration"
                 ),
+                csrf_findings=sum(1 for v in all_vulnerabilities if v.type == "csrf"),
                 duration_seconds=context.elapsed_time(),
             )
 
@@ -474,6 +496,21 @@ class AttackService(BaseService):
             return vulnerabilities
         except Exception as e:
             self.logger.error(f"Directory enumeration failed: {e}")
+            return []
+
+    def _execute_csrf_attack(
+        self, context: AttackContext
+    ) -> list[VulnerabilityFinding]:
+        """Execute CSRF vulnerability analysis."""
+        import asyncio
+
+        attacker = CSRFAttacker()
+
+        try:
+            vulnerabilities = asyncio.run(attacker.execute(context))
+            return vulnerabilities
+        except Exception as e:
+            self.logger.error(f"CSRF analysis failed: {e}")
             return []
 
     def _export_attack_result(

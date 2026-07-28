@@ -204,6 +204,38 @@
       "phpinfo.php"
     ]
   },
+  "csrf": {
+    "low": ["csrf_token", "_csrf", "authenticity_token"],
+    "medium": [
+      "csrf_token",
+      "_csrf",
+      "authenticity_token",
+      "_token",
+      "__RequestVerificationToken",
+      "xsrf",
+      "_xsrf",
+      "csrfmiddlewaretoken"
+    ],
+    "high": [
+      "csrf_token",
+      "_csrf",
+      "authenticity_token",
+      "_token",
+      "__RequestVerificationToken",
+      "xsrf",
+      "_xsrf",
+      "csrfmiddlewaretoken",
+      "antiforgery",
+      "__VIEWSTATE",
+      "token",
+      "csrftoken",
+      "_csrf_token",
+      "formtoken",
+      "form_token",
+      "verificationtoken",
+      "anticsrf"
+    ]
+  },
   "traversal": {
     "low": ["../", "..\\", "..%2f", "..%5c"],
     "medium": [

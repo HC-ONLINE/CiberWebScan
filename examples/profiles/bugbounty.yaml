@@ -66,6 +66,7 @@ attack:
   sqli: true
   traversal: false
   enumeration: false
+  csrf: true
   max_payloads: 100
 
 export:
