@@ -6,6 +6,7 @@ Provides controlled security testing capabilities for:
 - SQL Injection testing
 - Directory enumeration
 - Path traversal testing
+- CSRF (Cross-Site Request Forgery) detection
 
 WARNING: Only use these modules against systems you own or have
 explicit written authorization to test. Unauthorized testing is illegal.
@@ -16,6 +17,7 @@ from .base import (
     AttackContext,
     AttackEngine,
 )
+from .csrf import CSRFAttacker
 from .enumeration import DirectoryEnumerator
 from .payloads import PayloadLoader
 from .sqli import SQLiAttacker
@@ -30,5 +32,6 @@ __all__ = [
     "SQLiAttacker",
     "DirectoryEnumerator",
     "PathTraversalAttacker",
+    "CSRFAttacker",
     "PayloadLoader",
 ]
