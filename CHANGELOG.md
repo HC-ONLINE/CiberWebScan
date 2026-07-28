@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.6.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.5.0...v2.6.0) (2026-07-28)
+
+
+### Features
+
+* add CSRF attack payloads for low, medium, and high severity levels ([982c55d](https://github.com/HC-ONLINE/CiberWebScan/commit/982c55dbf6005371bc083a09555c5b40cd5b4766))
+* add CSRF detection configuration and model support ([1d949ca](https://github.com/HC-ONLINE/CiberWebScan/commit/1d949cac57e66bd3aaa87487606e41f8ac83be84))
+* add CSRF detection module to core attack simulation ([aa479fb](https://github.com/HC-ONLINE/CiberWebScan/commit/aa479fbfa9d6c7b8fb9be02a6ef2b589a88081b6))
+* add CSRF detection support to API, CLI, and configuration files ([ffaff77](https://github.com/HC-ONLINE/CiberWebScan/commit/ffaff77941a224833c34c9a6c613a43a93a851b6))
+* add CSRF option to attack command and update attack target logic ([d19b8b5](https://github.com/HC-ONLINE/CiberWebScan/commit/d19b8b583db51ed0547321ae6cb37bc6892203d5))
+* add tokenless CSRF detection support to attack service ([bf7a569](https://github.com/HC-ONLINE/CiberWebScan/commit/bf7a569ddb254736dc58962e68222a369590f169))
+* disable CSRF attack option in CLI command environment variables ([1d46e4b](https://github.com/HC-ONLINE/CiberWebScan/commit/1d46e4b25ac97b04a40e172d587fc291e44ca5e1))
+* implement CSRF vulnerability detection and testing framework ([303c9b7](https://github.com/HC-ONLINE/CiberWebScan/commit/303c9b7dd14988605ccea46ea83e8da3c4ca2f52))
+
 ## [2.5.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.4.1...v2.5.0) (2026-07-27)
 
 ### Features
