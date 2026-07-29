@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.6.2](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.6.1...v2.6.2) (2026-07-29)
+
+
+### Bug Fixes
+
+* update severity indicators in attack results for better clarity ([80d2fd9](https://github.com/HC-ONLINE/CiberWebScan/commit/80d2fd9e4965cf4e27a104adaac8b9f02fe76e26))
+* update severity indicators in attack results for better clarity ([ac53c70](https://github.com/HC-ONLINE/CiberWebScan/commit/ac53c70cd3806fc2b8b08ea4907e91c7c0eddc59))
+
 ## [2.6.1](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.6.0...v2.6.1) (2026-07-29)
 
 
