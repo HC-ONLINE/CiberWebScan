@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.6.3](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.6.2...v2.6.3) (2026-07-29)
+
+
+### Bug Fixes
+
+* add missing attack fields to CSV and HTML exports ([85125e3](https://github.com/HC-ONLINE/CiberWebScan/commit/85125e3c515d5cca1bf1a6625e6789caa2486989))
+* add missing attack fields to CSV and HTML exports ([47c9ef8](https://github.com/HC-ONLINE/CiberWebScan/commit/47c9ef8ba95b58ba385a457ee8293be64ae53367))
+
 ## [2.6.2](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.6.1...v2.6.2) (2026-07-29)
 
 
