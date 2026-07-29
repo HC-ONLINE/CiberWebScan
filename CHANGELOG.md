@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.6.1](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.6.0...v2.6.1) (2026-07-29)
+
+
+### Bug Fixes
+
+* ensure URL compatibility with urlparse in attack modules and tests ([5ce7fd2](https://github.com/HC-ONLINE/CiberWebScan/commit/5ce7fd219505643b0d9a569351c9a8f2f925d5b5))
+* ensure URL compatibility with urlparse in attack modules and tests ([2f18447](https://github.com/HC-ONLINE/CiberWebScan/commit/2f18447532d085b8e1aa533685264e1ecbafecf5))
+
 ## [2.6.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.5.0...v2.6.0) (2026-07-28)
 
 
