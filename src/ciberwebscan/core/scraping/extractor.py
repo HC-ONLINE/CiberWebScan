@@ -400,3 +400,99 @@ def extract_images(
         images.append(image_data)
 
     return images
+
+
+def extract_forms(
+    soup: BeautifulSoup,
+    *,
+    selector: str = "form",
+) -> list[dict[str, Any]]:
+    """
+    Extract all forms from HTML.
+
+    Args:
+        soup: BeautifulSoup object.
+        selector: CSS selector for form elements.
+
+    Returns:
+        List of form dictionaries with 'action', 'method', 'fields', etc.
+
+    Examples:
+        >>> forms = extract_forms(soup)
+        >>> forms[0]
+        {'action': '/login', 'method': 'POST', 'fields': [...]}
+    """
+    forms = []
+
+    for form in soup.select(selector):
+        form_data: dict[str, Any] = {
+            "action": form.get("action", ""),
+            "method": str(form.get("method", "GET")).upper(),
+            "enctype": form.get("enctype", ""),
+            "id": form.get("id", ""),
+            "name": form.get("name", ""),
+            "fields": [],
+        }
+
+        # Extract input fields
+        for inp in form.select("input, select, textarea"):
+            field_data: dict[str, Any] = {
+                "tag": inp.name,
+                "type": inp.get("type", "text") if inp.name == "input" else inp.name,
+                "name": inp.get("name", ""),
+                "value": inp.get("value", ""),
+                "id": inp.get("id", ""),
+                "placeholder": inp.get("placeholder", ""),
+            }
+            if inp.name == "select":
+                field_data["options"] = [
+                    opt.get("value", opt.get_text(strip=True))
+                    for opt in inp.select("option")
+                ]
+            form_data["fields"].append(field_data)
+
+        forms.append(form_data)
+
+    return forms
+
+
+def extract_scripts(
+    soup: BeautifulSoup,
+    *,
+    selector: str = "script[src]",
+) -> list[dict[str, str]]:
+    """
+    Extract all external scripts from HTML.
+
+    Args:
+        soup: BeautifulSoup object.
+        selector: CSS selector for script elements with src.
+
+    Returns:
+        List of script dictionaries with 'src' and 'type'.
+
+    Examples:
+        >>> scripts = extract_scripts(soup)
+        >>> scripts[0]
+        {'src': 'https://example.com/app.js', 'type': 'text/javascript'}
+    """
+    scripts = []
+
+    for script in soup.select(selector):
+        src = script.get("src")
+        if not src or not isinstance(src, str):
+            continue
+
+        script_data = {
+            "src": src,
+            "type": script.get("type", "text/javascript"),
+        }
+
+        # Include additional attributes if present
+        for attr in ["async", "defer", "integrity", "crossorigin"]:
+            if script.get(attr):
+                script_data[attr] = script.get(attr)
+
+        scripts.append(script_data)
+
+    return scripts
