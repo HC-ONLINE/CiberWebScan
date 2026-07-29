@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.7.1](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.7.0...v2.7.1) (2026-07-29)
+
+
+### Bug Fixes
+
+* enhance mock result in dynamic scraping tests to include title, links, images, forms, and scripts ([9f0deec](https://github.com/HC-ONLINE/CiberWebScan/commit/9f0deec02574887be2461300a3822409e8d04e05))
+
 ## [2.7.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.6.3...v2.7.0) (2026-07-29)
 
 
