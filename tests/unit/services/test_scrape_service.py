@@ -317,7 +317,16 @@ class TestScrapeDynamicConfigDefaults:
         mock_bt: Mock,
     ) -> None:
         """Helper: run _scrape_dynamic with asyncio fully mocked."""
-        mock_result = Mock(html="<html/>", status_code=200, elapsed_time=0.1)
+        mock_result = Mock(
+            html="<html/>",
+            status_code=200,
+            elapsed_time=0.1,
+            title="",
+            links=[],
+            images=[],
+            forms=[],
+            scripts=[],
+        )
         scrape_service._dynamic_scraper = Mock()
         scrape_service._dynamic_scraper.scrape = Mock(return_value=mock_result)
 
