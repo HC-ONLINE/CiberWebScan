@@ -413,6 +413,7 @@ class HTTPClient:
         are caught and retried. Only non-retryable errors (e.g. invalid URLs,
             malformed arguments) will propagate immediately.
         """
+        url = str(url)  # Ensure compatibility with urlparse (httpx.URL → str)
         domain = urlparse(url).netloc
         if not domain:
             raise ValueError(

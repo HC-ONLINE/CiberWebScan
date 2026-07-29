@@ -89,7 +89,7 @@ class XSSAttacker(AttackEngine):
     ) -> list[VulnerabilityFinding]:
         """Test for reflected XSS in URL parameters."""
         vulnerabilities = []
-        parsed_url = urlparse(response.url)
+        parsed_url = urlparse(str(response.url))
 
         if not parsed_url.query:
             return vulnerabilities
@@ -105,7 +105,7 @@ class XSSAttacker(AttackEngine):
 
             for payload in payloads[:10]:  # Limit payloads per parameter
                 vuln = await self._test_parameter_xss(
-                    context, response.url, param_name, payload, "GET"
+                    context, str(response.url), param_name, payload, "GET"
                 )
                 if vuln:
                     vulnerabilities.append(vuln)

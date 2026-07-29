@@ -4,6 +4,7 @@ Tests for path traversal attack module.
 
 from unittest.mock import Mock
 
+import httpx
 import pytest
 
 from ciberwebscan.core.attacks.base import AttackConfig, AttackContext, AttackIntensity
@@ -51,7 +52,7 @@ def attack_context(attack_config, http_client_mock):
 def vulnerable_etc_passwd_response():
     """Mock response with /etc/passwd content."""
     response = Mock()
-    response.url = "https://example.com/files?file=../../etc/passwd"
+    response.url = httpx.URL("https://example.com/files?file=../../etc/passwd")
     response.status_code = 200
     response.text = """root:x:0:0:root:/root:/bin/bash
 daemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin
@@ -70,7 +71,7 @@ www-data:x:33:33:www-data:/var/www:/usr/sbin/nologin"""
 def vulnerable_windows_response():
     """Mock response with windows system file content."""
     response = Mock()
-    response.url = (
+    response.url = httpx.URL(
         "https://example.com/view?path=..\\..\\windows\\system32\\drivers\\etc\\hosts"
     )
     response.status_code = 200
@@ -93,7 +94,9 @@ def vulnerable_windows_response():
 def vulnerable_config_response():
     """Mock response with application config file."""
     response = Mock()
-    response.url = "https://example.com/download?file=../../../app/config/database.yml"
+    response.url = httpx.URL(
+        "https://example.com/download?file=../../../app/config/database.yml"
+    )
     response.status_code = 200
     response.text = """production:
   adapter: mysql2
@@ -115,7 +118,7 @@ development:
 def safe_response():
     """Mock safe response without traversal indicators."""
     response = Mock()
-    response.url = "https://example.com/files?file=document.pdf"
+    response.url = httpx.URL("https://example.com/files?file=document.pdf")
     response.status_code = 200
     response.text = "Normal document content here"
     response.content = b"Normal document content here"
@@ -127,7 +130,7 @@ def safe_response():
 def error_response():
     """Mock error response."""
     response = Mock()
-    response.url = "https://example.com/files?file=../invalid"
+    response.url = httpx.URL("https://example.com/files?file=../invalid")
     response.status_code = 404
     response.text = "File not found"
     response.content = b"File not found"

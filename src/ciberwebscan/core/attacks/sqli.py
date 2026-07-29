@@ -108,7 +108,7 @@ class SQLiAttacker(AttackEngine):
     ) -> list[VulnerabilityFinding]:
         """Test URL parameters for SQL injection."""
         vulnerabilities = []
-        parsed_url = urlparse(response.url)
+        parsed_url = urlparse(str(response.url))
 
         if not parsed_url.query:
             return vulnerabilities
@@ -125,7 +125,7 @@ class SQLiAttacker(AttackEngine):
             for payload in payloads[:8]:  # Limit payloads per parameter
                 vuln = await self._test_parameter_sqli(
                     context,
-                    response.url,
+                    str(response.url),
                     param_name,
                     payload,
                     "GET",
