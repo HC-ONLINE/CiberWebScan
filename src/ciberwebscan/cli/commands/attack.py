@@ -353,11 +353,11 @@ def attack_test(
 
                     for i, vuln in enumerate(attack_result.vulnerabilities, 1):
                         severity_color = {
-                            "critical": "🔴",
-                            "high": "🟠",
-                            "medium": "🟡",
-                            "low": "🟢",
-                        }.get(vuln.severity.value.lower(), "🔵")
+                            "critical": "[!!!]",
+                            "high": "[!!]",
+                            "medium": "[!]",
+                            "low": "[-]",
+                        }.get(vuln.severity.value.lower(), "[?]")
 
                         print_info(
                             f"\n#{i} {severity_color} {vuln.title} "
