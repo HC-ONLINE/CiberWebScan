@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.7.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.6.3...v2.7.0) (2026-07-29)
+
+
+### Features
+
+* add form and script extraction functions to the scraper ([b0f0632](https://github.com/HC-ONLINE/CiberWebScan/commit/b0f0632e2e190021c1b5e18d769b9c4682162825))
+
+
+### Bug Fixes
+
+* add extraction of metadata, links, images, forms, and scripts in dynamic and static scrapers ([8a27596](https://github.com/HC-ONLINE/CiberWebScan/commit/8a27596bb4e6f0c015aefcaa55fa50fadbf7fa2d))
+* enhance ScrapeResult to include detailed extraction of links, images, forms, and scripts ([1d217a8](https://github.com/HC-ONLINE/CiberWebScan/commit/1d217a831abbf239b24ed9ba3281d8fc1ac6274f))
+* update changelog link in README ([2de61c0](https://github.com/HC-ONLINE/CiberWebScan/commit/2de61c07f671670a342fe88d8ec20a149843dc4c))
+
 ## [2.6.3](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.6.2...v2.6.3) (2026-07-29)
 
 
