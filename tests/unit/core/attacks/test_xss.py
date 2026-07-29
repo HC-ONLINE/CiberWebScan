@@ -4,6 +4,7 @@ Tests for XSS attack module.
 
 from unittest.mock import Mock
 
+import httpx
 import pytest
 from bs4 import BeautifulSoup
 
@@ -54,7 +55,7 @@ def attack_context(attack_config, http_client_mock):
 def vulnerable_response():
     """Mock response with XSS vulnerability."""
     response = Mock()
-    response.url = "https://example.com/search?q=test"
+    response.url = httpx.URL("https://example.com/search?q=test")
     response.status_code = 200
     response.text = """
     <html>
@@ -74,7 +75,7 @@ def vulnerable_response():
 def safe_response():
     """Mock response without XSS vulnerability."""
     response = Mock()
-    response.url = "https://example.com/search?q=test"
+    response.url = httpx.URL("https://example.com/search?q=test")
     response.status_code = 200
     response.text = """
     <html>
@@ -94,7 +95,7 @@ def safe_response():
 def form_response():
     """Mock response with form for testing."""
     response = Mock()
-    response.url = "https://example.com/contact"
+    response.url = httpx.URL("https://example.com/contact")
     response.status_code = 200
     response.text = """
     <html>

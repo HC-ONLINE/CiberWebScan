@@ -131,7 +131,7 @@ class PathTraversalAttacker(AttackEngine):
     ) -> list[VulnerabilityFinding]:
         """Test URL parameters for path traversal."""
         vulnerabilities = []
-        parsed_url = urlparse(response.url)
+        parsed_url = urlparse(str(response.url))
 
         if not parsed_url.query:
             return vulnerabilities
@@ -153,7 +153,7 @@ class PathTraversalAttacker(AttackEngine):
                     payload = base_payload + target_file
 
                     vuln = await self._test_parameter_traversal(
-                        context, response.url, param_name, payload, "GET"
+                        context, str(response.url), param_name, payload, "GET"
                     )
                     if vuln:
                         vulnerabilities.append(vuln)
@@ -220,7 +220,7 @@ class PathTraversalAttacker(AttackEngine):
         vulnerabilities = []
 
         # Look for potential file inclusion parameters in the current URL
-        parsed_url = urlparse(response.url)
+        parsed_url = urlparse(str(response.url))
         if not parsed_url.query:
             return vulnerabilities
 
@@ -246,7 +246,7 @@ class PathTraversalAttacker(AttackEngine):
         for param_name in file_params[:2]:  # Limit parameters
             for payload in lfi_payloads:
                 vuln = await self._test_parameter_traversal(
-                    context, response.url, param_name, payload, "GET"
+                    context, str(response.url), param_name, payload, "GET"
                 )
                 if vuln:
                     vulnerabilities.append(vuln)

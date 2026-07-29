@@ -4,6 +4,7 @@ Tests for SQL injection attack module.
 
 from unittest.mock import Mock
 
+import httpx
 import pytest
 
 from ciberwebscan.core.attacks.base import AttackConfig, AttackContext, AttackIntensity
@@ -53,7 +54,7 @@ def attack_context(attack_config, http_client_mock):
 def vulnerable_mysql_response():
     """Mock response with MySQL error indicating SQLi."""
     response = Mock()
-    response.url = "https://example.com/user?id=1'"
+    response.url = httpx.URL("https://example.com/user?id=1'")
     response.status_code = 500
     response.text = """
     <html>
@@ -73,7 +74,7 @@ def vulnerable_mysql_response():
 def vulnerable_postgresql_response():
     """Mock response with PostgreSQL error indicating SQLi."""
     response = Mock()
-    response.url = "https://example.com/search?q=test'"
+    response.url = httpx.URL("https://example.com/search?q=test'")
     response.status_code = 500
     response.text = """
     ERROR: syntax error at or near "'"
@@ -89,7 +90,7 @@ def vulnerable_postgresql_response():
 def time_based_response():
     """Mock response for time-based SQLi simulation."""
     response = Mock()
-    response.url = "https://example.com/login"
+    response.url = httpx.URL("https://example.com/login")
     response.status_code = 200
     response.text = "<html><body>Login successful</body></html>"
     response.content = response.text.encode()
@@ -102,7 +103,7 @@ def time_based_response():
 def boolean_based_response_true():
     """Mock response for boolean-based SQLi (true condition)."""
     response = Mock()
-    response.url = "https://example.com/product?id=1"
+    response.url = httpx.URL("https://example.com/product?id=1")
     response.status_code = 200
     response.text = """
     <html>
@@ -122,7 +123,7 @@ def boolean_based_response_true():
 def boolean_based_response_false():
     """Mock response for boolean-based SQLi (false condition)."""
     response = Mock()
-    response.url = "https://example.com/product?id=999999"
+    response.url = httpx.URL("https://example.com/product?id=999999")
     response.status_code = 200
     response.text = """
     <html>
@@ -141,7 +142,7 @@ def boolean_based_response_false():
 def normal_response():
     """Mock normal response without SQLi indicators."""
     response = Mock()
-    response.url = "https://example.com/user?id=1"
+    response.url = httpx.URL("https://example.com/user?id=1")
     response.status_code = 200
     response.text = """
     <html>
@@ -161,7 +162,7 @@ def normal_response():
 def form_response():
     """Mock response with form for testing."""
     response = Mock()
-    response.url = "https://example.com/login"
+    response.url = httpx.URL("https://example.com/login")
     response.status_code = 200
     response.text = """
     <html>
