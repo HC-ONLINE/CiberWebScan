@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.7.2](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.7.1...v2.7.2) (2026-07-29)
+
+
+### Bug Fixes
+
+* exclude integration tests from pytest run in CI workflow ([703c1c0](https://github.com/HC-ONLINE/CiberWebScan/commit/703c1c0ace2dd993ac63209948fcbd8b16e890aa))
+
 ## [2.7.1](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.7.0...v2.7.1) (2026-07-29)
 
 
