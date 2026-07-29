@@ -283,9 +283,12 @@ class CSVExporter(StreamingExporter):
                     # Add attack summary
                     if report.attack:
                         summary["xss_findings"] = report.attack.xss_findings
+                        summary["sqli_findings"] = report.attack.sqli_findings
+                        summary["traversal_findings"] = report.attack.traversal_findings
                         summary["enumeration_findings"] = (
                             report.attack.enumeration_findings
                         )
+                        summary["csrf_findings"] = report.attack.csrf_findings
 
                     # Set columns and write
                     if self.columns is None:
@@ -340,7 +343,10 @@ class CSVExporter(StreamingExporter):
                 # Add attack summary
                 if report.attack:
                     summary["xss_findings"] = report.attack.xss_findings
+                    summary["sqli_findings"] = report.attack.sqli_findings
+                    summary["traversal_findings"] = report.attack.traversal_findings
                     summary["enumeration_findings"] = report.attack.enumeration_findings
+                    summary["csrf_findings"] = report.attack.csrf_findings
 
                 # Set columns and write
                 if self.columns is None:
