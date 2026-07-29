@@ -368,14 +368,47 @@ class ScrapeService(BaseService):
             ).scrape(url, config)
 
             # Map core ScrapeResult to export ScrapeResult
+            from ciberwebscan.export.models import (
+                FormInfo,
+                ImageInfo,
+                LinkInfo,
+                ScriptInfo,
+            )
+
             return ScrapeResult(
                 url=url,
                 status_code=core_result.status_code or 0,
-                content_type="",
-                title="",
+                content_type=core_result.content_type,
+                title=core_result.title,
                 text_content=(core_result.html or "")[:10000],
                 raw_html=(core_result.html or None),
-                headers={},
+                links=[
+                    LinkInfo(href=link.get("href", ""), text=link.get("text", ""))
+                    for link in core_result.links
+                ],
+                images=[
+                    ImageInfo(src=img.get("src", ""), alt=img.get("alt", ""))
+                    for img in core_result.images
+                ],
+                forms=[
+                    FormInfo(
+                        action=f.get("action", ""),
+                        method=f.get("method", "GET"),
+                        name=f.get("name", ""),
+                        fields=f.get("fields", []),
+                    )
+                    for f in core_result.forms
+                ],
+                scripts=[
+                    ScriptInfo(
+                        src=s.get("src"),
+                        type=s.get("type", "text/javascript"),
+                        hash=None,
+                    )
+                    for s in core_result.scripts
+                ],
+                headers=core_result.headers,
+                cookies=core_result.cookies,
                 elapsed_ms=(core_result.elapsed_time or 0.0) * 1000,
             )
 
@@ -412,15 +445,47 @@ class ScrapeService(BaseService):
                 core_result = asyncio.run(self.dynamic_scraper.scrape(url, config))
 
             # dynamic scraper returns DynamicScrapeResult-like dataclass
+            from ciberwebscan.export.models import (
+                FormInfo,
+                ImageInfo,
+                LinkInfo,
+                ScriptInfo,
+            )
+
             return ScrapeResult(
                 url=url,
                 status_code=200
                 if getattr(core_result, "status_code", None) is None
                 else core_result.status_code,
                 content_type="text/html",
-                title="",
+                title=getattr(core_result, "title", "") or "",
                 text_content=(getattr(core_result, "html", None) or "")[:10000],
                 raw_html=(getattr(core_result, "html", None) or None),
+                links=[
+                    LinkInfo(href=link.get("href", ""), text=link.get("text", ""))
+                    for link in getattr(core_result, "links", [])
+                ],
+                images=[
+                    ImageInfo(src=img.get("src", ""), alt=img.get("alt", ""))
+                    for img in getattr(core_result, "images", [])
+                ],
+                forms=[
+                    FormInfo(
+                        action=f.get("action", ""),
+                        method=f.get("method", "GET"),
+                        name=f.get("name", ""),
+                        fields=f.get("fields", []),
+                    )
+                    for f in getattr(core_result, "forms", [])
+                ],
+                scripts=[
+                    ScriptInfo(
+                        src=s.get("src"),
+                        type=s.get("type", "text/javascript"),
+                        hash=None,
+                    )
+                    for s in getattr(core_result, "scripts", [])
+                ],
                 headers={},
                 elapsed_ms=(getattr(core_result, "elapsed_time", 0.0) or 0.0) * 1000,
             )
