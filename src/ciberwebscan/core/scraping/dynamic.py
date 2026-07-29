@@ -141,6 +141,21 @@ class DynamicScrapeResult:
     html: str | None = None
     """Raw HTML content after JavaScript execution."""
 
+    title: str = ""
+    """Page title extracted from HTML."""
+
+    links: list[dict[str, str]] = field(default_factory=list)
+    """Links extracted from the page."""
+
+    images: list[dict[str, str]] = field(default_factory=list)
+    """Images extracted from the page."""
+
+    forms: list[dict[str, Any]] = field(default_factory=list)
+    """Forms extracted from the page."""
+
+    scripts: list[dict[str, str]] = field(default_factory=list)
+    """Scripts extracted from the page."""
+
     error: str | None = None
     """Error message if scraping failed."""
 
@@ -338,6 +353,23 @@ class DynamicScraper:
                 soup = BeautifulSoup(html, "html.parser")
                 data = self._extract_data(soup, config)
 
+                # Extract metadata from HTML
+                title = ""
+                if soup.title and soup.title.string:
+                    title = soup.title.string.strip()
+
+                from ciberwebscan.core.scraping.extractor import (
+                    extract_forms,
+                    extract_images,
+                    extract_links,
+                    extract_scripts,
+                )
+
+                links = extract_links(soup)
+                images = extract_images(soup)
+                forms = extract_forms(soup)
+                scripts = extract_scripts(soup)
+
                 elapsed = time.time() - start_time
                 if elapsed == 0.0:
                     elapsed = 1e-6
@@ -347,6 +379,11 @@ class DynamicScraper:
                     success=True,
                     data=data,
                     html=html,
+                    title=title,
+                    links=links,
+                    images=images,
+                    forms=forms,
+                    scripts=scripts,
                     elapsed_time=elapsed,
                 )
 

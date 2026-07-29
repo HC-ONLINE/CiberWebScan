@@ -67,8 +67,10 @@ from .extractor import (
     DataExtractor,
     ExtractionSchema,
     FieldConfig,
+    extract_forms,
     extract_images,
     extract_links,
+    extract_scripts,
     extract_structured,
     extract_table,
 )
@@ -158,6 +160,8 @@ __all__ = [
     "extract_table",
     "extract_links",
     "extract_images",
+    "extract_forms",
+    "extract_scripts",
     # Static scraper
     "StaticScraper",
     "ScrapeConfig",

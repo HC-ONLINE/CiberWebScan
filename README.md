@@ -245,7 +245,7 @@ Contributions are what make the open-source community such an amazing place to l
 - **[Configuration Guide](docs/CONFIGURATION.md)** - Configuration options and customization
 - **[Development Guide](docs/DEVELOPMENT.md)** - Contributing, testing, and development setup
 - **[Contributing](docs/CONTRIBUTING.md)** - How to contribute to the project
-- **[Changelog](docs/CHANGELOG.md)** - Version history and changes
+- **[Changelog](CHANGELOG.md)** - Version history and changes
 
 ---
 

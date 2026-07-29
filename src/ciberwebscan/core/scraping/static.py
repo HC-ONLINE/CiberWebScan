@@ -86,11 +86,35 @@ class ScrapeResult:
     status_code: int | None = None
     """HTTP status code."""
 
+    content_type: str = ""
+    """Content-Type header from the HTTP response."""
+
+    headers: dict[str, str] = field(default_factory=dict)
+    """Response headers from the HTTP request."""
+
+    cookies: dict[str, str] = field(default_factory=dict)
+    """Cookies from the HTTP response (parsed from Set-Cookie)."""
+
     data: list[dict[str, Any]] = field(default_factory=list)
     """Extracted data from the page."""
 
     html: str | None = None
     """Raw HTML content (if retained)."""
+
+    title: str = ""
+    """Page title extracted from HTML."""
+
+    links: list[dict[str, str]] = field(default_factory=list)
+    """Links extracted from the page."""
+
+    images: list[dict[str, str]] = field(default_factory=list)
+    """Images extracted from the page."""
+
+    forms: list[dict[str, Any]] = field(default_factory=list)
+    """Forms extracted from the page."""
+
+    scripts: list[dict[str, str]] = field(default_factory=list)
+    """Scripts extracted from the page."""
 
     error: str | None = None
     """Error message if scraping failed."""
@@ -238,6 +262,12 @@ class StaticScraper:
                     url=url,
                     success=False,
                     status_code=response.status_code,
+                    content_type=response.headers.get("content-type", ""),
+                    headers={
+                        k: v
+                        for k, v in response.headers.items()
+                        if not k.startswith(":")
+                    },
                     error=f"HTTP {response.status_code}",
                     elapsed_time=elapsed,
                 )
@@ -246,12 +276,54 @@ class StaticScraper:
             soup = BeautifulSoup(response.text, "html.parser")
             data = self._extract_data(soup, config)
 
+            # Extract content_type from response headers
+            content_type = response.headers.get("content-type", "")
+
+            # Capture response headers (filter out pseudo-headers)
+            resp_headers = {
+                k: v for k, v in response.headers.items() if not k.startswith(":")
+            }
+
+            # Capture cookies from response
+            resp_cookies = dict(response.cookies.items())
+
+            # Extract title from HTML
+            title = ""
+            if soup.title and soup.title.string:
+                title = soup.title.string.strip()
+
+            # Extract links
+            from ciberwebscan.core.scraping.extractor import (
+                extract_images,
+                extract_links,
+            )
+
+            links = extract_links(soup)
+            images = extract_images(soup)
+
+            # Extract forms
+            from ciberwebscan.core.scraping.extractor import (
+                extract_forms,
+                extract_scripts,
+            )
+
+            forms = extract_forms(soup)
+            scripts = extract_scripts(soup)
+
             return ScrapeResult(
                 url=url,
                 success=True,
                 status_code=response.status_code,
+                content_type=content_type,
+                headers=resp_headers,
+                cookies=resp_cookies,
                 data=data,
                 html=response.text,
+                title=title,
+                links=links,
+                images=images,
+                forms=forms,
+                scripts=scripts,
                 elapsed_time=elapsed,
             )
 
