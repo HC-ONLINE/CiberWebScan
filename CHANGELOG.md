@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.7.3](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.7.2...v2.7.3) (2026-07-30)
+
+
+### Bug Fixes
+
+* add network options to scrape command and service ([0a0ea27](https://github.com/HC-ONLINE/CiberWebScan/commit/0a0ea27eee0411ded8319c0a714d4f5d0031225d))
+
 ## [2.7.2](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.7.1...v2.7.2) (2026-07-29)
 
 
