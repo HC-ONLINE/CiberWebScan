@@ -157,8 +157,8 @@ All commands run via `ciberwebscan <command>` or `python -m ciberwebscan`:
 
 | Command      | Subcommands                                             | Description                                                |
 | ------------ | ------------------------------------------------------- | ---------------------------------------------------------- |
-| `analyze`    | `url`, `ssl`, `fingerprint`, `cves`                     | Security analysis (headers, SSL, fingerprints, CVE lookup) |
-| `attack`     | `test`, `xss`, `sqli`                                   | Attack surface testing                                     |
+| `analyze`    | `cves`                                                  | Security analysis (headers, SSL, fingerprints, CVE lookup) |
+| `attack`     | (none)                                                  | Attack surface testing                                     |
 | `scrape`     | `url`, `batch`                                          | Web scraping (static or dynamic)                           |
 | `quick`      | `scan`                                                  | Fast combined scan                                         |
 | `config`     | `show`, `get`, `set`, `reset`, `keys`, `export`, `load` | Configuration management                                   |
@@ -168,8 +168,8 @@ All commands run via `ciberwebscan <command>` or `python -m ciberwebscan`:
 
 ```bash
 # Examples
-ciberwebscan analyze url https://example.com
-ciberwebscan attack xss https://example.com/search
+ciberwebscan analyze https://example.com --ssl --fingerprint --cve
+ciberwebscan attack https://example.com --consent --xss
 ciberwebscan scrape url https://example.com --dynamic
 ciberwebscan quick scan https://example.com
 ciberwebscan config set logging.level DEBUG

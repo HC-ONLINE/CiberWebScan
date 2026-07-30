@@ -211,12 +211,8 @@ ciberwebscan scrape batch url1 url2 url3 -s "h1" -o results.jsonl
 
 Perform ethical penetration testing (requires explicit consent).
 
-#### attack test
-
-Test for common web vulnerabilities.
-
 ```bash
-ciberwebscan attack test <URL> --consent [OPTIONS]
+ciberwebscan attack <URL> --consent [OPTIONS]
 ```
 
 **Critical:** The `--consent` flag is required and confirms you have permission to test the target system.
@@ -248,57 +244,19 @@ ciberwebscan attack test <URL> --consent [OPTIONS]
 
 ```bash
 # XSS testing with consent
-ciberwebscan attack test https://example.com --consent --xss
+ciberwebscan attack https://example.com --consent --xss
 
 # Multiple attack types
-ciberwebscan attack test https://example.com --consent --xss --sqli
+ciberwebscan attack https://example.com --consent --xss --sqli
 
 # CSRF testing
-ciberwebscan attack test https://example.com --consent --csrf
+ciberwebscan attack https://example.com --consent --csrf
 
 # All attacks with low intensity
-ciberwebscan attack test https://example.com --consent --all --intensity low
+ciberwebscan attack https://example.com --consent --all --intensity low
 
 # Custom payloads
-ciberwebscan attack test https://example.com --consent --xss --payloads my_payloads.json
-```
-
-#### attack xss
-
-Test only for XSS vulnerabilities.
-
-```bash
-ciberwebscan attack xss <URL> --consent [OPTIONS]
-```
-
-**Options:**
-
-- `--intensity, -i <LEVEL>`: Attack intensity: low, medium, high (default: medium)
-- `--json`: Output raw JSON
-
-**Examples:**
-
-```bash
-ciberwebscan attack xss https://example.com --consent
-```
-
-#### attack sqli
-
-Test only for SQL injection vulnerabilities.
-
-```bash
-ciberwebscan attack sqli <URL> --consent [OPTIONS]
-```
-
-**Options:**
-
-- `--intensity, -i <LEVEL>`: Attack intensity: low, medium, high (default: medium)
-- `--json`: Output raw JSON
-
-**Examples:**
-
-```bash
-ciberwebscan attack sqli https://example.com/product?id=1 --consent
+ciberwebscan attack https://example.com --consent --xss --payloads my_payloads.json
 ```
 
 ### Quick Scan Command
@@ -661,7 +619,7 @@ ciberwebscan scrape url https://news.com \
 ### Ethical Testing
 
 ```bash
-ciberwebscan attack test https://testsite.com \
+ciberwebscan attack https://testsite.com \
   --consent \
   --xss \
   --sqli \

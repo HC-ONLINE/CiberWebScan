@@ -122,9 +122,7 @@ class TestConsentValidation:
 
     def test_attack_without_consent_fails(self, test_server):
         """Test that attack without --consent flag fails."""
-        result = run_cli_command(
-            ["attack", "test", f"{test_server}/xss?q=test", "--xss"]
-        )
+        result = run_cli_command(["attack", f"{test_server}/xss?q=test", "--xss"])
 
         assert result["returncode"] == 2
         assert "USER CONSENT REQUIRED" in result["stderr"]
@@ -132,7 +130,7 @@ class TestConsentValidation:
 
     def test_attack_without_attack_types_fails(self, test_server):
         """Test that attack without attack types fails."""
-        result = run_cli_command(["attack", "test", f"{test_server}/", "--consent"])
+        result = run_cli_command(["attack", f"{test_server}/", "--consent"])
 
         assert result["returncode"] == 2
         assert "No attack types selected" in result["stderr"]
@@ -153,7 +151,6 @@ class TestXSSAttack:
         result = run_cli_command(
             [
                 "attack",
-                "test",
                 f"{test_server}/xss?q=test",
                 "--consent",
                 "--xss",
@@ -179,14 +176,14 @@ class TestXSSAttack:
         assert "attack" in data
         assert data["attack"]["target_url"] == f"{test_server}/xss?q=test"
 
-    def test_xss_command_shortcut(self, test_server):
-        """Test XSS-only command shortcut."""
+    def test_xss_only_via_flag(self, test_server):
+        """Test XSS-only via attack test --xss flag."""
         result = run_cli_command(
             [
                 "attack",
-                "xss",
                 f"{test_server}/xss?q=test",
                 "--consent",
+                "--xss",
                 "--intensity",
                 "low",
             ]
@@ -195,16 +192,16 @@ class TestXSSAttack:
         # CLI may return non-zero when attacks encounter issues on the test server;
         # accept 0 or 1 as valid exit codes for this integration test.
         assert result["returncode"] in [0, 1]
-        assert "XSS Test Results" in result["stdout"]
+        assert "Attack Results" in result["stdout"]
 
     def test_xss_json_output(self, test_server):
-        """Test XSS with JSON output."""
+        """Test XSS with JSON output via attack test."""
         result = run_cli_command(
             [
                 "attack",
-                "xss",
                 f"{test_server}/xss?q=test",
                 "--consent",
+                "--xss",
                 "--json",
             ]
         )
@@ -228,7 +225,6 @@ class TestSQLiAttack:
         result = run_cli_command(
             [
                 "attack",
-                "test",
                 f"{test_server}/user?id=1",
                 "--consent",
                 "--sqli",
@@ -241,19 +237,21 @@ class TestSQLiAttack:
 
         assert result["returncode"] == 0
 
-    def test_sqli_command_shortcut(self, test_server):
-        """Test SQLi-only command shortcut."""
+    def test_sqli_only_via_flag(self, test_server):
+        """Test SQLi-only via attack test --sqli flag."""
         result = run_cli_command(
             [
                 "attack",
-                "sqli",
                 f"{test_server}/user?id=1",
                 "--consent",
+                "--sqli",
+                "--intensity",
+                "low",
             ]
         )
 
         assert result["returncode"] == 0
-        assert "SQLi Test Results" in result["stdout"]
+        assert "Attack Results" in result["stdout"]
 
 
 # =============================================================================
@@ -269,7 +267,6 @@ class TestMultipleAttacks:
         result = run_cli_command(
             [
                 "attack",
-                "test",
                 f"{test_server}/",
                 "--consent",
                 "--xss",
@@ -289,7 +286,6 @@ class TestMultipleAttacks:
         result = run_cli_command(
             [
                 "attack",
-                "test",
                 f"{test_server}/",
                 "--consent",
                 "--all",
@@ -329,7 +325,6 @@ class TestAttackIntensity:
         result = run_cli_command(
             [
                 "attack",
-                "test",
                 f"{test_server}/xss?q=test",
                 "--consent",
                 "--xss",
@@ -348,7 +343,6 @@ class TestAttackIntensity:
         result = run_cli_command(
             [
                 "attack",
-                "test",
                 f"{test_server}/",
                 "--consent",
                 "--xss",
@@ -378,7 +372,6 @@ class TestExportFormats:
         result = run_cli_command(
             [
                 "attack",
-                "test",
                 f"{test_server}/xss?q=test",
                 "--consent",
                 "--xss",
@@ -409,7 +402,6 @@ class TestNetworkOptions:
         result = run_cli_command(
             [
                 "attack",
-                "test",
                 f"{test_server}/",
                 "--consent",
                 "--xss",
@@ -427,7 +419,6 @@ class TestNetworkOptions:
         result = run_cli_command(
             [
                 "attack",
-                "test",
                 f"{test_server}/",
                 "--consent",
                 "--xss",
@@ -445,7 +436,6 @@ class TestNetworkOptions:
         result = run_cli_command(
             [
                 "attack",
-                "test",
                 f"{test_server}/",
                 "--consent",
                 "--xss",
@@ -472,7 +462,6 @@ class TestOutputOptions:
         result = run_cli_command(
             [
                 "attack",
-                "test",
                 f"{test_server}/",
                 "--consent",
                 "--xss",
@@ -491,7 +480,6 @@ class TestOutputOptions:
         result = run_cli_command(
             [
                 "attack",
-                "test",
                 f"{test_server}/",
                 "--consent",
                 "--xss",
@@ -517,7 +505,6 @@ class TestErrorHandling:
         result = run_cli_command(
             [
                 "attack",
-                "test",
                 "not-a-valid-url",
                 "--consent",
                 "--xss",
@@ -531,7 +518,6 @@ class TestErrorHandling:
         result = run_cli_command(
             [
                 "attack",
-                "test",
                 "http://192.0.2.1:9999/",  # TEST-NET-1 (should be unreachable)
                 "--consent",
                 "--xss",
@@ -561,7 +547,6 @@ class TestRealVulnerabilityDetection:
         result = run_cli_command(
             [
                 "attack",
-                "test",
                 f"{test_server}/xss?q=test",
                 "--consent",
                 "--xss",
@@ -588,7 +573,6 @@ class TestRealVulnerabilityDetection:
         result = run_cli_command(
             [
                 "attack",
-                "test",
                 f"{test_server}/user?id=1",
                 "--consent",
                 "--sqli",
