@@ -22,22 +22,21 @@ ciberwebscan --help
 
 Perform security analysis on web applications.
 
-#### analyze url
-
-Analyze a single URL for security issues.
-
 ```bash
-ciberwebscan analyze url <URL> [OPTIONS]
+ciberwebscan analyze <URL> [OPTIONS]
 ```
+
+Activate specific analyses with flags. At least one of `--ssl`, `--fingerprint`, `--cve`, or `--analyze-headers` must be enabled.
 
 **Options:**
 
-- `--ssl/--no-ssl`: Perform SSL/TLS analysis (default: enabled)
-- `--fingerprint/--no-fingerprint, -fp`: Perform technology fingerprinting (default: enabled)
-- `--cve/--no-cve`: Look up CVEs for detected technologies (default: enabled)
-- `--analyze-headers/--no-analyze-headers`: Analyze HTTP security headers (default: enabled)
+- `--ssl/--no-ssl`: Perform SSL/TLS analysis (default: disabled)
+- `--fingerprint/--no-fingerprint, -fp`: Perform technology fingerprinting (default: disabled)
+- `--cve/--no-cve`: Look up CVEs for detected technologies (default: disabled)
+- `--analyze-headers/--no-analyze-headers`: Analyze HTTP security headers (default: disabled)
 - `--deep`: Enable deep scanning
 - `--timeout, -t <SECONDS>`: Request timeout (default: 30.0)
+- `--ssl-timeout <SECONDS>`: SSL/TLS handshake timeout (default: 10.0)
 - `--cve-sources <SOURCES>`: CVE sources (comma-separated: nvd,circl,vulners)
 - `--cve-limit <NUMBER>`: Maximum CVEs to retrieve (default: 100)
 - `--enrich-exploits, -ee`: Enrich CVEs with exploit info from Vulners
@@ -53,83 +52,17 @@ ciberwebscan analyze url <URL> [OPTIONS]
 **Examples:**
 
 ```bash
-# Full security analysis
-ciberwebscan analyze url https://example.com
+# SSL + fingerprinting
+ciberwebscan analyze https://example.com --ssl --fingerprint
 
-# SSL only
-ciberwebscan analyze url https://example.com --no-fingerprint --no-cve
+# Full analysis
+ciberwebscan analyze https://example.com --ssl --fingerprint --cve --analyze-headers
 
-# Fingerprint and CVEs only
-ciberwebscan analyze url https://example.com --no-ssl
+# SSL only with custom timeout
+ciberwebscan analyze https://example.com --ssl --ssl-timeout 15
 
 # Export report
-ciberwebscan analyze url https://example.com -o report.json
-```
-
-#### analyze ssl
-
-Perform SSL/TLS analysis only.
-
-```bash
-ciberwebscan analyze ssl <URL> [OPTIONS]
-```
-
-**Options:**
-
-- `--timeout, -t <SECONDS>`: Request timeout (default: 10.0)
-- `--json`: Output raw JSON
-
-**Examples:**
-
-```bash
-ciberwebscan analyze ssl https://example.com
-```
-
-#### analyze fingerprint
-
-Perform technology fingerprinting only.
-
-```bash
-ciberwebscan analyze fingerprint <URL> [OPTIONS]
-```
-
-**Options:**
-
-- `--deep`: Enable deep scanning
-- `--json`: Output raw JSON
-
-**Examples:**
-
-```bash
-ciberwebscan analyze fingerprint https://example.com
-ciberwebscan analyze fingerprint https://example.com --deep
-```
-
-#### analyze cves
-
-Look up CVEs for specific technologies.
-
-```bash
-ciberwebscan analyze cves <TECHNOLOGY> [OPTIONS]
-```
-
-**Options:**
-
-- `--sources, -s <SOURCES>`: CVE sources: nvd,circl,vulners
-- `--limit, -l <NUMBER>`: Maximum CVEs per technology (default: 50)
-- `--json`: Output raw JSON
-
-**Examples:**
-
-```bash
-# Single technology
-ciberwebscan analyze cves nginx:1.20
-
-# Multiple technologies
-ciberwebscan analyze cves wordpress:5.8 php:8.1
-
-# With specific sources
-ciberwebscan analyze cves apache --sources nvd,circl
+ciberwebscan analyze https://example.com --ssl --fingerprint -o report.json
 ```
 
 ### Scrape Command
@@ -193,9 +126,15 @@ ciberwebscan scrape batch <URLS> [OPTIONS]
 - `--selector, -s <SELECTOR>`: CSS selector to extract
 - `--dynamic, -d`: Use browser-based scraping
 - `--timeout, -t <SECONDS>`: Request timeout (default: 30.0)
+- `--user-agent, -ua <AGENT>`: Custom user agent
+- `--headers, -H <HEADERS>`: Custom headers (format: 'Key: Value, Key2: Value2')
+- `--proxy <PROXY>`: Proxy server
+- `--cookies <COOKIES>`: Cookies (format: 'name1=value1; name2=value2')
+- `--check-robots/--no-check-robots, -cr`: Respect robots.txt (default: enabled)
 - `--output, -o <FILE>`: Output file path
 - `--format, -f <FORMAT>`: Export format (default: jsonl)
 - `--json`: Output raw JSON
+- `--quiet, -q`: Minimal output
 
 **Examples:**
 
@@ -205,18 +144,20 @@ ciberwebscan scrape batch https://example.com https://example.org
 
 # With selector and export
 ciberwebscan scrape batch url1 url2 url3 -s "h1" -o results.jsonl
+
+# With proxy and custom headers
+ciberwebscan scrape batch url1 url2 --proxy http://proxy:8080 -H "Authorization: Bearer xxx"
+
+# Dynamic scraping with proxy
+ciberwebscan scrape batch url1 url2 -d --proxy http://proxy:8080
 ```
 
 ### Attack Command
 
 Perform ethical penetration testing (requires explicit consent).
 
-#### attack test
-
-Test for common web vulnerabilities.
-
 ```bash
-ciberwebscan attack test <URL> --consent [OPTIONS]
+ciberwebscan attack <URL> --consent [OPTIONS]
 ```
 
 **Critical:** The `--consent` flag is required and confirms you have permission to test the target system.
@@ -248,57 +189,19 @@ ciberwebscan attack test <URL> --consent [OPTIONS]
 
 ```bash
 # XSS testing with consent
-ciberwebscan attack test https://example.com --consent --xss
+ciberwebscan attack https://example.com --consent --xss
 
 # Multiple attack types
-ciberwebscan attack test https://example.com --consent --xss --sqli
+ciberwebscan attack https://example.com --consent --xss --sqli
 
 # CSRF testing
-ciberwebscan attack test https://example.com --consent --csrf
+ciberwebscan attack https://example.com --consent --csrf
 
 # All attacks with low intensity
-ciberwebscan attack test https://example.com --consent --all --intensity low
+ciberwebscan attack https://example.com --consent --all --intensity low
 
 # Custom payloads
-ciberwebscan attack test https://example.com --consent --xss --payloads my_payloads.json
-```
-
-#### attack xss
-
-Test only for XSS vulnerabilities.
-
-```bash
-ciberwebscan attack xss <URL> --consent [OPTIONS]
-```
-
-**Options:**
-
-- `--intensity, -i <LEVEL>`: Attack intensity: low, medium, high (default: medium)
-- `--json`: Output raw JSON
-
-**Examples:**
-
-```bash
-ciberwebscan attack xss https://example.com --consent
-```
-
-#### attack sqli
-
-Test only for SQL injection vulnerabilities.
-
-```bash
-ciberwebscan attack sqli <URL> --consent [OPTIONS]
-```
-
-**Options:**
-
-- `--intensity, -i <LEVEL>`: Attack intensity: low, medium, high (default: medium)
-- `--json`: Output raw JSON
-
-**Examples:**
-
-```bash
-ciberwebscan attack sqli https://example.com/product?id=1 --consent
+ciberwebscan attack https://example.com --consent --xss --payloads my_payloads.json
 ```
 
 ### Quick Scan Command
@@ -306,7 +209,7 @@ ciberwebscan attack sqli https://example.com/product?id=1 --consent
 Combined scan using presets: analysis + attacks + scraping in one command.
 
 ```bash
-ciberwebscan quick scan <URL> [OPTIONS]
+ciberwebscan quick <URL> [OPTIONS]
 ```
 
 **Options:**
@@ -338,55 +241,49 @@ ciberwebscan quick scan <URL> [OPTIONS]
 
 ```bash
 # Basic analysis (preset low)
-ciberwebscan quick scan https://example.com
+ciberwebscan quick https://example.com
 
 # Analysis with scraping
-ciberwebscan quick scan https://example.com -s ".content"
+ciberwebscan quick https://example.com -s ".content"
 
 # Medium scan with attacks (requires consent)
-ciberwebscan quick scan https://example.com --preset medium --consent
+ciberwebscan quick https://example.com --preset medium --consent
 
 # Full scan with dynamic scraping
-ciberwebscan quick scan https://example.com --preset high --consent -d
+ciberwebscan quick https://example.com --preset high --consent -d
 
 # Export combined report
-ciberwebscan quick scan https://example.com --preset high --consent -o report.json
+ciberwebscan quick https://example.com --preset high --consent -o report.json
 
 # JSON output for automation
-ciberwebscan quick scan https://example.com --json --quiet
+ciberwebscan quick https://example.com --json --quiet
 ```
 
 ### API Command
 
 Manage and run the CiberWebScan REST API server.
 
-#### api run
-
-Start the REST API server using Uvicorn.
-
 ```bash
-ciberwebscan api run [OPTIONS]
+ciberwebscan api [OPTIONS]
 ```
 
 **Options:**
 
-- --host <TEXT>: Bind socket to this host (default: 0.0.0.0)
-
-- --port <INTEGER>: Bind socket to this port (default: 8000)
-
-- --reload: Enable auto-reload (development mode)
+- `--host <TEXT>`: Bind socket to this host (default: 0.0.0.0)
+- `--port <INTEGER>`: Bind socket to this port (default: 8000)
+- `--reload`: Enable auto-reload (development mode)
 
 **Examples:**
 
 ```bash
 # Start the API server on default port 8000
-ciberwebscan api run
+ciberwebscan api
 
 # Start on a custom port and host
-ciberwebscan api run --host 127.0.0.1 --port 9000
+ciberwebscan api --host 127.0.0.1 --port 9000
 
 # Run in development mode with auto-reload
-ciberwebscan api run --reload
+ciberwebscan api --reload
 ```
 
 ### Completion Command
@@ -639,7 +536,7 @@ The CLI provides clear error messages and exit codes:
 ### Complete Security Assessment
 
 ```bash
-ciberwebscan analyze url https://target.com \
+ciberwebscan analyze https://target.com \
   --ssl \
   --fingerprint \
   --headers \
@@ -661,7 +558,7 @@ ciberwebscan scrape url https://news.com \
 ### Ethical Testing
 
 ```bash
-ciberwebscan attack test https://testsite.com \
+ciberwebscan attack https://testsite.com \
   --consent \
   --xss \
   --sqli \
@@ -673,11 +570,11 @@ ciberwebscan attack test https://testsite.com \
 
 ```bash
 # Basic analysis
-ciberwebscan quick scan https://example.com
+ciberwebscan quick https://example.com
 
 # With scraping and export
-ciberwebscan quick scan https://example.com -s ".data" -o quick_report.json
+ciberwebscan quick https://example.com -s ".data" -o quick_report.json
 
 # Full scan with attacks
-ciberwebscan quick scan https://example.com --preset high --consent -o report.json
+ciberwebscan quick https://example.com --preset high --consent -o report.json
 ```

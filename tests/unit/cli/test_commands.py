@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from unittest.mock import MagicMock, patch
 
 from typer.testing import CliRunner
@@ -9,6 +10,11 @@ from typer.testing import CliRunner
 from ciberwebscan.cli.app import app
 
 runner = CliRunner()
+
+
+def _strip_ansi(text: str) -> str:
+    """Remove ANSI escape codes from text."""
+    return re.sub(r"\x1b\[[0-9;]*m", "", text)
 
 
 class TestAppBasic:
@@ -93,27 +99,17 @@ class TestAnalyzeCommand:
         assert result.exit_code == 0
         assert "analyze" in result.stdout.lower()
 
-    def test_analyze_url_help(self):
-        """Test analyze url --help."""
-        result = runner.invoke(app, ["analyze", "url", "--help"])
+    def test_analyze_ssl_flag(self):
+        """Test analyze --ssl flag is available."""
+        result = runner.invoke(app, ["analyze", "--help"])
         assert result.exit_code == 0
-        assert "ssl" in result.stdout.lower()
-        assert "fingerprint" in result.stdout.lower()
+        assert "--ssl" in _strip_ansi(result.stdout).lower()
 
-    def test_analyze_ssl_help(self):
-        """Test analyze ssl --help."""
-        result = runner.invoke(app, ["analyze", "ssl", "--help"])
+    def test_analyze_fingerprint_flag(self):
+        """Test analyze --fingerprint flag is available."""
+        result = runner.invoke(app, ["analyze", "--help"])
         assert result.exit_code == 0
-
-    def test_analyze_fingerprint_help(self):
-        """Test analyze fingerprint --help."""
-        result = runner.invoke(app, ["analyze", "fingerprint", "--help"])
-        assert result.exit_code == 0
-
-    def test_analyze_cves_help(self):
-        """Test analyze cves --help."""
-        result = runner.invoke(app, ["analyze", "cves", "--help"])
-        assert result.exit_code == 0
+        assert "--fingerprint" in _strip_ansi(result.stdout).lower()
 
     @patch("ciberwebscan.services.AnalyzeService")
     def test_analyze_url_success(self, mock_service_class):
@@ -133,7 +129,7 @@ class TestAnalyzeCommand:
         mock_service.analyze.return_value = mock_result
         mock_service_class.return_value = mock_service
 
-        result = runner.invoke(app, ["analyze", "url", "https://example.com", "-q"])
+        result = runner.invoke(app, ["analyze", "https://example.com", "--ssl", "-q"])
         assert result.exit_code == 0
 
 

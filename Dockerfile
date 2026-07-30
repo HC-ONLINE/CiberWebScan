@@ -66,4 +66,4 @@ ENV PYTHONDONTWRITEBYTECODE=1
 EXPOSE 8000
 
 ENTRYPOINT ["ciberwebscan"]
-CMD ["api", "run", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["api", "--host", "0.0.0.0", "--port", "8000"]

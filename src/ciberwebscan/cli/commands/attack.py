@@ -31,20 +31,13 @@ from ciberwebscan.cli.validators import (
 )
 from ciberwebscan.config.loader import get_config
 
-attack = typer.Typer(
-    name="attack",
-    help="Security attack simulation commands.",
-    no_args_is_help=True,
-)
-
 try:
     _DEFAULT_ATTACK_TIMEOUT = get_config().http.timeout.connect
 except Exception:
     _DEFAULT_ATTACK_TIMEOUT = 10.0
 
 
-@attack.command("test")
-def attack_test(
+def attack_cmd(
     url: Annotated[str, typer.Argument(help="URL to test")],
     # CRITICAL: User consent
     consent: Annotated[
@@ -185,19 +178,19 @@ def attack_test(
     Examples:
 
         # Test XSS with consent
-        ciberwebscan attack test https://example.com --consent --xss
+        ciberwebscan attack https://example.com --consent --xss
 
         # Test multiple attack types
-        ciberwebscan attack test https://example.com --consent --xss --sqli
+        ciberwebscan attack https://example.com --consent --xss --sqli
 
         # Run all attacks with low intensity
-        ciberwebscan attack test https://example.com --consent --all --intensity low
+        ciberwebscan attack https://example.com --consent --all --intensity low
 
         # Export findings report
-        ciberwebscan attack test https://example.com --consent --xss -o findings.json
+        ciberwebscan attack https://example.com --consent --xss -o findings.json
 
         # Custom payloads
-        ciberwebscan attack test https://example.com --consent --xss --payloads my_xss.json
+        ciberwebscan attack https://example.com --consent --xss --payloads my_xss.json
     """
     try:
         # Get config first — it may pre-authorise consent
@@ -399,136 +392,4 @@ def attack_test(
             import traceback
 
             print_error(traceback.format_exc())
-        sys.exit(1)
-
-
-@attack.command("xss")
-def attack_xss(
-    url: Annotated[str, typer.Argument(help="URL to test for XSS")],
-    consent: Annotated[
-        bool,
-        typer.Option("--consent", help="Confirm permission (REQUIRED)"),
-    ] = False,
-    intensity: Annotated[
-        str,
-        typer.Option("--intensity", "-i", help="Attack intensity: low, medium, high"),
-    ] = "medium",
-    json_output: Annotated[
-        bool,
-        typer.Option("--json", help="Output raw JSON"),
-    ] = False,
-) -> None:
-    """
-    Test only for XSS vulnerabilities.
-
-    Examples:
-
-        ciberwebscan attack xss https://example.com --consent
-    """
-    try:
-        app_config = get_config()
-        effective_consent = consent or app_config.attack.user_consent
-        if not effective_consent:
-            print_error("USER CONSENT REQUIRED. Use --consent flag.")
-            sys.exit(2)
-
-        validated_url = validate_url(url)
-
-        from ciberwebscan.services import AttackOptions, AttackService
-
-        print_warning("Testing for XSS vulnerabilities")
-        print_info(f"Target: {validated_url}")
-
-        options = AttackOptions(
-            url=validated_url,
-            user_consent=True,
-            xss=True,
-            intensity=intensity,
-        )
-
-        service = AttackService()
-        result = service.attack(options)
-
-        if json_output:
-            exit_code = format_service_result(result, json_output=True)
-        else:
-            if result.success and result.data:
-                print_header("XSS Test Results")
-                print_key_value("Findings", result.data.xss_findings)
-                print_key_value("Payloads Tested", result.data.total_payloads_tested)
-            exit_code = format_service_result(result, json_output=False)
-
-        sys.exit(exit_code)
-
-    except ValidationError as e:
-        print_error(str(e))
-        sys.exit(2)
-    except Exception as e:
-        print_error(f"Unexpected error: {e}")
-        sys.exit(1)
-
-
-@attack.command("sqli")
-def attack_sqli(
-    url: Annotated[str, typer.Argument(help="URL to test for SQL injection")],
-    consent: Annotated[
-        bool,
-        typer.Option("--consent", help="Confirm permission (REQUIRED)"),
-    ] = False,
-    intensity: Annotated[
-        str,
-        typer.Option("--intensity", "-i", help="Attack intensity: low, medium, high"),
-    ] = "medium",
-    json_output: Annotated[
-        bool,
-        typer.Option("--json", help="Output raw JSON"),
-    ] = False,
-) -> None:
-    """
-    Test only for SQL injection vulnerabilities.
-
-    Examples:
-
-        ciberwebscan attack sqli https://example.com/product?id=1 --consent
-    """
-    try:
-        app_config = get_config()
-        effective_consent = consent or app_config.attack.user_consent
-        if not effective_consent:
-            print_error("USER CONSENT REQUIRED. Use --consent flag.")
-            sys.exit(2)
-
-        validated_url = validate_url(url)
-
-        from ciberwebscan.services import AttackOptions, AttackService
-
-        print_warning("Testing for SQL injection vulnerabilities")
-        print_info(f"Target: {validated_url}")
-
-        options = AttackOptions(
-            url=validated_url,
-            user_consent=True,
-            sqli=True,
-            intensity=intensity,
-        )
-
-        service = AttackService()
-        result = service.attack(options)
-
-        if json_output:
-            exit_code = format_service_result(result, json_output=True)
-        else:
-            if result.success and result.data:
-                print_header("SQLi Test Results")
-                print_key_value("Findings", result.data.sqli_findings)
-                print_key_value("Payloads Tested", result.data.total_payloads_tested)
-            exit_code = format_service_result(result, json_output=False)
-
-        sys.exit(exit_code)
-
-    except ValidationError as e:
-        print_error(str(e))
-        sys.exit(2)
-    except Exception as e:
-        print_error(f"Unexpected error: {e}")
         sys.exit(1)

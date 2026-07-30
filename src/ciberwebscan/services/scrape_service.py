@@ -317,6 +317,9 @@ class ScrapeService(BaseService):
                     attributes=options.attributes,
                     headers=options.headers,
                     cookies=options.cookies,
+                    proxy=options.proxy,
+                    user_agent=options.user_agent,
+                    check_robots=options.check_robots,
                 )
                 single_result = self.scrape(opts)
 
