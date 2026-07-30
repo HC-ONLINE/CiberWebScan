@@ -261,6 +261,35 @@ def scrape_batch(
         float,
         typer.Option("--timeout", "-t", help="Request timeout in seconds"),
     ] = _DEFAULT_SCRAPE_TIMEOUT,
+    # Network options
+    user_agent: Annotated[
+        str | None,
+        typer.Option("--user-agent", "-ua", help="Custom User-Agent string"),
+    ] = None,
+    headers: Annotated[
+        str | None,
+        typer.Option(
+            "--headers",
+            "-H",
+            help="Custom headers (format: 'Key: Value, Key2: Value2')",
+        ),
+    ] = None,
+    proxy: Annotated[
+        str | None,
+        typer.Option("--proxy", help="HTTP/HTTPS proxy URL"),
+    ] = None,
+    cookies: Annotated[
+        str | None,
+        typer.Option(
+            "--cookies", "-c", help="Cookies (format: 'name1=value1; name2=value2')"
+        ),
+    ] = None,
+    check_robots: Annotated[
+        bool,
+        typer.Option(
+            "--check-robots/--no-check-robots", "-cr", help="Respect robots.txt"
+        ),
+    ] = True,
     # Export
     output: Annotated[
         str | None,
@@ -274,6 +303,10 @@ def scrape_batch(
     json_output: Annotated[
         bool,
         typer.Option("--json", help="Output raw JSON"),
+    ] = False,
+    quiet: Annotated[
+        bool,
+        typer.Option("--quiet", "-q", help="Minimal output"),
     ] = False,
 ) -> None:
     """
@@ -294,18 +327,40 @@ def scrape_batch(
 
         validated_urls = [validate_url(u) for u in urls]
 
+        # Parse headers if provided
+        headers_dict: dict[str, str] = {}
+        if headers:
+            for pair in headers.split(","):
+                if ":" in pair:
+                    key, value = pair.split(":", 1)
+                    headers_dict[key.strip()] = value.strip()
+
+        # Parse cookies if provided
+        cookies_dict: dict[str, str] = {}
+        if cookies:
+            for pair in cookies.split(";"):
+                if "=" in pair:
+                    key, value = pair.split("=", 1)
+                    cookies_dict[key.strip()] = value.strip()
+
         from ciberwebscan.services import ScrapeOptions, ScrapeService
 
         options = ScrapeOptions(
-            url=validated_urls[0],  # Base options
+            url=validated_urls[0],
             dynamic=dynamic,
             timeout=timeout,
             selector=selector,
+            headers=headers_dict,
+            cookies=cookies_dict,
+            proxy=proxy,
+            user_agent=user_agent,
+            check_robots=check_robots,
             export=output,
             export_format=format,
         )
 
-        print_info(f"Scraping {len(validated_urls)} URLs...")
+        if not quiet:
+            print_info(f"Scraping {len(validated_urls)} URLs...")
 
         service = ScrapeService()
         result = service.scrape_multiple(validated_urls, options)

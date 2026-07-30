@@ -126,9 +126,15 @@ ciberwebscan scrape batch <URLS> [OPTIONS]
 - `--selector, -s <SELECTOR>`: CSS selector to extract
 - `--dynamic, -d`: Use browser-based scraping
 - `--timeout, -t <SECONDS>`: Request timeout (default: 30.0)
+- `--user-agent, -ua <AGENT>`: Custom user agent
+- `--headers, -H <HEADERS>`: Custom headers (format: 'Key: Value, Key2: Value2')
+- `--proxy <PROXY>`: Proxy server
+- `--cookies <COOKIES>`: Cookies (format: 'name1=value1; name2=value2')
+- `--check-robots/--no-check-robots, -cr`: Respect robots.txt (default: enabled)
 - `--output, -o <FILE>`: Output file path
 - `--format, -f <FORMAT>`: Export format (default: jsonl)
 - `--json`: Output raw JSON
+- `--quiet, -q`: Minimal output
 
 **Examples:**
 
@@ -138,6 +144,12 @@ ciberwebscan scrape batch https://example.com https://example.org
 
 # With selector and export
 ciberwebscan scrape batch url1 url2 url3 -s "h1" -o results.jsonl
+
+# With proxy and custom headers
+ciberwebscan scrape batch url1 url2 --proxy http://proxy:8080 -H "Authorization: Bearer xxx"
+
+# Dynamic scraping with proxy
+ciberwebscan scrape batch url1 url2 -d --proxy http://proxy:8080
 ```
 
 ### Attack Command
