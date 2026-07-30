@@ -251,33 +251,27 @@ ciberwebscan quick scan https://example.com --json --quiet
 
 Manage and run the CiberWebScan REST API server.
 
-#### api run
-
-Start the REST API server using Uvicorn.
-
 ```bash
-ciberwebscan api run [OPTIONS]
+ciberwebscan api [OPTIONS]
 ```
 
 **Options:**
 
-- --host <TEXT>: Bind socket to this host (default: 0.0.0.0)
-
-- --port <INTEGER>: Bind socket to this port (default: 8000)
-
-- --reload: Enable auto-reload (development mode)
+- `--host <TEXT>`: Bind socket to this host (default: 0.0.0.0)
+- `--port <INTEGER>`: Bind socket to this port (default: 8000)
+- `--reload`: Enable auto-reload (development mode)
 
 **Examples:**
 
 ```bash
 # Start the API server on default port 8000
-ciberwebscan api run
+ciberwebscan api
 
 # Start on a custom port and host
-ciberwebscan api run --host 127.0.0.1 --port 9000
+ciberwebscan api --host 127.0.0.1 --port 9000
 
 # Run in development mode with auto-reload
-ciberwebscan api run --reload
+ciberwebscan api --reload
 ```
 
 ### Completion Command

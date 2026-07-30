@@ -162,7 +162,7 @@ All commands run via `ciberwebscan <command>` or `python -m ciberwebscan`:
 | `scrape`     | `url`, `batch`                                          | Web scraping (static or dynamic)                           |
 | `quick`      | `scan`                                                  | Fast combined scan                                         |
 | `config`     | `show`, `get`, `set`, `reset`, `keys`, `export`, `load` | Configuration management                                   |
-| `api`        | `run`                                                   | Start REST API server                                      |
+| `api`        | (none)                                                  | Start REST API server                                      |
 | `completion` | `install`, `show`, `uninstall`                          | Shell completion management                                |
 | `version`    | (none)                                                  | Show version info                                          |
 
@@ -173,7 +173,7 @@ ciberwebscan attack https://example.com --consent --xss
 ciberwebscan scrape url https://example.com --dynamic
 ciberwebscan quick scan https://example.com
 ciberwebscan config set logging.level DEBUG
-ciberwebscan api run --host 0.0.0.0 --port 8000
+ciberwebscan api --host 0.0.0.0 --port 8000
 ciberwebscan completion install --shell zsh
 ```
 
@@ -308,7 +308,7 @@ playwright install                # Required for dynamic scraping
 ciberwebscan                      # CLI entry point
 python -m ciberwebscan            # Alternative CLI entry
 python -m ciberwebscan.api.app    # Direct API server start
-ciberwebscan api run              # API via CLI
+ciberwebscan api                  # API via CLI
 
 # Testing
 pytest                                          # All tests with coverage

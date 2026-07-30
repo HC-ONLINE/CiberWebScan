@@ -7,7 +7,7 @@ Complete REST API reference for CiberWebScan (Beta).
 ### Starting the API
 
 ```bash
-ciberwebscan api run
+ciberwebscan api
 # Server runs on http://localhost:8000
 # API docs: http://localhost:8000/docs
 # ReDoc docs: http://localhost:8000/redoc

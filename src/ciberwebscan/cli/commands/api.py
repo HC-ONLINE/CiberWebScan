@@ -13,14 +13,7 @@ import typer
 from ciberwebscan.cli.output import print_error, print_info, print_success
 from ciberwebscan.config.loader import get_config
 
-api = typer.Typer(
-    name="api",
-    help="API server management commands.",
-    no_args_is_help=True,
-)
 
-
-@api.command("run")
 def run_api(
     host: Annotated[
         str | None,
@@ -45,13 +38,17 @@ def run_api(
     ] = False,
 ) -> None:
     """Start the CiberWebScan API server.
+
     Examples:
+
         # Run with default config settings
-        ciberwebscan api run
+        ciberwebscan api
+
         # Run on custom host and port
-        ciberwebscan api run --host 0.0.0.0 --port 9000
+        ciberwebscan api --host 0.0.0.0 --port 9000
+
         # Disable auto-reload for production
-        ciberwebscan api run --no-reload
+        ciberwebscan api --no-reload
     """
     try:
         # Import here to avoid issues if uvicorn is not installed for CLI-only installs

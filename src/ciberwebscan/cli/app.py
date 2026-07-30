@@ -10,7 +10,7 @@ from __future__ import annotations
 import typer
 
 from ciberwebscan.cli.commands.analyze import analyze_cmd
-from ciberwebscan.cli.commands.api import api
+from ciberwebscan.cli.commands.api import run_api
 from ciberwebscan.cli.commands.attack import attack_cmd
 from ciberwebscan.cli.commands.completion import completion_app
 from ciberwebscan.cli.commands.config import config
@@ -31,11 +31,11 @@ app = typer.Typer(
 app.add_typer(scrape, name="scrape")
 app.add_typer(quick, name="quick")
 app.add_typer(config, name="config")
-app.add_typer(api, name="api")
 app.add_typer(completion_app, name="completion")
 
 # Register direct commands
 app.command("analyze")(analyze_cmd)
+app.command("api")(run_api)
 app.command("attack")(attack_cmd)
 
 

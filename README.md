@@ -159,7 +159,7 @@ ciberwebscan quick scan https://example.com --preset high --consent
 To start the server:
 
 ```bash
-ciberwebscan api run
+ciberwebscan api
 ```
 
 ### Interactive Documentation
