@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from unittest.mock import MagicMock, patch
 
 from typer.testing import CliRunner
@@ -9,6 +10,11 @@ from typer.testing import CliRunner
 from ciberwebscan.cli.app import app
 
 runner = CliRunner()
+
+
+def _strip_ansi(text: str) -> str:
+    """Remove ANSI escape codes from text."""
+    return re.sub(r"\x1b\[[0-9;]*m", "", text)
 
 
 class TestAppBasic:
@@ -97,13 +103,13 @@ class TestAnalyzeCommand:
         """Test analyze --ssl flag is available."""
         result = runner.invoke(app, ["analyze", "--help"])
         assert result.exit_code == 0
-        assert "--ssl" in result.stdout.lower()
+        assert "--ssl" in _strip_ansi(result.stdout).lower()
 
     def test_analyze_fingerprint_flag(self):
         """Test analyze --fingerprint flag is available."""
         result = runner.invoke(app, ["analyze", "--help"])
         assert result.exit_code == 0
-        assert "--fingerprint" in result.stdout.lower()
+        assert "--fingerprint" in _strip_ansi(result.stdout).lower()
 
     @patch("ciberwebscan.services.AnalyzeService")
     def test_analyze_url_success(self, mock_service_class):
