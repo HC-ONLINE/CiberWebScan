@@ -30,20 +30,13 @@ from ciberwebscan.cli.validators import (
 )
 from ciberwebscan.config.loader import get_config
 
-quick = typer.Typer(
-    name="quick",
-    help="Quick scan with analysis + attacks + scraping.",
-    no_args_is_help=True,
-)
-
 try:
     _DEFAULT_TIMEOUT = get_config().http.timeout.read
 except Exception:
     _DEFAULT_TIMEOUT = 30.0
 
 
-@quick.command("scan")
-def quick_scan_cmd(
+def quick_cmd(
     url: Annotated[str, typer.Argument(help="URL to scan")],
     # Preset
     preset: Annotated[
@@ -142,19 +135,19 @@ def quick_scan_cmd(
     Examples:
 
         # Basic analysis (preset low)
-        ciberwebscan quick scan https://example.com
+        ciberwebscan quick https://example.com
 
         # Analysis + scraping
-        ciberwebscan quick scan https://example.com -s ".content"
+        ciberwebscan quick https://example.com -s ".content"
 
         # Medium scan with attacks (requires consent)
-        ciberwebscan quick scan https://example.com --preset medium --consent
+        ciberwebscan quick https://example.com --preset medium --consent
 
         # Full scan with dynamic scraping
-        ciberwebscan quick scan https://example.com --preset high --consent -d
+        ciberwebscan quick https://example.com --preset high --consent -d
 
         # Export combined report
-        ciberwebscan quick scan https://example.com --preset high --consent -o report.json
+        ciberwebscan quick https://example.com --preset high --consent -o report.json
     """
     try:
         # Validate inputs

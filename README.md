@@ -143,13 +143,13 @@ ciberwebscan attack --url https://testsite.example.com --enumeration
 
 ```bash
 # Basic analysis
-ciberwebscan quick scan https://example.com
+ciberwebscan quick https://example.com
 
 # Analysis + scraping
-ciberwebscan quick scan https://example.com -s ".content"
+ciberwebscan quick https://example.com -s ".content"
 
 # Full scan with attacks (requires consent)
-ciberwebscan quick scan https://example.com --preset high --consent
+ciberwebscan quick https://example.com --preset high --consent
 ```
 
 ### REST API Integration

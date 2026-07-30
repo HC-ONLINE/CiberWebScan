@@ -160,7 +160,7 @@ All commands run via `ciberwebscan <command>` or `python -m ciberwebscan`:
 | `analyze`    | (none)                                                  | Security analysis (headers, SSL, fingerprints, CVE lookup) |
 | `attack`     | (none)                                                  | Attack surface testing                                     |
 | `scrape`     | `url`, `batch`                                          | Web scraping (static or dynamic)                           |
-| `quick`      | `scan`                                                  | Fast combined scan                                         |
+| `quick`      | (none)                                                  | Fast combined scan                                         |
 | `config`     | `show`, `get`, `set`, `reset`, `keys`, `export`, `load` | Configuration management                                   |
 | `api`        | (none)                                                  | Start REST API server                                      |
 | `completion` | `install`, `show`, `uninstall`                          | Shell completion management                                |
@@ -171,7 +171,7 @@ All commands run via `ciberwebscan <command>` or `python -m ciberwebscan`:
 ciberwebscan analyze https://example.com --ssl --fingerprint --cve
 ciberwebscan attack https://example.com --consent --xss
 ciberwebscan scrape url https://example.com --dynamic
-ciberwebscan quick scan https://example.com
+ciberwebscan quick https://example.com
 ciberwebscan config set logging.level DEBUG
 ciberwebscan api --host 0.0.0.0 --port 8000
 ciberwebscan completion install --shell zsh

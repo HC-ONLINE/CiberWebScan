@@ -197,7 +197,7 @@ ciberwebscan attack https://example.com --consent --xss --payloads my_payloads.j
 Combined scan using presets: analysis + attacks + scraping in one command.
 
 ```bash
-ciberwebscan quick scan <URL> [OPTIONS]
+ciberwebscan quick <URL> [OPTIONS]
 ```
 
 **Options:**
@@ -229,22 +229,22 @@ ciberwebscan quick scan <URL> [OPTIONS]
 
 ```bash
 # Basic analysis (preset low)
-ciberwebscan quick scan https://example.com
+ciberwebscan quick https://example.com
 
 # Analysis with scraping
-ciberwebscan quick scan https://example.com -s ".content"
+ciberwebscan quick https://example.com -s ".content"
 
 # Medium scan with attacks (requires consent)
-ciberwebscan quick scan https://example.com --preset medium --consent
+ciberwebscan quick https://example.com --preset medium --consent
 
 # Full scan with dynamic scraping
-ciberwebscan quick scan https://example.com --preset high --consent -d
+ciberwebscan quick https://example.com --preset high --consent -d
 
 # Export combined report
-ciberwebscan quick scan https://example.com --preset high --consent -o report.json
+ciberwebscan quick https://example.com --preset high --consent -o report.json
 
 # JSON output for automation
-ciberwebscan quick scan https://example.com --json --quiet
+ciberwebscan quick https://example.com --json --quiet
 ```
 
 ### API Command
@@ -558,11 +558,11 @@ ciberwebscan attack https://testsite.com \
 
 ```bash
 # Basic analysis
-ciberwebscan quick scan https://example.com
+ciberwebscan quick https://example.com
 
 # With scraping and export
-ciberwebscan quick scan https://example.com -s ".data" -o quick_report.json
+ciberwebscan quick https://example.com -s ".data" -o quick_report.json
 
 # Full scan with attacks
-ciberwebscan quick scan https://example.com --preset high --consent -o report.json
+ciberwebscan quick https://example.com --preset high --consent -o report.json
 ```

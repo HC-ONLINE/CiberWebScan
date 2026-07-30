@@ -14,7 +14,7 @@ from ciberwebscan.cli.commands.api import run_api
 from ciberwebscan.cli.commands.attack import attack_cmd
 from ciberwebscan.cli.commands.completion import completion_app
 from ciberwebscan.cli.commands.config import config
-from ciberwebscan.cli.commands.quick import quick
+from ciberwebscan.cli.commands.quick import quick_cmd
 from ciberwebscan.cli.commands.scrape import scrape
 from ciberwebscan.cli.output import print_info
 
@@ -29,7 +29,6 @@ app = typer.Typer(
 
 # Register command groups
 app.add_typer(scrape, name="scrape")
-app.add_typer(quick, name="quick")
 app.add_typer(config, name="config")
 app.add_typer(completion_app, name="completion")
 
@@ -37,6 +36,7 @@ app.add_typer(completion_app, name="completion")
 app.command("analyze")(analyze_cmd)
 app.command("api")(run_api)
 app.command("attack")(attack_cmd)
+app.command("quick")(quick_cmd)
 
 
 @app.command("version")
