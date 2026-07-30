@@ -22,22 +22,21 @@ ciberwebscan --help
 
 Perform security analysis on web applications.
 
-#### analyze url
-
-Analyze a single URL for security issues.
-
 ```bash
-ciberwebscan analyze url <URL> [OPTIONS]
+ciberwebscan analyze <URL> [OPTIONS]
 ```
+
+Activate specific analyses with flags. At least one of `--ssl`, `--fingerprint`, `--cve`, or `--analyze-headers` must be enabled.
 
 **Options:**
 
-- `--ssl/--no-ssl`: Perform SSL/TLS analysis (default: enabled)
-- `--fingerprint/--no-fingerprint, -fp`: Perform technology fingerprinting (default: enabled)
-- `--cve/--no-cve`: Look up CVEs for detected technologies (default: enabled)
-- `--analyze-headers/--no-analyze-headers`: Analyze HTTP security headers (default: enabled)
+- `--ssl/--no-ssl`: Perform SSL/TLS analysis (default: disabled)
+- `--fingerprint/--no-fingerprint, -fp`: Perform technology fingerprinting (default: disabled)
+- `--cve/--no-cve`: Look up CVEs for detected technologies (default: disabled)
+- `--analyze-headers/--no-analyze-headers`: Analyze HTTP security headers (default: disabled)
 - `--deep`: Enable deep scanning
 - `--timeout, -t <SECONDS>`: Request timeout (default: 30.0)
+- `--ssl-timeout <SECONDS>`: SSL/TLS handshake timeout (default: 10.0)
 - `--cve-sources <SOURCES>`: CVE sources (comma-separated: nvd,circl,vulners)
 - `--cve-limit <NUMBER>`: Maximum CVEs to retrieve (default: 100)
 - `--enrich-exploits, -ee`: Enrich CVEs with exploit info from Vulners
@@ -53,83 +52,17 @@ ciberwebscan analyze url <URL> [OPTIONS]
 **Examples:**
 
 ```bash
-# Full security analysis
-ciberwebscan analyze url https://example.com
+# SSL + fingerprinting
+ciberwebscan analyze https://example.com --ssl --fingerprint
 
-# SSL only
-ciberwebscan analyze url https://example.com --no-fingerprint --no-cve
+# Full analysis
+ciberwebscan analyze https://example.com --ssl --fingerprint --cve --analyze-headers
 
-# Fingerprint and CVEs only
-ciberwebscan analyze url https://example.com --no-ssl
+# SSL only with custom timeout
+ciberwebscan analyze https://example.com --ssl --ssl-timeout 15
 
 # Export report
-ciberwebscan analyze url https://example.com -o report.json
-```
-
-#### analyze ssl
-
-Perform SSL/TLS analysis only.
-
-```bash
-ciberwebscan analyze ssl <URL> [OPTIONS]
-```
-
-**Options:**
-
-- `--timeout, -t <SECONDS>`: Request timeout (default: 10.0)
-- `--json`: Output raw JSON
-
-**Examples:**
-
-```bash
-ciberwebscan analyze ssl https://example.com
-```
-
-#### analyze fingerprint
-
-Perform technology fingerprinting only.
-
-```bash
-ciberwebscan analyze fingerprint <URL> [OPTIONS]
-```
-
-**Options:**
-
-- `--deep`: Enable deep scanning
-- `--json`: Output raw JSON
-
-**Examples:**
-
-```bash
-ciberwebscan analyze fingerprint https://example.com
-ciberwebscan analyze fingerprint https://example.com --deep
-```
-
-#### analyze cves
-
-Look up CVEs for specific technologies.
-
-```bash
-ciberwebscan analyze cves <TECHNOLOGY> [OPTIONS]
-```
-
-**Options:**
-
-- `--sources, -s <SOURCES>`: CVE sources: nvd,circl,vulners
-- `--limit, -l <NUMBER>`: Maximum CVEs per technology (default: 50)
-- `--json`: Output raw JSON
-
-**Examples:**
-
-```bash
-# Single technology
-ciberwebscan analyze cves nginx:1.20
-
-# Multiple technologies
-ciberwebscan analyze cves wordpress:5.8 php:8.1
-
-# With specific sources
-ciberwebscan analyze cves apache --sources nvd,circl
+ciberwebscan analyze https://example.com --ssl --fingerprint -o report.json
 ```
 
 ### Scrape Command
@@ -597,7 +530,7 @@ The CLI provides clear error messages and exit codes:
 ### Complete Security Assessment
 
 ```bash
-ciberwebscan analyze url https://target.com \
+ciberwebscan analyze https://target.com \
   --ssl \
   --fingerprint \
   --headers \

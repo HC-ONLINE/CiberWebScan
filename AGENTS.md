@@ -157,7 +157,7 @@ All commands run via `ciberwebscan <command>` or `python -m ciberwebscan`:
 
 | Command      | Subcommands                                             | Description                                                |
 | ------------ | ------------------------------------------------------- | ---------------------------------------------------------- |
-| `analyze`    | `cves`                                                  | Security analysis (headers, SSL, fingerprints, CVE lookup) |
+| `analyze`    | (none)                                                  | Security analysis (headers, SSL, fingerprints, CVE lookup) |
 | `attack`     | (none)                                                  | Attack surface testing                                     |
 | `scrape`     | `url`, `batch`                                          | Web scraping (static or dynamic)                           |
 | `quick`      | `scan`                                                  | Fast combined scan                                         |
