@@ -8,10 +8,15 @@ and the aggregator. They are designed to normalize data from different sources
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Any
+
+from packaging.version import InvalidVersion, Version
+
+logger = logging.getLogger(__name__)
 
 
 class CVESource(str, Enum):
@@ -94,9 +99,49 @@ class AffectedProduct:
     cpe: str = ""  # CPE 2.3 identifier
 
     def matches_version(self, version: str) -> bool:
-        """Check if a specific version is affected."""
-        # Simple version comparison (can be extended with packaging.version)
-        return bool(self.version_exact and self.version_exact == version)
+        """Check if a specific version is affected.
+
+        Supports:
+        - Exact match (version_exact)
+        - Range match (version_start <= version < version_end)
+        - Wildcard (no version constraints = affects all versions)
+        """
+        if not version:
+            return True
+
+        if self.version_exact and self.version_exact == version:
+            return True
+
+        if self.version_start or self.version_end:
+            return self._in_range(version)
+
+        return (
+            not self.version_exact and not self.version_start and not self.version_end
+        )
+
+    def _in_range(self, version: str) -> bool:
+        """Check if version falls within the affected range."""
+        try:
+            v = Version(version)
+        except InvalidVersion:
+            logger.debug("Cannot parse version '%s', assuming affected", version)
+            return True
+
+        if self.version_start:
+            try:
+                if v < Version(self.version_start):
+                    return False
+            except InvalidVersion:
+                pass
+
+        if self.version_end:
+            try:
+                if v >= Version(self.version_end):
+                    return False
+            except InvalidVersion:
+                pass
+
+        return True
 
 
 @dataclass
