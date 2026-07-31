@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.7.5](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.7.4...v2.7.5) (2026-07-31)
+
+
+### Bug Fixes
+
+* improve CDN URL normalization and version extraction ([3ad02bb](https://github.com/HC-ONLINE/CiberWebScan/commit/3ad02bb8ec4dd1f583e7e9ca6246f4aeb47d0a19))
+* improve CDN URL normalization and version extraction ([7d02e0d](https://github.com/HC-ONLINE/CiberWebScan/commit/7d02e0d51ab264431e73e576797dde1cd3a46e0c))
+
 ## [2.7.4](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.7.3...v2.7.4) (2026-07-31)
 
 
