@@ -8,12 +8,75 @@ specific patterns in the HTML code, meta tags, scripts, and styles.
 
 from __future__ import annotations
 
+import logging
 import re
 from typing import Any
+from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup, Tag
 
 from ciberwebscan.core.analyzers.fingerprint import append_tech_with_version_debug
+
+logger = logging.getLogger(__name__)
+
+# CDN URL patterns: hostname -> (library_path_pattern, version_group_index)
+# Patterns match the path structure of CDN URLs to extract library name + version
+CDN_URL_PATTERNS: dict[str, list[re.Pattern[str]]] = {
+    "cdnjs.cloudflare.com": [
+        re.compile(
+            r"/ajax/libs/(?P<lib>[^/]+)/(?P<ver>[^/]+)/",
+            re.IGNORECASE,
+        ),
+    ],
+    "cdn.jsdelivr.net": [
+        re.compile(
+            r"/npm/(?P<lib>[^@/]+)@(?P<ver>[^/]+)/",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"/gh/(?P<lib>[^@/]+)@(?P<ver>[^/]+)/",
+            re.IGNORECASE,
+        ),
+    ],
+    "unpkg.com": [
+        re.compile(
+            r"/(?P<lib>[^@/]+)@(?P<ver>[^/]+)/",
+            re.IGNORECASE,
+        ),
+    ],
+    "ajax.googleapis.com": [
+        re.compile(
+            r"/ajax/libs/(?P<lib>[^/]+)/(?P<ver>[^/]+)/",
+            re.IGNORECASE,
+        ),
+    ],
+    "cdn.bootcdn.net": [
+        re.compile(
+            r"/ajax/libs/(?P<lib>[^/]+)/(?P<ver>[^/]+)/",
+            re.IGNORECASE,
+        ),
+    ],
+    "cdn.staticfile.org": [
+        re.compile(
+            r"/ajax/libs/(?P<lib>[^/]+)/(?P<ver>[^/]+)/",
+            re.IGNORECASE,
+        ),
+    ],
+}
+
+# Known CDN hostnames for detection (substring match on full HTML)
+CDN_HOSTNAMES: dict[str, str] = {
+    "cdnjs.cloudflare.com": "Cloudflare CDN",
+    "ajax.googleapis.com": "Google CDN",
+    "cdn.jsdelivr.net": "jsDelivr CDN",
+    "unpkg.com": "unpkg CDN",
+    "cdn.bootstrapcdn.com": "BootstrapCDN",
+    "fastly.net": "Fastly CDN",
+    "cdn.cloudflare.com": "Cloudflare CDN",
+    "code.jquery.com": "jQuery CDN",
+    "ajax.aspnetcdn.com": "Microsoft CDN",
+    "cdn.jsdelivr.net/npm": "jsDelivr CDN",
+}
 
 
 def analyze_html_content(
@@ -182,7 +245,7 @@ def analyze_html_content(
 
         for lib_name, signatures in js_library_signatures.items():
             for pattern in signatures.get("script_patterns", []):
-                match = re.search(pattern + r"[\/-]?([\d\.]+)?", src, re.IGNORECASE)
+                match = re.search(pattern + r"[/@-]?([\d\.]+)?", src, re.IGNORECASE)
                 if match:
                     version = (
                         match.group(1)
@@ -202,6 +265,15 @@ def analyze_html_content(
                         sources_info["js_libraries"][lib_name].add("script")
                     break
 
+        # Also try structured CDN URL parsing for this script src
+        _parse_cdn_url(
+            src,
+            detected_html["js_libraries"],
+            debug_info["js_libraries"] if debug_enabled else None,
+            sources_info["js_libraries"],
+            "script",
+        )
+
     # Analyze CSS links
     for link in soup.find_all("link", rel="stylesheet"):
         if not isinstance(link, Tag):
@@ -213,7 +285,7 @@ def analyze_html_content(
 
         for lib_name, signatures in js_library_signatures.items():
             for pattern in signatures.get("css_patterns", []):
-                match = re.search(pattern + r"[\/-]?([\d\.]+)?", href, re.IGNORECASE)
+                match = re.search(pattern + r"[/@-]?([\d\.]+)?", href, re.IGNORECASE)
                 if match:
                     version = (
                         match.group(1)
@@ -233,6 +305,15 @@ def analyze_html_content(
                         sources_info["js_libraries"][lib_name].add("css")
                     break
 
+        # Also try structured CDN URL parsing for this CSS href
+        _parse_cdn_url(
+            href,
+            detected_html["js_libraries"],
+            debug_info["js_libraries"] if debug_enabled else None,
+            sources_info["js_libraries"],
+            "css",
+        )
+
     # Detect PHP
     if ("<?php" in html_content or ".php" in content_lower) and (
         "PHP" not in detected_html["other"]
@@ -245,25 +326,14 @@ def analyze_html_content(
             }
 
     # Detect CDNs
-    if "cdnjs.cloudflare.com" in content_lower and (
-        "Cloudflare CDN" not in detected_html["other"]
-    ):
-        detected_html["other"].append("Cloudflare CDN")
-        if debug_enabled:
-            debug_info["other"]["Cloudflare CDN"] = {
-                "matched": "cdnjs.cloudflare.com",
-                "source": "html_content",
-            }
-
-    if "ajax.googleapis.com" in content_lower and (
-        "Google CDN" not in detected_html["other"]
-    ):
-        detected_html["other"].append("Google CDN")
-        if debug_enabled:
-            debug_info["other"]["Google CDN"] = {
-                "matched": "ajax.googleapis.com",
-                "source": "html_content",
-            }
+    for hostname, cdn_name in CDN_HOSTNAMES.items():
+        if hostname in content_lower and cdn_name not in detected_html["other"]:
+            detected_html["other"].append(cdn_name)
+            if debug_enabled:
+                debug_info["other"][cdn_name] = {
+                    "matched": hostname,
+                    "source": "html_content",
+                }
 
     # Sort results
     for category in detected_html:
@@ -274,3 +344,43 @@ def analyze_html_content(
         "debug_info": debug_info,
         "sources_info": sources_info,
     }
+
+
+def _parse_cdn_url(
+    url: str,
+    detected_list: list[str],
+    debug_dict: dict[str, Any] | None,
+    sources_dict: dict[str, set[str]],
+    source_type: str,
+) -> None:
+    """Extract library name + version from structured CDN URL patterns.
+
+    Handles URL structures like:
+    - cdnjs: /ajax/libs/jquery/3.6.0/jquery.min.js
+    - jsDelivr: /npm/jquery@3.6.0/dist/jquery.min.js
+    - unpkg: /jquery@3.6.0/dist/jquery.min.js
+    """
+    try:
+        parsed = urlparse(url)
+        hostname = parsed.hostname or ""
+    except Exception:
+        return
+
+    patterns = CDN_URL_PATTERNS.get(hostname, [])
+    for pattern in patterns:
+        match = pattern.search(parsed.path)
+        if match:
+            lib_name = match.group("lib")
+            version = match.group("ver")
+            label = f"{lib_name} {version}" if version else lib_name
+            if label not in detected_list:
+                detected_list.append(label)
+                if debug_dict is not None:
+                    debug_dict[lib_name] = {
+                        "matched": f"cdn_url:{url}",
+                        "source": source_type,
+                    }
+                if lib_name not in sources_dict:
+                    sources_dict[lib_name] = set()
+                sources_dict[lib_name].add(source_type)
+            break
