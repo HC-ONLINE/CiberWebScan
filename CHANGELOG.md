@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.7.4](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.7.3...v2.7.4) (2026-07-31)
+
+
+### Bug Fixes
+
+* use detected version for CVE lookup filtering ([81505b8](https://github.com/HC-ONLINE/CiberWebScan/commit/81505b826c6d4b69fcbbbedd71ea24cfd4e5cdfd))
+* use detected version for CVE lookup filtering ([1b6756f](https://github.com/HC-ONLINE/CiberWebScan/commit/1b6756fbc23b7042dc4d5f960ad786b849c46ed2))
+
 ## [2.7.3](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.7.2...v2.7.3) (2026-07-30)
 
 
