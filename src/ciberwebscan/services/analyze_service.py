@@ -624,21 +624,32 @@ class AnalyzeService(BaseService):
         technologies: list[TechnologyMatch],
         options: AnalyzeOptions,
     ) -> list[CVEResult]:
-        """Internal CVE lookup."""
+        """Internal CVE lookup with version-aware filtering."""
         try:
             all_cves: list[CVEResult] = []
+            seen_ids: set[str] = set()
 
             for tech in technologies:
-                # Search CVEs for this technology
+                version = tech.version or ""
+
                 aggregated = self.cve_aggregator.search(
                     product=tech.name,
+                    version=version,
                     limit=options.cve_limit,
                 )
 
                 for cve in aggregated.entries:
-                    # Filter by severity if specified
+                    if cve.id in seen_ids:
+                        continue
+                    seen_ids.add(cve.id)
+
                     if options.cve_severity and (
                         str(cve.severity.value).lower() != options.cve_severity.lower()
+                    ):
+                        continue
+
+                    if version and not self._cve_affects_version(
+                        cve, tech.name, version
                     ):
                         continue
 
@@ -686,3 +697,18 @@ class AnalyzeService(BaseService):
         except Exception as e:
             self.logger.warning(f"CVE lookup failed: {e}")
             return []
+
+    def _cve_affects_version(self, cve: Any, product_name: str, version: str) -> bool:
+        """Check if a CVE entry affects the specific detected version."""
+        if not cve.affected_products:
+            return True
+
+        product_lower = product_name.lower()
+        for affected in cve.affected_products:
+            affected_product = affected.product.lower()
+            if (
+                product_lower in affected_product or affected_product in product_lower
+            ) and affected.matches_version(version):
+                return True
+
+        return False
