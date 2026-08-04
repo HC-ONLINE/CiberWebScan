@@ -282,6 +282,7 @@ SAMPLE_PAYLOADS = {
         "%2e%2e%2f%2e%2e%2f%2e%2e%2fetc%2fpasswd",
     ],
     "enumeration": ["admin", "backup", "config", "test", "upload"],
+    "subdomain": ["www", "mail", "admin", "api", "test"],
 }
 
 
