@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.10.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.9.0...v2.10.0) (2026-08-04)
+
+
+### Features
+
+* **scraping:** add option to extract HTML forms and their fields ([3f595f9](https://github.com/HC-ONLINE/CiberWebScan/commit/3f595f96b8cce29e579d725b4f038b524f7b3bc3))
+* **scraping:** add option to extract HTML forms and their fields ([2ca65b3](https://github.com/HC-ONLINE/CiberWebScan/commit/2ca65b367a3b4f60771e0c4d351896538349572c))
+
 ## [2.9.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.8.0...v2.9.0) (2026-08-04)
 
 
