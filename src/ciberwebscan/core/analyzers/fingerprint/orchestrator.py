@@ -69,14 +69,16 @@ class TechnologyFingerprinter:
         self.framework_signatures = signatures.get("framework_signatures", {})
         self.server_signatures = signatures.get("server_signatures", {})
         self.js_library_signatures = signatures.get("js_library_signatures", {})
+        self.cdn_paas_signatures = signatures.get("cdn_paas_signatures", {})
 
         logger.debug(
             "TechnologyFingerprinter initialized with %d CMS, %d framework, "
-            "%d server, %d JS library signatures",
+            "%d server, %d JS library, %d CDN/PaaS signatures",
             len(self.cms_signatures),
             len(self.framework_signatures),
             len(self.server_signatures),
             len(self.js_library_signatures),
+            len(self.cdn_paas_signatures),
         )
 
     def fingerprint(
@@ -117,6 +119,7 @@ class TechnologyFingerprinter:
                 self.cms_signatures,
                 self.framework_signatures,
                 self.server_signatures,
+                self.cdn_paas_signatures,
                 debug_enabled=debug,
             )
             detected_headers = header_results["detected_headers"]
@@ -131,6 +134,7 @@ class TechnologyFingerprinter:
                 self.cms_signatures,
                 self.framework_signatures,
                 js_sigs,
+                self.cdn_paas_signatures,
                 debug_enabled=debug,
             )
             detected_html = html_results["detected_html"]
@@ -153,10 +157,52 @@ class TechnologyFingerprinter:
         # Calculate summary
         summary = calculate_summary(combined_technologies)
 
+        # Extract summary-level fields for easy access
+        server_list = combined_technologies.get("servers", [])
+        other_list = combined_technologies.get("other", [])
+
+        # Identify server, framework, CMS from combined results
+        server_label = server_list[0]["name"] if server_list else None
+        framework_label = None
+        cms_label = None
+        cdn_label = None
+        powered_by_label = None
+
+        for item in combined_technologies.get("frameworks", []):
+            name = item["name"] if isinstance(item, dict) else str(item)
+            framework_label = name
+            break
+
+        for item in combined_technologies.get("cms", []):
+            name = item["name"] if isinstance(item, dict) else str(item)
+            cms_label = name
+            break
+
+        # CDN/PaaS providers are detected in "other" category
+        cdn_providers = {
+            "Cloudflare",
+            "CloudFront",
+            "Vercel",
+            "Netlify",
+            "AWS S3",
+            "Google Cloud Storage",
+            "Azure Blob Storage",
+        }
+        for item in other_list:
+            name = item["name"] if isinstance(item, dict) else str(item)
+            if name in cdn_providers:
+                cdn_label = name
+                break
+
         result: dict[str, Any] = {
             "technologies": combined_technologies,
             "summary": summary,
             "analysis_timestamp": get_timestamp(),
+            "server": server_label,
+            "powered_by": powered_by_label,
+            "framework": framework_label,
+            "cms": cms_label,
+            "cdn": cdn_label,
         }
 
         # Attach debug info if enabled
