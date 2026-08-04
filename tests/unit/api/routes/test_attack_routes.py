@@ -98,7 +98,7 @@ class TestAttackEndpointSuccess:
         assert data["data"]["total_findings"] == 0
 
     def test_post_attack_all_attacks_shortcut(self, client, mock_attack_result):
-        """all_attacks=True enables all four attack types."""
+        """all_attacks=True enables all attack types."""
         with patch(
             "ciberwebscan.api.routes.attack.AttackService"
         ) as mock_service_class:
@@ -118,12 +118,38 @@ class TestAttackEndpointSuccess:
             )
 
         assert response.status_code == 200
-        # Verify ALL four attack types were set to True in AttackOptions
+        # Verify ALL attack types were set to True in AttackOptions
         call_kwargs = mock_service.attack.call_args[0][0]
         assert call_kwargs.xss is True
         assert call_kwargs.sqli is True
         assert call_kwargs.traversal is True
         assert call_kwargs.enumeration is True
+        assert call_kwargs.csrf is True
+        assert call_kwargs.subdomain is True
+
+    def test_post_attack_subdomain(self, client, mock_attack_result):
+        """subdomain=True is forwarded to AttackOptions correctly."""
+        with patch(
+            "ciberwebscan.api.routes.attack.AttackService"
+        ) as mock_service_class:
+            mock_service = MagicMock()
+            mock_service_class.return_value = mock_service
+            mock_service.attack.return_value = _make_service_result(
+                data=mock_attack_result
+            )
+
+            response = client.post(
+                "/api/attack",
+                json={
+                    "url": "https://example.com",
+                    "subdomain": True,
+                    "user_consent": True,
+                },
+            )
+
+        assert response.status_code == 200
+        options = mock_service.attack.call_args[0][0]
+        assert options.subdomain is True
 
     def test_post_attack_intensity_high(self, client, mock_attack_result):
         """intensity=high is forwarded to AttackOptions correctly."""
