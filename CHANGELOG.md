@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.11.1](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.11.0...v2.11.1) (2026-08-04)
+
+
+### Bug Fixes
+
+* add missing rom __future__ import annotations to all __init__.p… ([298c347](https://github.com/HC-ONLINE/CiberWebScan/commit/298c347d0db9ca549f465610953af93f4fb2f3de))
+* add missing rom __future__ import annotations to all __init__.py, http_client.py, and conftest files ([209890a](https://github.com/HC-ONLINE/CiberWebScan/commit/209890ace878fa593caaa51f213ca8a776f2d0fa))
+
 ## [2.11.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.10.0...v2.11.0) (2026-08-04)
 
 
