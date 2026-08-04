@@ -97,8 +97,10 @@ class FormInfo(BaseModel):
 
     action: str = ""
     method: str = "GET"
+    enctype: str = ""
+    id: str = ""
     name: str = ""
-    fields: list[dict[str, str]] = Field(default_factory=list)
+    fields: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class ScriptInfo(BaseModel):

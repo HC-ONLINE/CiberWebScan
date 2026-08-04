@@ -434,8 +434,12 @@ def extract_forms(
             "fields": [],
         }
 
-        # Extract input fields
-        for inp in form.select("input, select, textarea"):
+        # Extract input, select, textarea, and button elements
+        for inp in form.select("input, select, textarea, button"):
+            # Skip buttons without name (they don't submit form data)
+            if inp.name == "button" and not inp.get("name"):
+                continue
+
             field_data: dict[str, Any] = {
                 "tag": inp.name,
                 "type": inp.get("type", "text") if inp.name == "input" else inp.name,
@@ -444,16 +448,59 @@ def extract_forms(
                 "id": inp.get("id", ""),
                 "placeholder": inp.get("placeholder", ""),
             }
+
+            # Extract label association
+            field_data["label"] = _resolve_label(form, inp)
+
+            # Extract validation attributes
+            field_data["required"] = inp.has_attr("required")
+            field_data["pattern"] = inp.get("pattern", "")
+            field_data["maxlength"] = inp.get("maxlength", "")
+            field_data["minlength"] = inp.get("minlength", "")
+            field_data["readonly"] = inp.has_attr("readonly")
+            field_data["disabled"] = inp.has_attr("disabled")
+
+            # Extract select options
             if inp.name == "select":
                 field_data["options"] = [
                     opt.get("value", opt.get_text(strip=True))
                     for opt in inp.select("option")
                 ]
+
             form_data["fields"].append(field_data)
 
         forms.append(form_data)
 
     return forms
+
+
+def _resolve_label(form: Any, inp: Any) -> str:
+    """Resolve the label text associated with a form field.
+
+    Checks two strategies:
+    1. <label for="fieldId"> matching the field's id attribute
+    2. <label> wrapping the field element directly
+
+    Args:
+        form: The parent form BeautifulSoup element.
+        inp: The input/select/textarea/button BeautifulSoup element.
+
+    Returns:
+        Associated label text, or empty string if none found.
+    """
+    # Strategy 1: label[for="id"] matching field's id
+    field_id = inp.get("id", "")
+    if field_id:
+        label = form.select_one(f'label[for="{field_id}"]')
+        if label:
+            return label.get_text(strip=True)
+
+    # Strategy 2: label wrapping the field element
+    parent_label = inp.find_parent("label")
+    if parent_label:
+        return parent_label.get_text(strip=True)
+
+    return ""
 
 
 def extract_scripts(
