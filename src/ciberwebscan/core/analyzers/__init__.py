@@ -6,6 +6,8 @@ SSL/TLS analysis, technology fingerprinting, CVE lookup, and HTTP
 header security analysis.
 """
 
+from __future__ import annotations
+
 from .fingerprint import (
     TechnologyFingerprinter,
     fingerprint_technologies,

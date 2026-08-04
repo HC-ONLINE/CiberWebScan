@@ -14,6 +14,8 @@ Services:
 Each service that produces results supports an optional export flag.
 """
 
+from __future__ import annotations
+
 from ciberwebscan.services.analyze_service import AnalyzeOptions, AnalyzeService
 from ciberwebscan.services.attack_service import AttackOptions, AttackService
 from ciberwebscan.services.base import (

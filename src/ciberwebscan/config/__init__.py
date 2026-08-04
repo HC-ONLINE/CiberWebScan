@@ -4,6 +4,8 @@ Configuration package for CiberWebScan.
 Provides configuration models, defaults, and loading utilities.
 """
 
+from __future__ import annotations
+
 from ciberwebscan.config.models import (
     AnalysisConfig,
     AppConfig,

@@ -12,6 +12,8 @@ The wrapper is intentionally minimal to avoid the overhead
 of a full compatibility layer while centralizing cross-cutting concerns.
 """
 
+from __future__ import annotations
+
 import logging
 import random
 import threading
@@ -613,7 +615,7 @@ class HTTPClient:
         """Close the underlying HTTP client."""
         self._client.close()
 
-    def __enter__(self) -> "HTTPClient":
+    def __enter__(self) -> HTTPClient:
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:

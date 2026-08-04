@@ -3,6 +3,8 @@ CiberWebScan: initialization module.
 Defines package-level metadata.
 """
 
+from __future__ import annotations
+
 from importlib.metadata import PackageNotFoundError, version
 
 try:

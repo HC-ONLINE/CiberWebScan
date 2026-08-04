@@ -2,6 +2,8 @@
 Pytest configuration and shared fixtures for attack module tests.
 """
 
+from __future__ import annotations
+
 from pathlib import Path
 from unittest.mock import Mock
 

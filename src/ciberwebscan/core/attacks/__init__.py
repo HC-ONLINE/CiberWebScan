@@ -13,6 +13,8 @@ WARNING: Only use these modules against systems you own or have
 explicit written authorization to test. Unauthorized testing is illegal.
 """
 
+from __future__ import annotations
+
 from .base import (
     AttackConfig,
     AttackContext,

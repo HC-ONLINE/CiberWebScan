@@ -6,6 +6,8 @@ This module provides functionality for detecting web technologies
 and HTML content analysis.
 """
 
+from __future__ import annotations
+
 from .header_analyzer import analyze_headers
 from .helpers import (
     append_tech_with_version,
