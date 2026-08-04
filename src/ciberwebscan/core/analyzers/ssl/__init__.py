@@ -5,6 +5,8 @@ This module provides functionality for analyzing SSL/TLS certificates
 and security configurations.
 """
 
+from __future__ import annotations
+
 from .analyzer import (
     SSLAnalysisResult,
     SSLAnalyzer,

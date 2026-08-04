@@ -4,6 +4,8 @@ HTTP client module.
 Provides HTTP client with retry, rate limiting, proxy and user-agent support.
 """
 
+from __future__ import annotations
+
 from ciberwebscan.core.client.http_client import HTTPClient, RateLimiter
 from ciberwebscan.core.client.proxy import (
     ProxyConfig,

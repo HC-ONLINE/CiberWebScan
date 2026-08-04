@@ -27,6 +27,8 @@ Example usage:
     exporter.export_report(analysis_report)
 """
 
+from __future__ import annotations
+
 # Base classes and utilities
 from ciberwebscan.export.base import (
     BaseExporter,

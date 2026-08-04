@@ -4,6 +4,8 @@ API routes for CiberWebScan.
 This package contains all FastAPI route handlers for the REST API.
 """
 
+from __future__ import annotations
+
 from . import analyze, attack, auth, config, download, health, quick, scrape
 
 __all__ = [

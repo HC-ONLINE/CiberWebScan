@@ -16,6 +16,8 @@ Usage example:
     >>> cves = lookup_cves("nginx", version="1.19")
 """
 
+from __future__ import annotations
+
 from ciberwebscan.core.analyzers.cve.aggregator import (
     CVEAggregator,
     lookup_cves,

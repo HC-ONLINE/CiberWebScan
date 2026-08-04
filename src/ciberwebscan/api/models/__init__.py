@@ -4,6 +4,8 @@ API models package.
 Provides request and response models for the REST API.
 """
 
+from __future__ import annotations
+
 from ciberwebscan.api.models.requests import (
     AnalyzeRequest,
     AttackRequest,
