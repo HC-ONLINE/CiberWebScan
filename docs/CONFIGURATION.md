@@ -282,7 +282,7 @@ Configure web scraping behavior.
     "extract_links": true,
     "extract_images": true,
     "extract_scripts": true,
-    "extract_forms": true,
+    "extract_forms": false,
     "max_content_length": 10485760
   }
 }
@@ -300,13 +300,14 @@ Configure web scraping behavior.
 | `scraping.extract_links`        |             `true` | Extract links by default                              |
 | `scraping.extract_images`       |             `true` | Extract images by default                             |
 | `scraping.extract_scripts`      |             `true` | Extract scripts by default                            |
-| `scraping.extract_forms`        |             `true` | Extract forms by default                              |
+| `scraping.extract_forms`        |            `false` | Extract forms by default (opt-in via CLI/API)         |
 | `scraping.max_content_length`   | `10485760 (10 MB)` | Max response size handled by scrapers (model default) |
 
 > Implementation status — scraping options
 >
 > - `scraping.max_content_length`: present in the config model but **not enforced consistently** across all scrapers (see `src/ciberwebscan/core/scraping/static.py` and `src/ciberwebscan/core/scraping/dynamic.py`).
-> - `scraping.extract_*` flags (`extract_links`, `extract_images`, `extract_scripts`, `extract_forms`) exist in the model but are **only partially applied** by some scrapers.
+> - `scraping.extract_forms`: now fully wired — controlled by `--forms/--no-forms` CLI flag (default: disabled) and `extract_forms` API parameter (default: `false`). The config value `scraping.extract_forms` is no longer the source of truth; the CLI/API default is `false`.
+> - `scraping.extract_*` flags (`extract_links`, `extract_images`, `extract_scripts`): exist in the model but are **only partially applied** by some scrapers.
 >
 > See the **Development Notes** section for recommended fixes and test coverage.
 
@@ -736,6 +737,7 @@ When upgrading CiberWebScan, your existing configuration will be preserved. New 
 
 - [PROPOSED · NOT IMPLEMENTED] `analysis.fingerprint.deep_scan`: Runtime option `deep_scan` exists on `AnalyzeOptions` but there is **no persistent** `analysis.fingerprint.deep_scan` field in the config model. If required, add the field to `FingerprintConfig` and wire it into the fingerprinter initialization in `AnalyzeService`.
 - [PARTIAL] `scraping.max_content_length`: Present in `ScrapingConfig` but **not enforced consistently** across scrapers. Suggested action: enforce/max-truncate responses in `src/ciberwebscan/core/scraping/static.py` and `src/ciberwebscan/core/scraping/dynamic.py`, add unit + integration tests and document whether responses are rejected or truncated.
-- [PARTIAL] `scraping.extract_*` (`extract_links`, `extract_images`, `extract_scripts`, `extract_forms`): Flags exist in the config model but are **only partially applied** by some scrapers; implement conditional extraction where applicable and add tests.
+- [DONE] `scraping.extract_forms`: Now fully wired through CLI (`--forms/--no-forms`, default: disabled), API (`extract_forms` field, default: `false`), and core config. Forms are only extracted when explicitly requested.
+- [PARTIAL] `scraping.extract_*` (`extract_links`, `extract_images`, `extract_scripts`): Flags exist in the config model but are **only partially applied** by some scrapers; implement conditional extraction where applicable and add tests.
 - [NOT IMPLEMENTED] `include_screenshots`: Defined in `ExportConfig` and API models but **not implemented** by the export pipeline (`BaseService._export_result` / exporter classes). Implement screenshot capture/storage and wire into exporters if this feature is desired.
 - [PROPOSED] `cache`: `CacheConfig` exists but its practical usage (e.g., CVE caching) is limited in places; add integration points and tests where caching is expected.

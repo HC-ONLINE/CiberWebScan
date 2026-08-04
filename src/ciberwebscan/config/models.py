@@ -174,10 +174,10 @@ class ScrapingConfig(BaseModel):
         default_factory=lambda: DynamicScrapingConfig()
     )
     pagination: PaginationConfig = Field(default_factory=lambda: PaginationConfig())
-    extract_links: bool = True
-    extract_images: bool = True
-    extract_scripts: bool = True
-    extract_forms: bool = True
+    extract_links: bool = False
+    extract_images: bool = False
+    extract_scripts: bool = False
+    extract_forms: bool = False
     max_content_length: Annotated[int, Field(ge=1024)] = 10 * 1024 * 1024  # 10MB
 
 

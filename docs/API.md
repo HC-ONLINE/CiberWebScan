@@ -227,6 +227,7 @@ Scrape a single URL with flexible extraction options.
 | `proxy`               | string  | null     | HTTP/HTTPS proxy URL                        |
 | `user_agent`          | string  | null     | Custom User-Agent                           |
 | `check_robots`        | boolean | true     | Respect robots.txt                          |
+| `extract_forms`       | boolean | false    | Extract HTML forms and their fields         |
 | `export`              | string  | null     | Export file path                            |
 | `export_format`       | string  | json     | json, jsonl, csv, or html                   |
 

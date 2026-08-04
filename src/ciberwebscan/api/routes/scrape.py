@@ -55,6 +55,7 @@ async def scrape_url(
             proxy=request.proxy,
             user_agent=request.user_agent,
             check_robots=request.check_robots,
+            extract_forms=request.extract_forms,
         )
 
         # Execute scraping
@@ -122,6 +123,7 @@ async def scrape_batch(
             cookies=request.cookies,
             proxy=request.proxy,
             user_agent=request.user_agent,
+            extract_forms=request.extract_forms,
         )
 
         service = ScrapeService()

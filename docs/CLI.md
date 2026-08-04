@@ -87,6 +87,7 @@ ciberwebscan scrape url <URL> [OPTIONS]
 - `--max-pages <NUMBER>`: Maximum pages to scrape (default: 1)
 - `--extract-schema, -es <SCHEMA>`: JSON extraction schema (string or file path)
 - `--check-robots/--no-check-robots, -cr`: Respect robots.txt (default: enabled)
+- `--forms/--no-forms`: Extract HTML forms and their fields (default: disabled)
 - `--timeout, -t <SECONDS>`: Request timeout (default: 30.0)
 - `--output, -o <FILE>`: Output file path
 - `--format, -f <FORMAT>`: Export format: json, jsonl, csv, html (default: json)
@@ -108,6 +109,9 @@ ciberwebscan scrape url https://spa.example.com --dynamic --wait-for ".loaded"
 
 # Extract specific data
 ciberwebscan scrape url https://example.com --selector ".product" --attributes "href,title"
+
+# Extract forms
+ciberwebscan scrape url https://example.com --forms
 
 # Export results
 ciberwebscan scrape url https://example.com --selector "a" -o links.json
@@ -131,6 +135,7 @@ ciberwebscan scrape batch <URLS> [OPTIONS]
 - `--proxy <PROXY>`: Proxy server
 - `--cookies <COOKIES>`: Cookies (format: 'name1=value1; name2=value2')
 - `--check-robots/--no-check-robots, -cr`: Respect robots.txt (default: enabled)
+- `--forms/--no-forms`: Extract HTML forms and their fields (default: disabled)
 - `--output, -o <FILE>`: Output file path
 - `--format, -f <FORMAT>`: Export format (default: jsonl)
 - `--json`: Output raw JSON

@@ -127,6 +127,11 @@ def scrape_url(
             "--check-robots/--no-check-robots", "-cr", help="Respect robots.txt"
         ),
     ] = True,
+    # Form extraction
+    forms: Annotated[
+        bool,
+        typer.Option("--forms/--no-forms", help="Extract HTML forms and their fields"),
+    ] = False,
     # Structured extraction
     extract_schema: Annotated[
         str | None,
@@ -212,6 +217,7 @@ def scrape_url(
             proxy=proxy,
             user_agent=user_agent,
             check_robots=check_robots,
+            extract_forms=forms,
             schema=schema_dict,
         )
 
@@ -290,6 +296,11 @@ def scrape_batch(
             "--check-robots/--no-check-robots", "-cr", help="Respect robots.txt"
         ),
     ] = True,
+    # Form extraction
+    forms: Annotated[
+        bool,
+        typer.Option("--forms/--no-forms", help="Extract HTML forms and their fields"),
+    ] = False,
     # Export
     output: Annotated[
         str | None,
@@ -355,6 +366,7 @@ def scrape_batch(
             proxy=proxy,
             user_agent=user_agent,
             check_robots=check_robots,
+            extract_forms=forms,
             export=output,
             export_format=format,
         )
