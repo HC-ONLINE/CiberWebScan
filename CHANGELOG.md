@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.9.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.8.0...v2.9.0) (2026-08-04)
+
+
+### Features
+
+* **analyzer:** add CDN/PaaS detection to HTML content analysis ([0b6215a](https://github.com/HC-ONLINE/CiberWebScan/commit/0b6215a01194c65b67f7806770004b324a957f7d))
+* **analyzer:** add CDN/PaaS signatures handling in technology fingerprinting ([b03d376](https://github.com/HC-ONLINE/CiberWebScan/commit/b03d376d3d9b4fb7cf4eb00022f0f4945b356040))
+* **analyzer:** detect backend languages from HTTP headers ([87faa1d](https://github.com/HC-ONLINE/CiberWebScan/commit/87faa1d545cc13340a4be90a5127717874e9464a))
+* **analyzer:** load CDN/PaaS signatures from technology signatures file ([215fe8c](https://github.com/HC-ONLINE/CiberWebScan/commit/215fe8c598f443c640bbfea6387c8130dd0c2abe))
+
 ## [2.8.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.7.5...v2.8.0) (2026-08-04)
 
 
