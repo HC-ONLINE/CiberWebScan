@@ -310,6 +310,7 @@ Perform controlled security attack simulations.
 - Path Traversal vulnerability testing
 - Directory Enumeration
 - CSRF (Cross-Site Request Forgery) detection
+- Subdomain enumeration (DNS brute force)
 - Custom payloads and wordlists
 
 **Request:**
@@ -322,6 +323,7 @@ Perform controlled security attack simulations.
   "traversal": true,
   "enumeration": true,
   "csrf": true,
+  "subdomain": true,
   "all_attacks": false,
   "intensity": "medium",
   "max_payloads": 50,
@@ -343,6 +345,7 @@ Perform controlled security attack simulations.
 | `traversal`               | boolean     | null         | Test path traversal              |
 | `enumeration`             | boolean     | null         | Directory enumeration            |
 | `csrf`                    | boolean     | null         | Test CSRF vulnerabilities        |
+| `subdomain`               | boolean     | null         | Enumerate active subdomains      |
 | `all_attacks`             | boolean     | false        | Enable all attack types          |
 | `intensity`               | string      | medium       | low, medium, or high             |
 | `max_payloads`            | integer     | null         | Max payloads per attack (1-1000) |

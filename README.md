@@ -137,6 +137,9 @@ ciberwebscan attack --url https://testsite.example.com --xss
 
 # Directory enumeration
 ciberwebscan attack --url https://testsite.example.com --enumeration
+
+# Subdomain enumeration (DNS brute force)
+ciberwebscan attack --url https://testsite.example.com --subdomain
 ```
 
 #### Quick Scan (Combined)

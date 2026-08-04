@@ -83,6 +83,13 @@ def attack_cmd(
             help="Test for CSRF vulnerabilities (uses config default if not set)",
         ),
     ] = None,
+    subdomain: Annotated[
+        bool | None,
+        typer.Option(
+            "--subdomain",
+            help="Enumerate active subdomains via DNS brute force (uses config default if not set)",
+        ),
+    ] = None,
     all_attacks: Annotated[
         bool,
         typer.Option("--all", help="Run all attack types"),
@@ -222,7 +229,16 @@ def attack_cmd(
 
         # Enable all attacks if --all flag is used
         if all_attacks:
-            xss = sqli = traversal = enumeration = csrf = True
+            xss = sqli = traversal = enumeration = csrf = subdomain = True
+
+        # Validate at least one attack type is specified BEFORE config defaults are applied
+        if not any([xss, sqli, traversal, enumeration, csrf, subdomain]):
+            print_error("No attack types selected")
+            print_info(
+                "Use --xss, --sqli, --traversal, --enumeration, --csrf, --subdomain, or --all"
+            )
+            print_info("Or enable attack types in your config.yaml (config.attack.*)")
+            sys.exit(2)
 
         # Parse headers if provided
         headers_dict: dict[str, str] = {}
@@ -251,6 +267,7 @@ def attack_cmd(
             traversal=traversal,
             enumeration=enumeration,
             csrf=csrf,
+            subdomain=subdomain,
             intensity=intensity,
             max_payloads=max_payloads,
             custom_payloads_file=payloads,
@@ -264,23 +281,6 @@ def attack_cmd(
             export_format=format,
             verbose=verbose,
         )
-
-        # Validate at least one attack type is enabled (after config defaults are applied)
-        if not any(
-            [
-                options.xss,
-                options.sqli,
-                options.traversal,
-                options.enumeration,
-                options.csrf,
-            ]
-        ):
-            print_error("No attack types selected")
-            print_info(
-                "Use --xss, --sqli, --traversal, --enumeration, --csrf, or --all"
-            )
-            print_info("Or enable attack types in your config.yaml (config.attack.*)")
-            sys.exit(2)
 
         # Display attack configuration
         if not quiet:
@@ -298,6 +298,8 @@ def attack_cmd(
                 attacks_list.append("Directory Enumeration")
             if csrf:
                 attacks_list.append("CSRF")
+            if subdomain:
+                attacks_list.append("Subdomain Enumeration")
 
             print_info(f"Attack Types: {', '.join(attacks_list)}")
             print_info(f"Intensity: {intensity.upper()}")
@@ -338,6 +340,10 @@ def attack_cmd(
                     )
                 if attack_result.csrf_findings > 0:
                     print_subheader(f"CSRF Findings: {attack_result.csrf_findings}")
+                if attack_result.subdomain_findings > 0:
+                    print_subheader(
+                        f"Subdomain Findings: {attack_result.subdomain_findings}"
+                    )
 
                 # Display individual vulnerabilities
                 if attack_result.vulnerabilities:

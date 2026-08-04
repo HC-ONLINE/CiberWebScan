@@ -58,6 +58,7 @@ class PayloadLoader:
                 "%2e%2e%2f%2e%2e%2f%2e%2e%2fetc%2fpasswd",
             ],
             "enumeration": ["admin", "login", "dashboard", "backup", "config"],
+            "subdomain": ["www", "mail", "admin", "api", "dev", "test", "ftp"],
         }
 
     def get_payloads(

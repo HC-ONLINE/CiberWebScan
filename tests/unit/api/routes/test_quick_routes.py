@@ -311,4 +311,5 @@ class TestQuickPresetsEndpoint:
         assert "sqli" in high["attack_types"]
         assert "traversal" in high["attack_types"]
         assert "enumeration" in high["attack_types"]
+        assert "subdomain" in high["attack_types"]
         assert high["intensity"] == "high"

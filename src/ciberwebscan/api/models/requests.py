@@ -216,6 +216,10 @@ class AttackRequest(BaseModel):
         default=None,
         description="Test for CSRF vulnerabilities (None uses config default)",
     )
+    subdomain: bool | None = Field(
+        default=None,
+        description="Enumerate active subdomains via DNS brute force (None uses config default)",
+    )
     all_attacks: bool = Field(
         default=False,
         description="Enable all attack types",
