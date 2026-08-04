@@ -231,6 +231,15 @@ def attack_cmd(
         if all_attacks:
             xss = sqli = traversal = enumeration = csrf = subdomain = True
 
+        # Validate at least one attack type is specified BEFORE config defaults are applied
+        if not any([xss, sqli, traversal, enumeration, csrf, subdomain]):
+            print_error("No attack types selected")
+            print_info(
+                "Use --xss, --sqli, --traversal, --enumeration, --csrf, --subdomain, or --all"
+            )
+            print_info("Or enable attack types in your config.yaml (config.attack.*)")
+            sys.exit(2)
+
         # Parse headers if provided
         headers_dict: dict[str, str] = {}
         if headers:
@@ -272,24 +281,6 @@ def attack_cmd(
             export_format=format,
             verbose=verbose,
         )
-
-        # Validate at least one attack type is enabled (after config defaults are applied)
-        if not any(
-            [
-                options.xss,
-                options.sqli,
-                options.traversal,
-                options.enumeration,
-                options.csrf,
-                options.subdomain,
-            ]
-        ):
-            print_error("No attack types selected")
-            print_info(
-                "Use --xss, --sqli, --traversal, --enumeration, --csrf, --subdomain, or --all"
-            )
-            print_info("Or enable attack types in your config.yaml (config.attack.*)")
-            sys.exit(2)
 
         # Display attack configuration
         if not quiet:
