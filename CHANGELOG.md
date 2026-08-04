@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.8.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.7.5...v2.8.0) (2026-08-04)
+
+
+### Features
+
+* add subdomain enumeration support to attack service and quick service ([f074a71](https://github.com/HC-ONLINE/CiberWebScan/commit/f074a71b80d9913fa34e00aca9017faf1423db48))
+* add subdomain enumeration support to configuration, CLI, API, and documentation ([60c1972](https://github.com/HC-ONLINE/CiberWebScan/commit/60c1972c234402ffe63e1b200de2553a8c47abe9))
+* add subdomain findings to CSV and HTML export reports ([c6def40](https://github.com/HC-ONLINE/CiberWebScan/commit/c6def4016f5f9d7243a25e3e7c6b94975f1d3832))
+* add subdomain option to attack command and API endpoint ([311bc4f](https://github.com/HC-ONLINE/CiberWebScan/commit/311bc4fd01fc89c97d9b518b710c263a53927326))
+* add subdomain options to AttackRequest and AttackConfig models ([9f4d9bd](https://github.com/HC-ONLINE/CiberWebScan/commit/9f4d9bdbe076050faf33a7c212d20325abb7b220))
+* add subdomain payloads for enumeration tests ([2b2dc89](https://github.com/HC-ONLINE/CiberWebScan/commit/2b2dc8920f05c63baa743ae15d9a7e0b7f10b35d))
+* add subdomain payloads to attack configurations ([5fdf9db](https://github.com/HC-ONLINE/CiberWebScan/commit/5fdf9dbf4c64aeae4455f0085f0b7134681e2acb))
+* implement subdomain enumeration engine with DNS brute force ([d7b3d62](https://github.com/HC-ONLINE/CiberWebScan/commit/d7b3d62354c20899f8026b9d9c24fe35540e4945))
+
+
+### Bug Fixes
+
+* validate at least one attack type is specified before applying config defaults ([913696e](https://github.com/HC-ONLINE/CiberWebScan/commit/913696ebad59fe6299b892e71d502569d5668eb5))
+
 ## [2.7.5](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.7.4...v2.7.5) (2026-07-31)
 
 
