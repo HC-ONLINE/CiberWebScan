@@ -69,6 +69,10 @@ class ScrapeRequest(BaseModel):
         default=True,
         description="Respect robots.txt when scraping",
     )
+    extract_forms: bool = Field(
+        default=False,
+        description="Extract HTML forms and their fields",
+    )
     export: str | None = Field(
         default=None,
         description="Optional output file path for exported results",
@@ -100,6 +104,10 @@ class ScrapeBatchRequest(BaseModel):
     cookies: dict[str, str] = Field(default_factory=dict)
     proxy: str | None = None
     user_agent: str | None = None
+    extract_forms: bool = Field(
+        default=False,
+        description="Extract HTML forms and their fields",
+    )
     export: str | None = Field(
         default=None,
         description="Optional output file path for exported batch results",

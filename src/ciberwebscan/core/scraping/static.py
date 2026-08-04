@@ -72,6 +72,9 @@ class ScrapeConfig:
     schema: dict[str, Any] | None = None
     """Structured extraction schema."""
 
+    extract_forms: bool = False
+    """Whether to extract HTML forms."""
+
 
 @dataclass
 class ScrapeResult:
@@ -303,11 +306,13 @@ class StaticScraper:
 
             # Extract forms
             from ciberwebscan.core.scraping.extractor import (
-                extract_forms,
+                extract_forms as _extract_forms,
+            )
+            from ciberwebscan.core.scraping.extractor import (
                 extract_scripts,
             )
 
-            forms = extract_forms(soup)
+            forms = _extract_forms(soup) if config.extract_forms else []
             scripts = extract_scripts(soup)
 
             return ScrapeResult(

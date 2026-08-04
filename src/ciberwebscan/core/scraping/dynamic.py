@@ -124,6 +124,9 @@ class DynamicScrapeConfig:
     block_resources: list[str] | None = None
     """Resource types to block (e.g., ['image', 'stylesheet', 'font'])."""
 
+    extract_forms: bool = False
+    """Whether to extract HTML forms."""
+
 
 @dataclass
 class DynamicScrapeResult:
@@ -359,7 +362,9 @@ class DynamicScraper:
                     title = soup.title.string.strip()
 
                 from ciberwebscan.core.scraping.extractor import (
-                    extract_forms,
+                    extract_forms as _extract_forms,
+                )
+                from ciberwebscan.core.scraping.extractor import (
                     extract_images,
                     extract_links,
                     extract_scripts,
@@ -367,7 +372,7 @@ class DynamicScraper:
 
                 links = extract_links(soup)
                 images = extract_images(soup)
-                forms = extract_forms(soup)
+                forms = _extract_forms(soup) if config.extract_forms else []
                 scripts = extract_scripts(soup)
 
                 elapsed = time.time() - start_time

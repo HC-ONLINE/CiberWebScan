@@ -67,6 +67,7 @@ class ScrapeOptions:
     proxy: str | None = None
     user_agent: str | None = None
     check_robots: bool = True
+    extract_forms: bool = False
 
 
 class ScrapeService(BaseService):
@@ -364,6 +365,7 @@ class ScrapeService(BaseService):
                 headers=options.headers or None,
                 cookies=options.cookies or None,
                 check_robots=options.check_robots,
+                extract_forms=options.extract_forms,
             )
 
             core_result: CoreScrapeResult = self._get_static_scraper_with_proxy(
@@ -433,6 +435,7 @@ class ScrapeService(BaseService):
                 headless=dyn_cfg.headless,
                 browser_type=BrowserType(dyn_cfg.browser_type),
                 schema=options.schema,
+                extract_forms=options.extract_forms,
             )
 
             # Run the async scrape method in the current event loop
