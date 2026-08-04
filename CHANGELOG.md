@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.11.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.10.0...v2.11.0) (2026-08-04)
+
+
+### Features
+
+* **forms:** enhance form extraction with additional attributes and n… ([0a2e830](https://github.com/HC-ONLINE/CiberWebScan/commit/0a2e83087904c6c371fa87a5454fd032bc31736e))
+* **forms:** enhance form extraction with additional attributes and normalization ([4ceb660](https://github.com/HC-ONLINE/CiberWebScan/commit/4ceb660c9a1ba4f1538e5d328b27646d33bc3397))
+
 ## [2.10.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.9.0...v2.10.0) (2026-08-04)
 
 
