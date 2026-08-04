@@ -84,19 +84,21 @@ def analyze_html_content(
     cms_signatures: dict[str, Any],
     framework_signatures: dict[str, Any],
     js_library_signatures: dict[str, Any],
+    cdn_paas_signatures: dict[str, Any] | None = None,
     debug_enabled: bool = False,
 ) -> dict[str, Any]:
     """
     Analyze HTML content to detect web technologies used.
 
     This function examines HTML content for patterns that indicate
-    the use of CMS, frameworks, and JavaScript libraries.
+    the use of CMS, frameworks, JavaScript libraries, and CDN/PaaS providers.
 
     Args:
         html_content: Complete HTML content to analyze.
         cms_signatures: CMS detection signatures.
         framework_signatures: Framework detection signatures.
         js_library_signatures: JavaScript library detection signatures.
+        cdn_paas_signatures: CDN/PaaS detection signatures (from JSON).
         debug_enabled: If True, includes detailed debug info in results.
 
     Returns:
@@ -325,7 +327,25 @@ def analyze_html_content(
                 "source": "html_content",
             }
 
-    # Detect CDNs
+    # Detect CDN/PaaS providers in HTML content
+    # First, check content_patterns from loaded signatures
+    if cdn_paas_signatures:
+        for provider_name, sig in cdn_paas_signatures.items():
+            for pattern in sig.get("content_patterns", []):
+                if re.search(pattern, html_content, re.IGNORECASE):
+                    if provider_name not in detected_html["other"]:
+                        detected_html["other"].append(provider_name)
+                        if debug_enabled:
+                            debug_info["other"][provider_name] = {
+                                "matched": f"content_pattern:{pattern}",
+                                "source": "cdn_paas_html",
+                            }
+                    if provider_name not in sources_info["other"]:
+                        sources_info["other"][provider_name] = set()
+                    sources_info["other"][provider_name].add("html_content")
+                    break
+
+    # Fallback: hardcoded CDN hostnames for library URL detection
     for hostname, cdn_name in CDN_HOSTNAMES.items():
         if hostname in content_lower and cdn_name not in detected_html["other"]:
             detected_html["other"].append(cdn_name)
