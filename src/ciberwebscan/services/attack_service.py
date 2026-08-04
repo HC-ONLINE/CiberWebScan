@@ -23,6 +23,7 @@ from ciberwebscan.core.attacks import (
     DirectoryEnumerator,
     PathTraversalAttacker,
     SQLiAttacker,
+    SubdomainEnumerator,
     XSSAttacker,
 )
 from ciberwebscan.core.attacks.base import AttackIntensity
@@ -64,6 +65,7 @@ class AttackOptions:
     traversal: bool | None = None
     enumeration: bool | None = None
     csrf: bool | None = None
+    subdomain: bool | None = None
 
     # Attack configuration
     intensity: str = "medium"  # low, medium, high
@@ -108,6 +110,8 @@ class AttackOptions:
                 self.enumeration = self.config.enumeration
             if self.csrf is None:
                 self.csrf = self.config.csrf
+            if self.subdomain is None:
+                self.subdomain = self.config.subdomain
             if self.max_payloads is None:
                 self.max_payloads = self.config.max_payloads
         else:
@@ -122,6 +126,8 @@ class AttackOptions:
                 self.enumeration = False
             if self.csrf is None:
                 self.csrf = False
+            if self.subdomain is None:
+                self.subdomain = False
             if self.max_payloads is None:
                 self.max_payloads = 50
 
@@ -270,10 +276,11 @@ class AttackService(BaseService):
                     options.traversal,
                     options.enumeration,
                     options.csrf,
+                    options.subdomain,
                 ]
             ):
                 raise ValidationError(
-                    "At least one attack type must be enabled (xss, sqli, traversal, enumeration, csrf)",
+                    "At least one attack type must be enabled (xss, sqli, traversal, enumeration, csrf, subdomain)",
                     details={"url": options.url},
                 )
 
@@ -297,6 +304,7 @@ class AttackService(BaseService):
             assert options.traversal is not None
             assert options.enumeration is not None
             assert options.csrf is not None
+            assert options.subdomain is not None
             assert options.max_payloads is not None
 
             # Build attack configuration
@@ -394,6 +402,16 @@ class AttackService(BaseService):
                     f"CSRF: Found {len(csrf_vulns)} potential vulnerabilities"
                 )
 
+            if options.subdomain:
+                self.logger.info("Running Subdomain Enumeration...")
+                subdomain_vulns = self._execute_subdomain_attack(
+                    context, options.custom_wordlist
+                )
+                all_vulnerabilities.extend(subdomain_vulns)
+                self.logger.info(
+                    f"Subdomain Enumeration: Found {len(subdomain_vulns)} active subdomains"
+                )
+
             # Create attack result
             attack_result = AttackResult(
                 target_url=url,
@@ -409,6 +427,9 @@ class AttackService(BaseService):
                     1 for v in all_vulnerabilities if v.type == "enumeration"
                 ),
                 csrf_findings=sum(1 for v in all_vulnerabilities if v.type == "csrf"),
+                subdomain_findings=sum(
+                    1 for v in all_vulnerabilities if v.type == "subdomain"
+                ),
                 duration_seconds=context.elapsed_time(),
             )
 
@@ -511,6 +532,23 @@ class AttackService(BaseService):
             return vulnerabilities
         except Exception as e:
             self.logger.error(f"CSRF analysis failed: {e}")
+            return []
+
+    def _execute_subdomain_attack(
+        self, context: AttackContext, custom_wordlist: str | None = None
+    ) -> list[VulnerabilityFinding]:
+        """Execute subdomain enumeration."""
+        import asyncio
+
+        enumerator = SubdomainEnumerator()
+
+        try:
+            vulnerabilities = asyncio.run(
+                enumerator.execute(context, custom_wordlist=custom_wordlist)
+            )
+            return vulnerabilities
+        except Exception as e:
+            self.logger.error(f"Subdomain enumeration failed: {e}")
             return []
 
     def _export_attack_result(

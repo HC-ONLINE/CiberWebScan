@@ -77,6 +77,8 @@ class TestAttackOptions:
         assert options.sqli is False
         assert options.traversal is False
         assert options.enumeration is False
+        assert options.csrf is False
+        assert options.subdomain is False
         assert options.intensity == "medium"
         assert options.max_payloads == 50
         assert options.timeout == 10.0
@@ -114,6 +116,7 @@ class TestAttackOptions:
             sqli=True,
             traversal=False,
             enumeration=True,
+            subdomain=True,
             max_payloads=100,
         )
 
@@ -129,6 +132,7 @@ class TestAttackOptions:
         assert options.sqli is True
         assert options.traversal is False
         assert options.enumeration is True
+        assert options.subdomain is True
         assert options.max_payloads == 100
 
     def test_explicit_values_override_config(self):
@@ -173,6 +177,7 @@ class TestAttackOptions:
         assert options.sqli is False
         assert options.traversal is False
         assert options.enumeration is False
+        assert options.subdomain is False
         assert options.max_payloads == 50
 
 
@@ -396,6 +401,54 @@ class TestAttackService:
         assert result.data.sqli_findings == 1
 
     @patch("ciberwebscan.services.attack_service.HTTPClient")
+    @patch("ciberwebscan.services.attack_service.SubdomainEnumerator")
+    def test_attack_subdomain_success(
+        self,
+        mock_subdomain_class: Mock,
+        mock_http_client_class: Mock,
+        attack_service: AttackService,
+    ):
+        """Test successful subdomain enumeration."""
+        from ciberwebscan.export.models import AttackPayload, ConfidenceLevel, Severity
+
+        subdomain_vuln = VulnerabilityFinding(
+            type="subdomain",
+            title="Active subdomain found: api.example.com",
+            description="Subdomain resolves to a live host",
+            severity=Severity.INFO,
+            confidence=ConfidenceLevel.HIGH,
+            url="https://api.example.com",
+            payload=AttackPayload(
+                type="subdomain",
+                payload="api.example.com",
+                parameter="subdomain",
+                method="DNS",
+            ),
+        )
+
+        # Mock subdomain enumerator
+        mock_enumerator = Mock()
+        mock_enumerator.execute = AsyncMock(return_value=[subdomain_vuln])
+        mock_subdomain_class.return_value = mock_enumerator
+
+        # Mock HTTP client
+        mock_client = Mock()
+        mock_http_client_class.return_value = mock_client
+
+        # Execute attack
+        options = AttackOptions(
+            url="https://example.com",
+            user_consent=True,
+            subdomain=True,
+        )
+        result = attack_service.attack(options)
+
+        assert result.success is True
+        assert result.data.total_findings == 1
+        assert result.data.subdomain_findings == 1
+        assert result.data.vulnerabilities[0].type == "subdomain"
+
+    @patch("ciberwebscan.services.attack_service.HTTPClient")
     @patch("ciberwebscan.services.attack_service.XSSAttacker")
     def test_attack_with_export(
         self,
@@ -500,6 +553,7 @@ class TestAttackServiceErrorHandling:
             enabled=True,
             xss=True,
             sqli=False,
+            subdomain=False,
             max_payloads=75,
         )
 
@@ -523,6 +577,7 @@ class TestAttackServiceErrorHandling:
 
         # Verify that config defaults were applied
         assert options.xss is True
+        assert options.subdomain is False
         assert options.max_payloads == 75
 
         # Execute attack
