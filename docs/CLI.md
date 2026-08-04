@@ -169,6 +169,7 @@ ciberwebscan attack <URL> --consent [OPTIONS]
 - `--traversal`: Test for Path Traversal vulnerabilities
 - `--enumeration`: Test for Directory/File enumeration
 - `--csrf`: Test for CSRF (Cross-Site Request Forgery) vulnerabilities
+- `--subdomain`: Enumerate active subdomains via DNS brute force
 - `--all`: Run all attack types
 - `--intensity, -i <LEVEL>`: Attack intensity: low, medium, high (default: medium)
 - `--max-payloads <NUMBER>`: Maximum payloads per attack (default: 50)
@@ -196,6 +197,10 @@ ciberwebscan attack https://example.com --consent --xss --sqli
 
 # CSRF testing
 ciberwebscan attack https://example.com --consent --csrf
+
+# Subdomain enumeration (DNS brute force)
+ciberwebscan attack https://example.com --consent --subdomain
+
 
 # All attacks with low intensity
 ciberwebscan attack https://example.com --consent --all --intensity low

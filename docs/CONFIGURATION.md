@@ -384,6 +384,7 @@ Configure attack simulation settings.
     "traversal": true,
     "enumeration": true,
     "csrf": true,
+    "subdomain": true,
     "max_payloads": 50
   }
 }
@@ -401,6 +402,7 @@ Configure attack simulation settings.
 | `attack.traversal`    |                      `true` | Run path traversal checks by default       |
 | `attack.enumeration`  |                      `true` | Run enumeration by default                 |
 | `attack.csrf`         |                      `true` | Run CSRF checks by default                 |
+| `attack.subdomain`    |                      `true` | Enumerate subdomains by default            |
 | `attack.max_payloads` |                        `50` | Default max payloads per target            |
 
 ### Export
