@@ -23,12 +23,14 @@ class TechnologySignatures(TypedDict, total=False):
         framework_signatures: Signatures for web frameworks.
         server_signatures: Signatures for web servers.
         js_library_signatures: Signatures for JavaScript libraries.
+        cdn_paas_signatures: Signatures for CDN and PaaS providers.
     """
 
     cms_signatures: dict[str, Any]
     framework_signatures: dict[str, Any]
     server_signatures: dict[str, Any]
     js_library_signatures: dict[str, Any]
+    cdn_paas_signatures: dict[str, Any]
 
 
 # Module-level cache for signatures
@@ -88,17 +90,19 @@ def load_technology_signatures(
             "framework_signatures": data.get("framework_signatures", {}),
             "server_signatures": data.get("server_signatures", {}),
             "js_library_signatures": data.get("js_library_signatures", {}),
+            "cdn_paas_signatures": data.get("cdn_paas_signatures", {}),
         }
 
         if use_cache:
             _signatures_cache = signatures
 
         logger.debug(
-            "Loaded signatures: %d CMS, %d frameworks, %d servers, %d JS libraries",
+            "Loaded signatures: %d CMS, %d frameworks, %d servers, %d JS libraries, %d CDN/PaaS",
             len(signatures["cms_signatures"]),
             len(signatures["framework_signatures"]),
             len(signatures["server_signatures"]),
             len(signatures["js_library_signatures"]),
+            len(signatures["cdn_paas_signatures"]),
         )
 
         return signatures
@@ -135,4 +139,5 @@ def get_signature_categories() -> list[str]:
         "framework_signatures",
         "server_signatures",
         "js_library_signatures",
+        "cdn_paas_signatures",
     ]
