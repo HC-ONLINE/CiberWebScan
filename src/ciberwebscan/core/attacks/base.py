@@ -215,32 +215,27 @@ class AttackEngine(ABC):
             return None
 
     def extract_forms(self, html: str) -> list[dict[str, Any]]:
-        """Extract forms from HTML response."""
-        forms = []
+        """Extract forms from HTML response.
+
+        Uses the canonical extractor from core.scraping.extractor and normalizes
+        the output to use the 'inputs' key for backward compatibility with
+        attack modules (xss, sqli, csrf, traversal).
+        """
         try:
+            from ciberwebscan.core.scraping.extractor import (
+                extract_forms as _extract_forms,
+            )
+
             soup = BeautifulSoup(html, "html.parser")
-            for form in soup.find_all("form"):
-                form_data = {
-                    "action": form.get("action", ""),
-                    "method": str(form.get("method", "GET")).upper(),
-                    "inputs": [],
-                }
-
-                # Find all input fields
-                for input_field in form.find_all(["input", "textarea", "select"]):
-                    field_data = {
-                        "name": input_field.get("name", ""),
-                        "type": input_field.get("type", "text"),
-                        "value": input_field.get("value", ""),
-                    }
-                    form_data["inputs"].append(field_data)
-
-                forms.append(form_data)
+            raw_forms = _extract_forms(soup)
+            # Normalize: 'fields' → 'inputs' for attack module compatibility
+            for form in raw_forms:
+                form["inputs"] = form.pop("fields", [])
+            return raw_forms
 
         except Exception as e:
             self.logger.debug(f"Error extracting forms: {e}")
-
-        return forms
+            return []
 
     def should_test_parameter(self, param_name: str) -> bool:
         """Check if parameter should be tested based on name."""

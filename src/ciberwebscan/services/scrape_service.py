@@ -399,6 +399,8 @@ class ScrapeService(BaseService):
                     FormInfo(
                         action=f.get("action", ""),
                         method=f.get("method", "GET"),
+                        enctype=f.get("enctype", ""),
+                        id=f.get("id", ""),
                         name=f.get("name", ""),
                         fields=f.get("fields", []),
                     )
@@ -479,6 +481,8 @@ class ScrapeService(BaseService):
                     FormInfo(
                         action=f.get("action", ""),
                         method=f.get("method", "GET"),
+                        enctype=f.get("enctype", ""),
+                        id=f.get("id", ""),
                         name=f.get("name", ""),
                         fields=f.get("fields", []),
                     )
