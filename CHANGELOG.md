@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.11.2](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.11.1...v2.11.2) (2026-08-04)
+
+
+### Bug Fixes
+
+* export missing api and quick commands from cli/commands/__init__.py ([edd6036](https://github.com/HC-ONLINE/CiberWebScan/commit/edd60367014059924946887d90b6ab945f931432))
+* export missing api and quick commands from cli/commands/__init__.py ([6884590](https://github.com/HC-ONLINE/CiberWebScan/commit/6884590003134c35631e540fac74c5cd31be4298))
+
 ## [2.11.1](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.11.0...v2.11.1) (2026-08-04)
 
 
