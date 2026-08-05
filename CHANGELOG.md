@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.12.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.11.2...v2.12.0) (2026-08-05)
+
+
+### Features
+
+* **tests:** add auth headers to analyze, attack, and scrape endpoint tests ([ad346e7](https://github.com/HC-ONLINE/CiberWebScan/commit/ad346e71f72fb59179670549c950f727b6e44059))
+* **tests:** add integration tests for analyze, attack, export, and scrape endpoints ([05e4a76](https://github.com/HC-ONLINE/CiberWebScan/commit/05e4a765696e523b493dad8ed1215da77d401dcf))
+* **tests:** add integration tests for API health and robustness ([9a02607](https://github.com/HC-ONLINE/CiberWebScan/commit/9a026073236ae9a0aa58886c57c20d0cd7ae342e))
+* **tests:** add integration tests for auth and config endpoints, remove download endpoint tests ([14903a5](https://github.com/HC-ONLINE/CiberWebScan/commit/14903a50d8afbce58de1c8e99dafbc45f6434de9))
+
 ## [2.11.2](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.11.1...v2.11.2) (2026-08-04)
 
 
