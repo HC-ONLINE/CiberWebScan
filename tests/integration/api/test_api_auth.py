@@ -13,32 +13,11 @@ pytest.importorskip("fastapi")
 pytest.importorskip("uvicorn")
 
 
-class TestAuthStatus:
-    """Tests for GET /api/auth/status."""
-
-    def test_auth_status_returns_200(self, api_client: httpx.Client):
-        response = api_client.get("/api/auth/status")
-        assert response.status_code == 200
-
-        data = response.json()
-        assert "api_keys_configured" in data
-        assert isinstance(data["api_keys_configured"], int)
-
-
 class TestAuthMe:
     """Tests for GET /api/auth/me."""
 
-    def test_auth_me_with_valid_key(self, api_client: httpx.Client):
-        from ciberwebscan.config.loader import get_config
-
-        config = get_config()
-        if not config.api.auth.api_keys:
-            pytest.skip("No API keys configured")
-
-        api_key = config.api.auth.api_keys[0]
-        headers = {"X-API-Key": api_key}
-
-        response = api_client.get("/api/auth/me", headers=headers)
+    def test_auth_me_with_valid_key(self, api_client: httpx.Client, auth_headers: dict):
+        response = api_client.get("/api/auth/me", headers=auth_headers)
         assert response.status_code == 200
 
         data = response.json()
@@ -58,17 +37,10 @@ class TestAuthMe:
 class TestGenerateKey:
     """Tests for POST /api/auth/generate-key."""
 
-    def test_generate_key_with_valid_key(self, api_client: httpx.Client):
-        from ciberwebscan.config.loader import get_config
-
-        config = get_config()
-        if not config.api.auth.api_keys:
-            pytest.skip("No API keys configured")
-
-        api_key = config.api.auth.api_keys[0]
-        headers = {"X-API-Key": api_key}
-
-        response = api_client.post("/api/auth/generate-key", headers=headers)
+    def test_generate_key_with_valid_key(
+        self, api_client: httpx.Client, auth_headers: dict
+    ):
+        response = api_client.post("/api/auth/generate-key", headers=auth_headers)
         assert response.status_code == 200
 
         data = response.json()

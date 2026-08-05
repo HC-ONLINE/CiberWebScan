@@ -16,7 +16,7 @@ pytest.importorskip("uvicorn")
 class TestAnalyzeEndpoint:
     """Tests for POST /api/analyze."""
 
-    def test_analyze_basic(self, api_client: httpx.Client):
+    def test_analyze_basic(self, api_client: httpx.Client, auth_headers: dict):
         payload = {
             "url": "https://httpbin.org/",
             "ssl": True,
@@ -24,14 +24,14 @@ class TestAnalyzeEndpoint:
             "analyze_headers": True,
             "cve": False,
         }
-        response = api_client.post("/api/analyze", json=payload)
+        response = api_client.post("/api/analyze", json=payload, headers=auth_headers)
         assert response.status_code == 200
 
         data = response.json()
         assert data["success"] is True
         assert data.get("data") is not None
 
-    def test_analyze_all_options(self, api_client: httpx.Client):
+    def test_analyze_all_options(self, api_client: httpx.Client, auth_headers: dict):
         payload = {
             "url": "https://example.com",
             "ssl": True,
@@ -43,12 +43,12 @@ class TestAnalyzeEndpoint:
             "check_robots": True,
             "enrich_exploits": True,
         }
-        response = api_client.post("/api/analyze", json=payload)
+        response = api_client.post("/api/analyze", json=payload, headers=auth_headers)
         assert response.status_code == 200
 
         data = response.json()
         assert data["success"] is True
 
-    def test_analyze_requires_url(self, api_client: httpx.Client):
-        response = api_client.post("/api/analyze", json={})
+    def test_analyze_requires_url(self, api_client: httpx.Client, auth_headers: dict):
+        response = api_client.post("/api/analyze", json={}, headers=auth_headers)
         assert response.status_code == 422

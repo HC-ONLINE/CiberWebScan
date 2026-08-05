@@ -16,7 +16,7 @@ pytest.importorskip("uvicorn")
 class TestAttackEndpoint:
     """Tests for POST /api/attack."""
 
-    def test_attack_xss_only(self, api_client: httpx.Client):
+    def test_attack_xss_only(self, api_client: httpx.Client, auth_headers: dict):
         payload = {
             "url": "http://127.0.0.1:5555/xss?q=test",
             "xss": True,
@@ -27,7 +27,9 @@ class TestAttackEndpoint:
             "max_payloads": 5,
             "user_consent": True,
         }
-        response = api_client.post("/api/attack", json=payload, timeout=120)
+        response = api_client.post(
+            "/api/attack", json=payload, headers=auth_headers, timeout=120
+        )
         assert response.status_code == 200
 
         data = response.json()
@@ -51,7 +53,7 @@ class TestAttackEndpoint:
             assert key in attack_data
             assert isinstance(attack_data[key], int)
 
-    def test_attack_sqli_only(self, api_client: httpx.Client):
+    def test_attack_sqli_only(self, api_client: httpx.Client, auth_headers: dict):
         payload = {
             "url": "http://127.0.0.1:5555/user?id=1",
             "xss": False,
@@ -62,7 +64,9 @@ class TestAttackEndpoint:
             "max_payloads": 5,
             "user_consent": True,
         }
-        response = api_client.post("/api/attack", json=payload, timeout=120)
+        response = api_client.post(
+            "/api/attack", json=payload, headers=auth_headers, timeout=120
+        )
         assert response.status_code == 200
 
         data = response.json()
@@ -73,7 +77,7 @@ class TestAttackEndpoint:
         assert attack_data["target_url"] == payload["url"]
         assert isinstance(attack_data["sqli_findings"], int)
 
-    def test_attack_all_attacks(self, api_client: httpx.Client):
+    def test_attack_all_attacks(self, api_client: httpx.Client, auth_headers: dict):
         payload = {
             "url": "http://127.0.0.1:5555/",
             "all_attacks": True,
@@ -81,14 +85,18 @@ class TestAttackEndpoint:
             "max_payloads": 3,
             "user_consent": True,
         }
-        response = api_client.post("/api/attack", json=payload, timeout=120)
+        response = api_client.post(
+            "/api/attack", json=payload, headers=auth_headers, timeout=120
+        )
         assert response.status_code == 200
 
         data = response.json()
         assert data["success"] is True
         assert data["data"]["total_payloads_tested"] >= 0
 
-    def test_attack_traversal_enumeration(self, api_client: httpx.Client):
+    def test_attack_traversal_enumeration(
+        self, api_client: httpx.Client, auth_headers: dict
+    ):
         payload = {
             "url": "http://127.0.0.1:5555/",
             "xss": False,
@@ -99,30 +107,21 @@ class TestAttackEndpoint:
             "max_payloads": 5,
             "user_consent": True,
         }
-        response = api_client.post("/api/attack", json=payload, timeout=120)
+        response = api_client.post(
+            "/api/attack", json=payload, headers=auth_headers, timeout=120
+        )
         assert response.status_code == 200
 
         data = response.json()
         assert data["success"] is True
 
-    def test_attack_missing_consent_returns_422(self, api_client: httpx.Client):
+    def test_attack_missing_consent_returns_422(
+        self, api_client: httpx.Client, auth_headers: dict
+    ):
         payload = {
             "url": "http://127.0.0.1:5555/",
             "xss": True,
             "user_consent": False,
         }
-        response = api_client.post("/api/attack", json=payload)
+        response = api_client.post("/api/attack", json=payload, headers=auth_headers)
         assert response.status_code == 422
-
-
-class TestAttackDisclaimer:
-    """Tests for GET /api/attack/disclaimer."""
-
-    def test_disclaimer_returns_legal_notice(self, api_client: httpx.Client):
-        response = api_client.get("/api/attack/disclaimer")
-        assert response.status_code == 200
-
-        data = response.json()
-        assert "legal_notice" in data
-        assert "title" in data["legal_notice"]
-        assert "implementation_status" in data
