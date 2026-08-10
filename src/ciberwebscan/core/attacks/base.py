@@ -57,6 +57,9 @@ class AttackConfig:
     # Custom payloads
     custom_payloads_file: str | None = None
 
+    # POST/JSON body template (each key is tested one at a time)
+    json_body: dict[str, Any] | None = None
+
     # User consent and safety
     user_consent: bool = False
     skip_dangerous_payloads: bool = True
@@ -164,18 +167,24 @@ class AttackEngine(ABC):
         method: str = "GET",
         data: dict[str, Any] | None = None,
         params: dict[str, Any] | None = None,
+        json_body: dict[str, Any] | None = None,
     ) -> httpx.Response | None:
         """Send HTTP request with error handling.
 
         The underlying `HTTPClient` is synchronous; run its methods in a thread
         via `asyncio.to_thread` so this coroutine does not block the event loop.
         For mocked clients in tests, call directly to avoid threading issues.
+        Passing *json_body* sends the body as a JSON POST request.
         """
         try:
             if isinstance(context.http_client, Mock):
                 # For testing with mocked clients, call directly
                 if method.upper() == "GET":
                     response = context.http_client.get(url, params=params or {})
+                elif json_body is not None:
+                    response = context.http_client.post(
+                        url, json=json_body, params=params or {}
+                    )
                 elif method.upper() == "POST":
                     response = context.http_client.post(
                         url, data=data or {}, params=params or {}
@@ -189,6 +198,13 @@ class AttackEngine(ABC):
                 if method.upper() == "GET":
                     response = await asyncio.to_thread(
                         context.http_client.get, url, params=params or {}
+                    )
+                elif json_body is not None:
+                    response = await asyncio.to_thread(
+                        context.http_client.post,
+                        url,
+                        json=json_body,
+                        params=params or {},
                     )
                 elif method.upper() == "POST":
                     response = await asyncio.to_thread(

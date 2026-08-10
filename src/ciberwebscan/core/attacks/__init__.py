@@ -20,6 +20,7 @@ from .base import (
     AttackContext,
     AttackEngine,
 )
+from .command_injection import CommandInjectionAttacker
 from .csrf import CSRFAttacker
 from .enumeration import DirectoryEnumerator
 from .payloads import PayloadLoader
@@ -38,5 +39,6 @@ __all__ = [
     "PathTraversalAttacker",
     "CSRFAttacker",
     "SubdomainEnumerator",
+    "CommandInjectionAttacker",
     "PayloadLoader",
 ]
