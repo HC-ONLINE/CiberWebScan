@@ -264,6 +264,7 @@ class AttackConfig(BaseModel):
     enumeration: bool = True
     csrf: bool = True
     subdomain: bool = True
+    command_injection: bool = True
     max_payloads: Annotated[int, Field(ge=1, le=1000)] = 50
 
     @field_validator("whitelist", mode="before")

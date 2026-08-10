@@ -290,6 +290,9 @@ class CSVExporter(StreamingExporter):
                         )
                         summary["csrf_findings"] = report.attack.csrf_findings
                         summary["subdomain_findings"] = report.attack.subdomain_findings
+                        summary["command_injection_findings"] = (
+                            report.attack.command_injection_findings
+                        )
 
                     # Set columns and write
                     if self.columns is None:
@@ -349,6 +352,9 @@ class CSVExporter(StreamingExporter):
                     summary["enumeration_findings"] = report.attack.enumeration_findings
                     summary["csrf_findings"] = report.attack.csrf_findings
                     summary["subdomain_findings"] = report.attack.subdomain_findings
+                    summary["command_injection_findings"] = (
+                        report.attack.command_injection_findings
+                    )
 
                 # Set columns and write
                 if self.columns is None:

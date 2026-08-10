@@ -637,6 +637,7 @@ def _render_attack(report: AnalysisReport) -> str:
                 <div class="score-card"><div class="value" style="color:var(--info)">{attack.enumeration_findings}</div><div class="label">Enumeration</div></div>
                 <div class="score-card"><div class="value" style="color:var(--low)">{attack.csrf_findings}</div><div class="label">CSRF</div></div>
                 <div class="score-card"><div class="value" style="color:var(--info)">{attack.subdomain_findings}</div><div class="label">Subdomains</div></div>
+                <div class="score-card"><div class="value" style="color:var(--high)">{attack.command_injection_findings}</div><div class="label">Cmd Injection</div></div>
             </div>
             <h3 style="margin-bottom:0.5rem">Vulnerability Summary</h3>
             {_render_table(vuln_rows, ["Type", "Title", "Severity", "Confidence", "URL", "Payload", "CWE"])}
