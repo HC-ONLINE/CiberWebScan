@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.13.1](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.13.0...v2.13.1) (2026-08-11)
+
+
+### Bug Fixes
+
+* add cookies support to ScrapeService and AnalyzeService ([4a489ef](https://github.com/HC-ONLINE/CiberWebScan/commit/4a489ef10b6507b647b8269c1f66bd6c6eaaa93d))
+
 ## [2.13.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.12.0...v2.13.0) (2026-08-11)
 
 
