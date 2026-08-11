@@ -147,12 +147,49 @@ class TestUnmappableEnvVars:
         assert loader.config is not None
         assert loader.config.http.timeout.connect == 10.0
 
-    def test_section_key_is_ignored(self, loader, monkeypatch):
+    def test_unknown_key_is_logged(self, loader, monkeypatch, caplog):
+        import logging
+
+        _set(monkeypatch, "CIBERWEBSCAN_BOGUS_FIELD_X", "1")
+        with caplog.at_level(logging.DEBUG, logger="ciberwebscan.config.loader"):
+            _ = loader.config
+        messages = [r.message for r in caplog.records]
+        assert any("BOGUS_FIELD_X" in m and "does not map" in m for m in messages)
+
+    def test_section_key_is_logged(self, loader, monkeypatch, caplog):
+        import logging
+
         _set(monkeypatch, "CIBERWEBSCAN_HTTP", "nonsense")
-        assert loader.config is not None
+        with caplog.at_level(logging.DEBUG, logger="ciberwebscan.config.loader"):
+            _ = loader.config
+        messages = [r.message for r in caplog.records]
+        assert any("HTTP" in m and "does not map" in m for m in messages)
+
+    def test_nested_section_key_is_ignored(self, loader, monkeypatch, caplog):
+        """A whole nested section (e.g. http.proxy) cannot be set via env."""
+        import logging
+
+        _set(monkeypatch, "CIBERWEBSCAN_HTTP_PROXY", "http://proxy:8080")
+        with caplog.at_level(logging.DEBUG, logger="ciberwebscan.config.loader"):
+            _ = loader.config
+        messages = [r.message for r in caplog.records]
+        assert any("HTTP_PROXY" in m and "does not map" in m for m in messages)
+        assert loader.config.http.proxy is None
+
+    def test_invalid_value_logs_error(self, loader, monkeypatch, caplog):
+        """A mapped key with an invalid value logs the validation error."""
+        import logging
+
+        _set(monkeypatch, "CIBERWEBSCAN_HTTP_TIMEOUT_CONNECT", "not-a-number")
+        with caplog.at_level(logging.ERROR, logger="ciberwebscan.config.loader"):
+            config = loader.config
+        messages = [r.message for r in caplog.records]
+        assert any("Invalid configuration" in m for m in messages)
+        assert any("default configuration" in m for m in messages)
+        assert config is not None
 
     def test_case_insensitive(self, loader, monkeypatch):
-        _set(monkeypatch, "ciberwebscan_attack_command_injection", "false")
+        _set(monkeypatch, "CIBERWEBSCAN_Attack_Command_Injection", "false")
         assert loader.config.attack.command_injection is False
 
     def test_empty_value(self, loader, monkeypatch):

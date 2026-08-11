@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import os
+import types
 from pathlib import Path
 from typing import Annotated, Any, Union, get_args, get_origin
 
@@ -115,6 +116,10 @@ class ConfigLoader:
             self._config = Config(**self._raw)
         except PydanticValidationError as e:
             logger.error(f"Invalid configuration: {e}")
+            logger.error(
+                "Falling back to default configuration. Fix the config file "
+                "or environment variables above.",
+            )
             # Fall back to defaults
             self._config = Config()
 
@@ -176,10 +181,14 @@ class ConfigLoader:
            ``CIBERWEBSCAN_HTTP__RATE_LIMIT__REQUESTS_PER_SECOND`` ->
            ``http.rate_limit.requests_per_second``.
         3. Legacy fallback (no ``__`` and no schema match): every underscore
-           becomes a dot, preserving the previous behavior.
+           becomes a dot, preserving the previous behavior. The resulting
+           path is validated against the schema before being accepted.
+
+        Variables that cannot be mapped to a real config key are ignored and
+        logged at debug level (the previous behavior silently dropped them).
 
         Returns the config key in dot notation, or ``None`` when the variable
-        cannot be mapped (it is then ignored).
+        cannot be mapped.
         """
         segments = env_name.split("__")
 
@@ -189,9 +198,33 @@ class ConfigLoader:
 
         if "__" not in env_name:
             # Legacy fallback: CIBERWEBSCAN_HTTP_TIMEOUT_CONNECT -> http.timeout.connect
-            return env_name.lower().replace("_", ".")
+            legacy = env_name.lower().replace("_", ".")
+            if self._is_valid_path(legacy, Config):
+                return legacy
 
+        logger.debug(
+            f"Ignoring env var {self.env_prefix}{env_name}: "
+            "does not map to a config key",
+        )
         return None
+
+    def _is_valid_path(self, path: str, model: type[BaseModel]) -> bool:
+        """Return True when *path* (dot notation) resolves to a scalar config field."""
+        parts = path.split(".")
+        current = model
+
+        for i, part in enumerate(parts):
+            fields = current.model_fields
+            if part not in fields:
+                return False
+            child = self._nested_model(fields[part])
+            if i == len(parts) - 1:
+                return child is None
+            if child is None:
+                return False
+            current = child
+
+        return True
 
     def _resolve_segments(
         self,
@@ -260,7 +293,8 @@ class ConfigLoader:
         while get_origin(annotation) is Annotated:
             annotation = get_args(annotation)[0]
 
-        if get_origin(annotation) is Union:
+        origin = get_origin(annotation)
+        if origin in (Union, types.UnionType):
             args = [a for a in get_args(annotation) if a is not type(None)]
             if len(args) == 1:
                 annotation = args[0]
