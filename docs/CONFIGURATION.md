@@ -49,7 +49,9 @@ Environment variable overrides (prefix & mapping)
   - `CIBERWEBSCAN_SCRAPING_DYNAMIC_HEADLESS=false` → `scraping.dynamic.headless: false`
   - `CIBERWEBSCAN_USER_AGENT_AGENTS="a,b"` → `user_agent.agents: ["a","b"]`
   - `CIBERWEBSCAN_ANALYSIS_CVE_NVD_API_KEY=abc123` → `analysis.cve.nvd_api_key: "abc123"`
-- Variables that cannot be mapped to a valid config key are ignored with a debug log.
+- Behavior for problematic variables:
+  - Variables that cannot be mapped to a config key (unknown names, whole sections such as `CIBERWEBSCAN_HTTP_PROXY` that target a nested model instead of a leaf field) are **ignored and logged at debug level**: `Ignoring env var CIBERWEBSCAN_X: does not map to a config key`.
+  - Variables that map to a real key but carry an invalid value (e.g. `CIBERWEBSCAN_HTTP_TIMEOUT_CONNECT=abc`) fail validation: the error is **logged at error level** (`Invalid configuration: ...`) and the loader falls back to default configuration.
 
 See implementation: `ConfigLoader._load_env` (`src/ciberwebscan/config/loader.py`).
 
@@ -73,7 +75,11 @@ Examples that work out of the box:
 - `CIBERWEBSCAN_API_RATE_LIMIT_REQUESTS_PER_MINUTE` → `api.rate_limit.requests_per_minute`
 - `NVD_API_KEY`, `VULNERS_API_KEY` (read directly by CVE clients)
 
-Unknown or unmappable variables are ignored with a debug log; they never break configuration loading.
+Not supported (and why):
+
+- **Whole sections** cannot be set from a single variable — only leaf fields. For example `CIBERWEBSCAN_HTTP_PROXY` targets the nested `http.proxy` model and is ignored with a debug log; set `CIBERWEBSCAN_HTTP_PROXY_HTTP` (→ `http.proxy.http`) or use the standard `HTTP_PROXY`/`HTTPS_PROXY` variables instead.
+- Unknown variables are ignored with a debug log; they never break configuration loading.
+- Invalid values on a valid key log the validation error and the loader falls back to defaults (see `Invalid configuration` error in the logs).
 
 **Note**: Command-line options are specific to individual commands and do not override global configuration. They are used to customize behavior for that particular command execution.
 
