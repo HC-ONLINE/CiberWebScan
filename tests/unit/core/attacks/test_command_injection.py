@@ -147,12 +147,16 @@ class TestUrlParameterInjection:
 
         await cmdi_attacker.execute(context)
 
-        # Every URL-parameter request must carry exactly one mutated parameter
+        # Every URL-parameter request must carry the original static params
+        # with exactly one parameter mutated to the payload under test
+        original = {"q": "test", "page": "1"}
         for call in client.get.call_args_list:
             params = call.kwargs.get("params") or {}
             if params:
-                assert set(params.keys()) == {"q"} or set(params.keys()) == {"page"}
-                value = next(iter(params.values()))
+                assert set(params.keys()) == set(original)
+                mutated = {k: v for k, v in params.items() if v != original.get(k)}
+                assert len(mutated) == 1, "exactly one parameter must be mutated"
+                value = next(iter(mutated.values()))
                 markers = cmdi_attacker._extract_markers(value)
                 if markers:
                     # Echo-marker probe built from the embedded marker
