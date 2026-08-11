@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.13.2](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.13.1...v2.13.2) (2026-08-11)
+
+
+### Bug Fixes
+
+* resolve env var overrides against the config schema ([20c1660](https://github.com/HC-ONLINE/CiberWebScan/commit/20c16606bc4db37f58252de2b3677b3d223b79da))
+* unwrap PEP 604 unions and reject whole-section env keys ([9d9856f](https://github.com/HC-ONLINE/CiberWebScan/commit/9d9856ff70fe78a171eb1ce7d865e800be233803))
+
+
+### Documentation
+
+* document env var mapping, unmappable vars and validation errors ([90959a0](https://github.com/HC-ONLINE/CiberWebScan/commit/90959a0e9a7e0200731cdc51db1e0f09105fcd29))
+
 ## [2.13.1](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.13.0...v2.13.1) (2026-08-11)
 
 
