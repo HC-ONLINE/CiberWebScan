@@ -13,12 +13,14 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
+from typing import Any
 
 from ciberwebscan.config.loader import get_config
 from ciberwebscan.config.models import AttackConfig as ConfigAttackConfig
 from ciberwebscan.core.attacks import (
     AttackConfig,
     AttackContext,
+    CommandInjectionAttacker,
     CSRFAttacker,
     DirectoryEnumerator,
     PathTraversalAttacker,
@@ -66,6 +68,7 @@ class AttackOptions:
     enumeration: bool | None = None
     csrf: bool | None = None
     subdomain: bool | None = None
+    command_injection: bool | None = None
 
     # Attack configuration
     intensity: str = "medium"  # low, medium, high
@@ -73,6 +76,9 @@ class AttackOptions:
     timeout: float = 10.0
     delay_between_requests: float = 0.1
     concurrent_requests: int = 1
+
+    # POST/JSON body template for command injection testing
+    json_body: dict[str, Any] | None = None
 
     # Custom payloads
     custom_payloads_file: str | None = None
@@ -112,6 +118,8 @@ class AttackOptions:
                 self.csrf = self.config.csrf
             if self.subdomain is None:
                 self.subdomain = self.config.subdomain
+            if self.command_injection is None:
+                self.command_injection = self.config.command_injection
             if self.max_payloads is None:
                 self.max_payloads = self.config.max_payloads
         else:
@@ -128,6 +136,8 @@ class AttackOptions:
                 self.csrf = False
             if self.subdomain is None:
                 self.subdomain = False
+            if self.command_injection is None:
+                self.command_injection = False
             if self.max_payloads is None:
                 self.max_payloads = 50
 
@@ -277,10 +287,11 @@ class AttackService(BaseService):
                     options.enumeration,
                     options.csrf,
                     options.subdomain,
+                    options.command_injection,
                 ]
             ):
                 raise ValidationError(
-                    "At least one attack type must be enabled (xss, sqli, traversal, enumeration, csrf, subdomain)",
+                    "At least one attack type must be enabled (xss, sqli, traversal, enumeration, csrf, subdomain, command_injection)",
                     details={"url": options.url},
                 )
 
@@ -305,6 +316,7 @@ class AttackService(BaseService):
             assert options.enumeration is not None
             assert options.csrf is not None
             assert options.subdomain is not None
+            assert options.command_injection is not None
             assert options.max_payloads is not None
 
             # Build attack configuration
@@ -320,6 +332,7 @@ class AttackService(BaseService):
                 user_consent=True,  # Already validated
                 skip_dangerous_payloads=options.skip_dangerous_payloads,
                 verbose=options.verbose,
+                json_body=options.json_body,
             )
 
             # Prepare default headers (including user agent if provided)
@@ -412,6 +425,14 @@ class AttackService(BaseService):
                     f"Subdomain Enumeration: Found {len(subdomain_vulns)} active subdomains"
                 )
 
+            if options.command_injection:
+                self.logger.info("Running Command Injection attack simulation...")
+                cmdi_vulns = self._execute_command_injection_attack(context)
+                all_vulnerabilities.extend(cmdi_vulns)
+                self.logger.info(
+                    f"Command Injection: Found {len(cmdi_vulns)} potential vulnerabilities"
+                )
+
             # Create attack result
             attack_result = AttackResult(
                 target_url=url,
@@ -429,6 +450,9 @@ class AttackService(BaseService):
                 csrf_findings=sum(1 for v in all_vulnerabilities if v.type == "csrf"),
                 subdomain_findings=sum(
                     1 for v in all_vulnerabilities if v.type == "subdomain"
+                ),
+                command_injection_findings=sum(
+                    1 for v in all_vulnerabilities if v.type == "command_injection"
                 ),
                 duration_seconds=context.elapsed_time(),
             )
@@ -549,6 +573,21 @@ class AttackService(BaseService):
             return vulnerabilities
         except Exception as e:
             self.logger.error(f"Subdomain enumeration failed: {e}")
+            return []
+
+    def _execute_command_injection_attack(
+        self, context: AttackContext
+    ) -> list[VulnerabilityFinding]:
+        """Execute command injection attack simulation."""
+        import asyncio
+
+        attacker = CommandInjectionAttacker()
+
+        try:
+            vulnerabilities = asyncio.run(attacker.execute(context))
+            return vulnerabilities
+        except Exception as e:
+            self.logger.error(f"Command injection attack failed: {e}")
             return []
 
     def _export_attack_result(
