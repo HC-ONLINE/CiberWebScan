@@ -96,6 +96,14 @@ def run_cli_command(args: list[str]) -> dict[str, Any]:
     env["CIBERWEBSCAN_ATTACK_TRAVERSAL"] = "false"
     env["CIBERWEBSCAN_ATTACK_ENUMERATION"] = "false"
     env["CIBERWEBSCAN_ATTACK_CSRF"] = "false"
+    env["CIBERWEBSCAN_ATTACK_SUBDOMAIN"] = "false"
+    env["CIBERWEBSCAN_ATTACK_COMMAND_INJECTION"] = "false"
+
+    # Keep the scan within the 30s subprocess timeout on slow CI runners:
+    # the vulnerable test server returns 500 for many payloads, so retrying
+    # each 500 with the default exponential backoff would blow the budget.
+    env["CIBERWEBSCAN_HTTP_RETRY_MAX_ATTEMPTS"] = "1"
+    env["CIBERWEBSCAN_HTTP_RATE_LIMIT_ADAPTIVE"] = "false"
 
     result = subprocess.run(
         cmd,

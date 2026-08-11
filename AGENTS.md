@@ -262,13 +262,16 @@ Base class: `export/base.py` → `BaseExporter`. Config controls: `export.pretty
 
 ### Environment Variables
 
-Prefix: `CIBERWEBSCAN_` with `_` → `.` mapping:
+Prefix: `CIBERWEBSCAN_`. The loader resolves the name against the config schema, so fields containing underscores work directly; for ambiguous names use `__` to mark section boundaries:
 
 ```bash
 # HTTP settings
 CIBERWEBSCAN_HTTP_TIMEOUT_CONNECT=5
 CIBERWEBSCAN_HTTP_TIMEOUT_READ=30
-CIBERWEBSCAN_HTTP_PROXY=http://proxy:8080
+CIBERWEBSCAN_HTTP_PROXY_HTTP=http://proxy:8080    # http.proxy.http (leaf field only)
+CIBERWEBSCAN_HTTP_RETRY_MAX_ATTEMPTS=3            # http.retry.max_attempts
+CIBERWEBSCAN_HTTP_RATE_LIMIT_REQUESTS_PER_SECOND=2.5   # http.rate_limit.requests_per_second
+CIBERWEBSCAN_HTTP__RATE_LIMIT__ADAPTIVE=false     # double underscore = section boundary
 
 # Logging
 CIBERWEBSCAN_LOGGING_LEVEL=DEBUG
@@ -278,9 +281,14 @@ CIBERWEBSCAN_LOGGING_FILE=logs/app.log
 CIBERWEBSCAN_SCRAPING_DYNAMIC_ENABLED=false
 
 # Attacks
-CIBERWEBSCAN_ATTACKS_XSS_ENABLED=true
-CIBERWEBSCAN_ATTACK_COMMAND_INJECTION=false
+CIBERWEBSCAN_ATTACK_XSS=false                     # attack.xss
+CIBERWEBSCAN_ATTACK_COMMAND_INJECTION=false       # attack.command_injection
 ```
+
+Notes:
+
+- Only **leaf fields** can be overridden; whole sections (e.g. `CIBERWEBSCAN_HTTP_PROXY`) are ignored with a debug log (`Ignoring env var ... does not map to a config key`).
+- A mapped key with an invalid value logs `Invalid configuration` and the loader falls back to defaults.
 
 See `.env.example` for full list.
 

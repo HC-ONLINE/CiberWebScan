@@ -32,8 +32,14 @@ Configuration values are loaded from multiple sources in order of precedence:
 Environment variable overrides (prefix & mapping)
 
 - Environment overrides use the prefix `CIBERWEBSCAN_` by default (see `ConfigLoader.env_prefix`).
-- After the prefix the name is lowercased and underscores are converted to dots to form the config key. Example:
+- After the prefix the name is lowercased and mapped to a config key. The `ConfigLoader` resolves the name against the configuration schema, so model fields that themselves contain underscores are supported directly:
   - `CIBERWEBSCAN_HTTP_TIMEOUT_CONNECT` -> `http.timeout.connect`
+  - `CIBERWEBSCAN_ATTACK_COMMAND_INJECTION` -> `attack.command_injection`
+  - `CIBERWEBSCAN_HTTP_RETRY_MAX_ATTEMPTS` -> `http.retry.max_attempts`
+  - `CIBERWEBSCAN_HTTP_RATE_LIMIT_REQUESTS_PER_SECOND` -> `http.rate_limit.requests_per_second`
+- If a name is ambiguous, use double underscores (`__`) to mark section boundaries explicitly:
+  - `CIBERWEBSCAN_HTTP__RATE_LIMIT__REQUESTS_PER_SECOND` -> `http.rate_limit.requests_per_second`
+  - `CIBERWEBSCAN_ATTACK__COMMAND_INJECTION` -> `attack.command_injection`
 - Parsing rules used by `ConfigLoader._load_env` (`src/ciberwebscan/config/loader.py`):
   - Booleans: `true|yes|1` → true, `false|no|0` → false
   - Numbers: values containing `.` → float, otherwise int
@@ -42,35 +48,38 @@ Environment variable overrides (prefix & mapping)
   - `CIBERWEBSCAN_HTTP_TIMEOUT_CONNECT=15` → `http.timeout.connect: 15`
   - `CIBERWEBSCAN_SCRAPING_DYNAMIC_HEADLESS=false` → `scraping.dynamic.headless: false`
   - `CIBERWEBSCAN_USER_AGENT_AGENTS="a,b"` → `user_agent.agents: ["a","b"]`
+  - `CIBERWEBSCAN_ANALYSIS_CVE_NVD_API_KEY=abc123` → `analysis.cve.nvd_api_key: "abc123"`
+- Behavior for problematic variables:
+  - Variables that cannot be mapped to a config key (unknown names, whole sections such as `CIBERWEBSCAN_HTTP_PROXY` that target a nested model instead of a leaf field) are **ignored and logged at debug level**: `Ignoring env var CIBERWEBSCAN_X: does not map to a config key`.
+  - Variables that map to a real key but carry an invalid value (e.g. `CIBERWEBSCAN_HTTP_TIMEOUT_CONNECT=abc`) fail validation: the error is **logged at error level** (`Invalid configuration: ...`) and the loader falls back to default configuration.
 
 See implementation: `ConfigLoader._load_env` (`src/ciberwebscan/config/loader.py`).
 
 ### Environment Variable Limitations
 
-Our current `ConfigLoader` maps every underscore (`_`) in the environment variable name to a dot (`.`) when building the config path. That works for many simple keys (for example `CIBERWEBSCAN_HTTP_TIMEOUT_CONNECT` → `http.timeout.connect`), but it prevents overriding model fields that themselves contain underscores (for example `user_agent`, `rate_limit`, `include_screenshots`).
+The `ConfigLoader` resolves environment variable names against the configuration schema, so fields that contain underscores (for example `user_agent`, `rate_limit`, `command_injection`) are fully supported — no need for `config.yaml` for these. For the rare ambiguous case, use double underscores (`__`) to mark section boundaries:
 
-What this means in practice:
+- `CIBERWEBSCAN_HTTP__RATE_LIMIT__REQUESTS_PER_SECOND` → `http.rate_limit.requests_per_second`
 
-- Supported via `CIBERWEBSCAN_` envs (examples):
+Examples that work out of the box:
 
-  - `CIBERWEBSCAN_HTTP_TIMEOUT_CONNECT` → `http.timeout.connect`
-  - `CIBERWEBSCAN_HTTP_TIMEOUT_READ` → `http.timeout.read`
-  - `CIBERWEBSCAN_HTTP_PROXY_ROTATE` → `http.proxy.rotate`
-  - `CIBERWEBSCAN_SCRAPING_DYNAMIC_ENABLED` → `scraping.dynamic.enabled`
-  - `CIBERWEBSCAN_SCRAPING_DYNAMIC_HEADLESS` → `scraping.dynamic.headless`
-  - `CIBERWEBSCAN_ATTACK_ENABLED` → `attack.enabled`
-  - `CIBERWEBSCAN_ATTACK_XSS` → `attack.xss`
-  - `CIBERWEBSCAN_CACHE_ENABLED` → `cache.enabled`
-  - `NVD_API_KEY`, `VULNERS_API_KEY` (read directly by CVE clients)
+- `CIBERWEBSCAN_HTTP_TIMEOUT_CONNECT` → `http.timeout.connect`
+- `CIBERWEBSCAN_HTTP_RETRY_MAX_ATTEMPTS` → `http.retry.max_attempts`
+- `CIBERWEBSCAN_HTTP_RATE_LIMIT_REQUESTS_PER_SECOND` → `http.rate_limit.requests_per_second`
+- `CIBERWEBSCAN_ATTACK_COMMAND_INJECTION` → `attack.command_injection`
+- `CIBERWEBSCAN_ATTACK_USER_CONSENT` → `attack.user_consent`
+- `CIBERWEBSCAN_USER_AGENT_MODE` / `CIBERWEBSCAN_USER_AGENT_AGENTS` → `user_agent.*`
+- `CIBERWEBSCAN_EXPORT_INCLUDE_SCREENSHOTS` → `export.include_screenshots`
+- `CIBERWEBSCAN_ANALYSIS_CVE_NVD_API_KEY` → `analysis.cve.nvd_api_key`
+- `CIBERWEBSCAN_CACHE_MAX_SIZE_MB` → `cache.max_size_mb`
+- `CIBERWEBSCAN_API_RATE_LIMIT_REQUESTS_PER_MINUTE` → `api.rate_limit.requests_per_minute`
+- `NVD_API_KEY`, `VULNERS_API_KEY` (read directly by CVE clients)
 
-- NOT supported via `CIBERWEBSCAN_` envs (must use `config.yaml` or change loader):
-  - `CIBERWEBSCAN_USER_AGENT_AGENTS` / `CIBERWEBSCAN_USER_AGENT_MODE` → `user_agent.*`
-  - `CIBERWEBSCAN_HTTP_RATE_LIMIT_REQUESTS_PER_SECOND` → `http.rate_limit.requests_per_second`
-  - `CIBERWEBSCAN_EXPORT_INCLUDE_SCREENSHOTS` → `export.include_screenshots`
-  - `CIBERWEBSCAN_ANALYSIS_CVE_NVD_API_KEY` → `analysis.cve.nvd_api_key`
-  - `CIBERWEBSCAN_ATTACK_USER_CONSENT` → `attack.user_consent`
+Not supported (and why):
 
-Recommendation: for complex/underscore-containing fields, set them in `~/.ciberwebscan/config.yaml`. If you prefer env-based overrides for those fields, we can update `ConfigLoader` to support a double-underscore convention (e.g. `CIBERWEBSCAN_HTTP__RATE_LIMIT__REQUESTS_PER_SECOND`) — tell us if you want that behavior added.
+- **Whole sections** cannot be set from a single variable — only leaf fields. For example `CIBERWEBSCAN_HTTP_PROXY` targets the nested `http.proxy` model and is ignored with a debug log; set `CIBERWEBSCAN_HTTP_PROXY_HTTP` (→ `http.proxy.http`) or use the standard `HTTP_PROXY`/`HTTPS_PROXY` variables instead.
+- Unknown variables are ignored with a debug log; they never break configuration loading.
+- Invalid values on a valid key log the validation error and the loader falls back to defaults (see `Invalid configuration` error in the logs).
 
 **Note**: Command-line options are specific to individual commands and do not override global configuration. They are used to customize behavior for that particular command execution.
 
