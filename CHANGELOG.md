@@ -1,5 +1,29 @@
 # Changelog
 
+## [2.13.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.12.0...v2.13.0) (2026-08-11)
+
+
+### Features
+
+* add command injection option to CLI and API attack commands ([0c8c407](https://github.com/HC-ONLINE/CiberWebScan/commit/0c8c407eab7181ec2842b307ead4c82b97df4b0c))
+* add command injection payloads to attack models ([8d33942](https://github.com/HC-ONLINE/CiberWebScan/commit/8d33942547a9de5699fa8acb3b84375720b689d7))
+* add command injection support to attack models and reports ([b09e19f](https://github.com/HC-ONLINE/CiberWebScan/commit/b09e19f85d97dfc33db847172addc301c9d73141))
+* add command injection support to attack options and execution ([650a6e9](https://github.com/HC-ONLINE/CiberWebScan/commit/650a6e92e28124230d18c71f545b22afabc7cf9e))
+* implement OS command injection detection and testing framework ([35e07e1](https://github.com/HC-ONLINE/CiberWebScan/commit/35e07e1986b2100a681215aaeb93662ee3384c19))
+
+
+### Bug Fixes
+
+* enhance command injection testing by preserving query parameters and building form data ([a766e27](https://github.com/HC-ONLINE/CiberWebScan/commit/a766e27a596ab4f34a85b833c273aac3f7f9c61a))
+* enhance SQLi detection by adding MySQL error patterns and preserving query parameters ([b2c9566](https://github.com/HC-ONLINE/CiberWebScan/commit/b2c95668dff7dbcfc44bb8df0c0743b81fed7939))
+* ensure URL-parameter requests carry original static params with one mutated parameter ([380e6e2](https://github.com/HC-ONLINE/CiberWebScan/commit/380e6e26981ec2ab6f8cac7727d7159319da2ae2))
+* remove unnecessary default value for params in HTTP requests ([d6fdee6](https://github.com/HC-ONLINE/CiberWebScan/commit/d6fdee628f17303f8781d9eb6b0053413f969d90))
+
+
+### Documentation
+
+* docs: update documentation with OS command injection detection details ([c1bcafd](https://github.com/HC-ONLINE/CiberWebScan/commit/c1bcafd12fbdde6b85b602ec6f32e0d11a07d680))
+
 ## [2.12.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.11.2...v2.12.0) (2026-08-05)
 
 
