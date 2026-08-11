@@ -273,6 +273,102 @@ class TestMockAttackEngine:
         assert attack_context.total_requests == 1
         assert attack_context.failed_requests == 1
 
+    @pytest.mark.asyncio
+    async def test_send_request_real_client_preserves_query_string(self):
+        """Regression: an empty params dict must not strip the URL query.
+
+        httpx rebuilds the URL from `params` when a non-None dict is passed,
+        wiping an existing query string (e.g. `?cmd=ver`). The real-client
+        branch must forward `params=None` so the target query survives.
+        """
+        engine = MockAttackEngine()
+
+        class FakeSyncClient:
+            def __init__(self):
+                self.get_calls = []
+
+            def get(self, url, params=None, **kwargs):
+                self.get_calls.append((url, params, kwargs))
+                response = Mock()
+                response.url = url
+                response.status_code = 200
+                response.text = "<html></html>"
+                return response
+
+        client = FakeSyncClient()
+        context = AttackContext(
+            config=AttackConfig(target_url="https://example.com/run?cmd=ver"),
+            http_client=client,
+        )
+
+        response = await engine.send_request(context, context.config.target_url)
+
+        assert response is not None
+        assert client.get_calls[0][0] == "https://example.com/run?cmd=ver"
+        assert client.get_calls[0][1] is None
+
+    @pytest.mark.asyncio
+    async def test_send_request_real_client_forwards_params(self):
+        """Real-client branch forwards non-empty params unchanged."""
+        engine = MockAttackEngine()
+
+        class FakeSyncClient:
+            def __init__(self):
+                self.get_calls = []
+
+            def get(self, url, params=None, **kwargs):
+                self.get_calls.append((url, params, kwargs))
+                response = Mock()
+                response.url = url
+                response.status_code = 200
+                response.text = "<html></html>"
+                return response
+
+        client = FakeSyncClient()
+        context = AttackContext(
+            config=AttackConfig(target_url="https://example.com/run"),
+            http_client=client,
+        )
+
+        await engine.send_request(
+            context, "https://example.com/run", "GET", params={"cmd": "x"}
+        )
+
+        assert client.get_calls[0][1] == {"cmd": "x"}
+
+    @pytest.mark.asyncio
+    async def test_send_request_real_client_json_body(self):
+        """Real-client branch sends POST/JSON bodies with params=None."""
+        engine = MockAttackEngine()
+
+        class FakeSyncClient:
+            def __init__(self):
+                self.post_calls = []
+
+            def post(self, url, data=None, json=None, params=None, **kwargs):
+                self.post_calls.append((url, data, json, params, kwargs))
+                response = Mock()
+                response.url = url
+                response.status_code = 200
+                response.text = "{}"
+                return response
+
+        client = FakeSyncClient()
+        context = AttackContext(
+            config=AttackConfig(target_url="https://example.com/api/run"),
+            http_client=client,
+        )
+
+        await engine.send_request(
+            context,
+            "https://example.com/api/run",
+            "POST",
+            json_body={"cmd": "id"},
+        )
+
+        assert client.post_calls[0][2] == {"cmd": "id"}
+        assert client.post_calls[0][3] is None
+
     def test_extract_forms(self):
         """Test form extraction from HTML."""
         engine = MockAttackEngine()

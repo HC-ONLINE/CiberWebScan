@@ -197,21 +197,21 @@ class AttackEngine(ABC):
                 # Use thread for real HTTPClient
                 if method.upper() == "GET":
                     response = await asyncio.to_thread(
-                        context.http_client.get, url, params=params or {}
+                        context.http_client.get, url, params=params
                     )
                 elif json_body is not None:
                     response = await asyncio.to_thread(
                         context.http_client.post,
                         url,
                         json=json_body,
-                        params=params or {},
+                        params=params,
                     )
                 elif method.upper() == "POST":
                     response = await asyncio.to_thread(
                         context.http_client.post,
                         url,
                         data=data or {},
-                        params=params or {},
+                        params=params,
                     )
                 else:
                     response = await asyncio.to_thread(
