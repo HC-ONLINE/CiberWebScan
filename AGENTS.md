@@ -262,13 +262,16 @@ Base class: `export/base.py` → `BaseExporter`. Config controls: `export.pretty
 
 ### Environment Variables
 
-Prefix: `CIBERWEBSCAN_` with `_` → `.` mapping:
+Prefix: `CIBERWEBSCAN_`. The loader resolves the name against the config schema, so fields containing underscores work directly; for ambiguous names use `__` to mark section boundaries:
 
 ```bash
 # HTTP settings
 CIBERWEBSCAN_HTTP_TIMEOUT_CONNECT=5
 CIBERWEBSCAN_HTTP_TIMEOUT_READ=30
 CIBERWEBSCAN_HTTP_PROXY=http://proxy:8080
+CIBERWEBSCAN_HTTP_RETRY_MAX_ATTEMPTS=3            # http.retry.max_attempts
+CIBERWEBSCAN_HTTP_RATE_LIMIT_REQUESTS_PER_SECOND=2.5   # http.rate_limit.requests_per_second
+CIBERWEBSCAN_HTTP__RATE_LIMIT__ADAPTIVE=false     # double underscore = section boundary
 
 # Logging
 CIBERWEBSCAN_LOGGING_LEVEL=DEBUG

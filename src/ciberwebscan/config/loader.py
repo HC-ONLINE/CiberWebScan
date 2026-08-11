@@ -10,9 +10,11 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any, Union, get_args, get_origin
 
+from pydantic import BaseModel
 from pydantic import ValidationError as PydanticValidationError
+from pydantic.fields import FieldInfo
 
 from .models import (
     AppConfig as Config,
@@ -145,8 +147,12 @@ class ConfigLoader:
             if not key.startswith(self.env_prefix):
                 continue
 
-            # Convert CIBERWEBSCAN_HTTP_TIMEOUT_CONNECT to http.timeout.connect
-            config_key = key[len(self.env_prefix) :].lower().replace("_", ".")
+            # Map env var name to a config key (dot notation)
+            env_name = key[len(self.env_prefix) :]
+            config_key = self._map_env_key(env_name)
+            if config_key is None:
+                logger.debug(f"Ignoring env var {key}: does not map to a config key")
+                continue
 
             # Parse value
             parsed = self._parse_env_value(value)
@@ -155,6 +161,114 @@ class ConfigLoader:
             self._set_nested(result, config_key, parsed)
 
         return result
+
+    def _map_env_key(self, env_name: str) -> str | None:
+        """
+        Map an environment variable name (without prefix) to a config key.
+
+        Resolution order:
+        1. Schema-guided: resolve the name against the Pydantic model, so
+           model fields that themselves contain underscores work directly
+           (e.g. ``CIBERWEBSCAN_ATTACK_COMMAND_INJECTION`` ->
+           ``attack.command_injection``).
+        2. Explicit double-underscore separators (``__``) may be used to
+           disambiguate section boundaries:
+           ``CIBERWEBSCAN_HTTP__RATE_LIMIT__REQUESTS_PER_SECOND`` ->
+           ``http.rate_limit.requests_per_second``.
+        3. Legacy fallback (no ``__`` and no schema match): every underscore
+           becomes a dot, preserving the previous behavior.
+
+        Returns the config key in dot notation, or ``None`` when the variable
+        cannot be mapped (it is then ignored).
+        """
+        segments = env_name.split("__")
+
+        resolved = self._resolve_segments(segments, Config)
+        if resolved is not None:
+            return resolved
+
+        if "__" not in env_name:
+            # Legacy fallback: CIBERWEBSCAN_HTTP_TIMEOUT_CONNECT -> http.timeout.connect
+            return env_name.lower().replace("_", ".")
+
+        return None
+
+    def _resolve_segments(
+        self,
+        segments: list[str],
+        model: type[BaseModel],
+    ) -> str | None:
+        """
+        Resolve path segments against *model* into a dot-notation config key.
+
+        Segments may contain single underscores that belong to a field name
+        (e.g. ``COMMAND_INJECTION``). The longest prefix that exactly matches
+        a model field wins, and nested models are walked recursively.
+        """
+        if not segments or not segments[0]:
+            return None
+
+        fields = model.model_fields
+        first = segments[0]
+        first_lower = first.lower()
+
+        # Exact field match for the whole segment
+        if first_lower in fields:
+            if len(segments) == 1:
+                # A whole section cannot be set from an env var
+                if self._nested_model(fields[first_lower]) is not None:
+                    return None
+                return first_lower
+            child = self._nested_model(fields[first_lower])
+            if child is not None:
+                rest = self._resolve_segments(segments[1:], child)
+                if rest is not None:
+                    return f"{first_lower}.{rest}"
+            return None
+
+        # Longest prefix that matches a nested section, then recurse
+        parts = first.split("_")
+        if len(parts) > 1:
+            for i in range(len(parts) - 1, 0, -1):
+                prefix = "_".join(parts[:i]).lower()
+                if prefix not in fields:
+                    continue
+                child = self._nested_model(fields[prefix])
+                if child is None:
+                    continue
+                rest_segment = "_".join(parts[i:])
+                resolved = self._resolve_segments(
+                    [rest_segment, *segments[1:]],
+                    child,
+                )
+                if resolved is not None:
+                    return f"{prefix}.{resolved}"
+
+        return None
+
+    @staticmethod
+    def _nested_model(field: FieldInfo) -> type[BaseModel] | None:
+        """
+        Return the Pydantic model type for a nested field, else ``None``.
+
+        Unwraps ``Annotated`` and ``Optional``/unions (e.g. ``ProxyConfig | None``).
+        """
+        annotation = field.annotation
+        if annotation is None:
+            return None
+
+        while get_origin(annotation) is Annotated:
+            annotation = get_args(annotation)[0]
+
+        if get_origin(annotation) is Union:
+            args = [a for a in get_args(annotation) if a is not type(None)]
+            if len(args) == 1:
+                annotation = args[0]
+
+        if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+            return annotation
+
+        return None
 
     def _parse_env_value(self, value: str) -> Any:
         """Parse an environment variable value."""
