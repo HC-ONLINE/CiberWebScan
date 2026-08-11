@@ -364,6 +364,7 @@ class AttackService(BaseService):
                 verify=http_config.verify_ssl,
                 follow_redirects=http_config.follow_redirects,
                 default_headers=default_headers or None,
+                cookies=options.cookies or None,
                 proxy=self._resolve_proxy(options.proxy),
             )
 

@@ -263,6 +263,7 @@ class HTTPClient:
         verify: bool | None = None,
         follow_redirects: bool | None = None,
         default_headers: dict[str, str] | None = None,
+        cookies: dict[str, str] | None = None,
         metrics_callback: MetricsCallback | None = None,
         proxy: str | None = None,
         retryable_status_codes: set[int] | None = None,
@@ -374,6 +375,7 @@ class HTTPClient:
             follow_redirects=resolved_follow_redirects,
             max_redirects=resolved_max_redirects,
             headers=default_headers,
+            cookies=cookies,
             proxy=resolved_proxy,
         )
 
