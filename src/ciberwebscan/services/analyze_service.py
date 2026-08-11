@@ -501,9 +501,10 @@ class AnalyzeService(BaseService):
             with HTTPClient(
                 timeout=timeout,
                 default_headers=default_headers or None,
+                cookies=options.cookies or None,
                 proxy=self._resolve_proxy(options.proxy),
             ) as client:
-                resp = client.get(url, cookies=options.cookies or None)
+                resp = client.get(url)
 
             response_headers = dict(resp.headers)
             analysis = self.headers_analyzer.analyze(response_headers)
@@ -570,9 +571,10 @@ class AnalyzeService(BaseService):
             with HTTPClient(
                 timeout=timeout,
                 default_headers=default_headers or None,
+                cookies=options.cookies or None,
                 proxy=self._resolve_proxy(options.proxy),
             ) as client:
-                resp = client.get(url, cookies=options.cookies or None)
+                resp = client.get(url)
             headers = dict(resp.headers)
             html = resp.text
 
