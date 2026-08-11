@@ -220,6 +220,7 @@ class TestScrapeService:
             http2=False,
             verify=False,
             follow_redirects=False,
+            cookies=None,
             proxy=None,
             default_headers={"User-Agent": "TestAgent"},
         )

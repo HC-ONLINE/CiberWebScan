@@ -119,6 +119,7 @@ class ScrapeService(BaseService):
         *,
         proxy: str | None = None,
         verify: bool | None = None,
+        cookies: dict[str, str] | None = None,
     ):
         from ciberwebscan.core.client import HTTPClient
 
@@ -140,6 +141,7 @@ class ScrapeService(BaseService):
             http2=http_config.http2,
             verify=http_config.verify_ssl if verify is None else verify,
             follow_redirects=http_config.follow_redirects,
+            cookies=cookies,
             proxy=proxy,
             default_headers=default_headers,
         )
@@ -199,11 +201,18 @@ class ScrapeService(BaseService):
         return self._static_scraper
 
     def _get_static_scraper_with_proxy(
-        self, proxy: str | None, verify_ssl: bool = True
+        self,
+        proxy: str | None,
+        verify_ssl: bool = True,
+        cookies: dict[str, str] | None = None,
     ) -> StaticScraper:
-        """Get static scraper with specific proxy configuration."""
-        if proxy or not verify_ssl:
-            client = self._build_http_client(proxy=proxy, verify=verify_ssl)
+        """Get static scraper with specific proxy/cookies configuration."""
+        if proxy or not verify_ssl or cookies:
+            client = self._build_http_client(
+                proxy=proxy,
+                verify=verify_ssl,
+                cookies=cookies,
+            )
             return StaticScraper(
                 client,
                 proxy_rotator=self._proxy_rotator,
@@ -363,13 +372,14 @@ class ScrapeService(BaseService):
                 schema=options.schema,
                 timeout=timeout,
                 headers=options.headers or None,
-                cookies=options.cookies or None,
                 check_robots=options.check_robots,
                 extract_forms=options.extract_forms,
             )
 
             core_result: CoreScrapeResult = self._get_static_scraper_with_proxy(
-                options.proxy, config.verify_ssl
+                options.proxy,
+                config.verify_ssl,
+                cookies=options.cookies or None,
             ).scrape(url, config)
 
             # Map core ScrapeResult to export ScrapeResult
