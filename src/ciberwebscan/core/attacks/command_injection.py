@@ -12,6 +12,7 @@ import asyncio
 import logging
 import re
 import secrets
+from typing import Any
 from urllib.parse import parse_qs, urljoin, urlparse
 
 from ciberwebscan.export.models import (
@@ -237,6 +238,7 @@ class CommandInjectionAttacker(AttackEngine):
                 if not field_name or not self.should_test_parameter(field_name):
                     continue
 
+                form_data = self._build_form_data(form["inputs"])
                 marker = self._new_marker()
                 probes = self._build_marker_payloads(marker) + payloads[:5]
 
@@ -251,6 +253,7 @@ class CommandInjectionAttacker(AttackEngine):
                         original_length,
                         original_status,
                         baseline_elapsed,
+                        form_data=form_data,
                     )
                     if vuln:
                         vulnerabilities.append(vuln)
@@ -319,6 +322,40 @@ class CommandInjectionAttacker(AttackEngine):
         """Return a copy of *body* with only *key* replaced by *value*."""
         return {k: (value if k == key else v) for k, v in body.items()}
 
+    @staticmethod
+    def _preserve_query_params(url: str) -> dict[str, str]:
+        """Return the original query params of a URL (first value each).
+
+        Keeps static parameters (e.g. ``Submit``, UI state) intact when a
+        payload replaces the parameter under test.
+        """
+        parsed = urlparse(url)
+        if not parsed.query:
+            return {}
+        return {name: values[0] for name, values in parse_qs(parsed.query).items()}
+
+    @staticmethod
+    def _build_form_data(fields: list[dict[str, Any]]) -> dict[str, str]:
+        """Build the default POST data for a form.
+
+        Includes every named, enabled field (hidden, submit, select, ...)
+        with its default value so server-side checks that depend on static
+        fields (e.g. ``Submit``, CSRF tokens) still pass during fuzzing.
+        """
+        data: dict[str, str] = {}
+        for field in fields:
+            name = field.get("name")
+            if not name:
+                continue
+            if field.get("disabled") or field.get("readonly"):
+                continue
+            if field.get("tag") == "select":
+                options = field.get("options") or []
+                data[name] = options[0] if options else ""
+            else:
+                data[name] = field.get("value") or ""
+        return data
+
     async def _test_parameter_cmdi(
         self,
         context: AttackContext,
@@ -331,20 +368,25 @@ class CommandInjectionAttacker(AttackEngine):
         original_status: int,
         baseline_elapsed: float,
         json_body: dict[str, object] | None = None,
+        form_data: dict[str, str] | None = None,
     ) -> VulnerabilityFinding | None:
         """Test a specific parameter for command injection."""
         try:
             if method.upper() == "GET":
+                test_params = self._preserve_query_params(url)
+                test_params[param_name] = payload
                 test_response = await self.send_request(
-                    context, url, "GET", params={param_name: payload}
+                    context, url, "GET", params=test_params
                 )
             elif json_body is not None:
                 test_response = await self.send_request(
                     context, url, "POST", json_body=json_body
                 )
             else:
+                post_data = dict(form_data or {})
+                post_data[param_name] = payload
                 test_response = await self.send_request(
-                    context, url, "POST", data={param_name: payload}
+                    context, url, "POST", data=post_data
                 )
 
             if not test_response:
