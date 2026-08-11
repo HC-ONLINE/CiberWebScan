@@ -386,6 +386,7 @@ Configure attack simulation settings.
     "enumeration": true,
     "csrf": true,
     "subdomain": true,
+    "command_injection": true,
     "max_payloads": 50
   }
 }
@@ -393,18 +394,19 @@ Configure attack simulation settings.
 
 ### Default values (quick reference)
 
-| Key                   |                     Default | Description                                |
-| --------------------- | --------------------------: | ------------------------------------------ |
-| `attack.enabled`      |                     `false` | Attack simulation disabled by default      |
-| `attack.user_consent` |                     `false` | User consent required to run attacks       |
-| `attack.whitelist`    | `["127.0.0.1","localhost"]` | Default allowed targets for attack testing |
-| `attack.xss`          |                      `true` | Run XSS checks by default                  |
-| `attack.sqli`         |                      `true` | Run SQLi checks by default                 |
-| `attack.traversal`    |                      `true` | Run path traversal checks by default       |
-| `attack.enumeration`  |                      `true` | Run enumeration by default                 |
-| `attack.csrf`         |                      `true` | Run CSRF checks by default                 |
-| `attack.subdomain`    |                      `true` | Enumerate subdomains by default            |
-| `attack.max_payloads` |                        `50` | Default max payloads per target            |
+| Key                        |                     Default | Description                                |
+| -------------------------- | --------------------------: | ------------------------------------------ |
+| `attack.enabled`           |                     `false` | Attack simulation disabled by default      |
+| `attack.user_consent`      |                     `false` | User consent required to run attacks       |
+| `attack.whitelist`         | `["127.0.0.1","localhost"]` | Default allowed targets for attack testing |
+| `attack.xss`               |                      `true` | Run XSS checks by default                  |
+| `attack.sqli`              |                      `true` | Run SQLi checks by default                 |
+| `attack.traversal`         |                      `true` | Run path traversal checks by default       |
+| `attack.enumeration`       |                      `true` | Run enumeration by default                 |
+| `attack.csrf`              |                      `true` | Run CSRF checks by default                 |
+| `attack.subdomain`         |                      `true` | Enumerate subdomains by default            |
+| `attack.command_injection` |                      `true` | Run OS command injection checks by default |
+| `attack.max_payloads`      |                        `50` | Default max payloads per target            |
 
 ### Export
 
@@ -608,18 +610,19 @@ ciberwebscan config reset -y
 
 ### Profile Comparison
 
-| Feature          | bugbounty | pentest   | recon     | stealth   |
-| ---------------- | --------- | --------- | --------- | --------- |
-| Rate Limit       | 2.0 req/s | 5.0 req/s | 3.0 req/s | 0.5 req/s |
-| Adaptive AIMD    | Yes       | Yes       | Yes       | Yes       |
-| CVE Lookup       | Yes       | Yes       | No        | No        |
-| XSS/SQLi         | Yes       | Yes       | No        | No        |
-| CSRF             | Yes       | Yes       | No        | No        |
-| Traversal        | No        | Yes       | No        | No        |
-| Enumeration      | No        | Yes       | No        | No        |
-| Dynamic Scraping | No        | Yes       | No        | No        |
-| DNS Fingerprint  | No        | Yes       | No        | No        |
-| Log Level        | INFO      | DEBUG     | INFO      | WARNING   |
+| Feature           | bugbounty | pentest   | recon     | stealth   |
+| ----------------- | --------- | --------- | --------- | --------- |
+| Rate Limit        | 2.0 req/s | 5.0 req/s | 3.0 req/s | 0.5 req/s |
+| Adaptive AIMD     | Yes       | Yes       | Yes       | Yes       |
+| CVE Lookup        | Yes       | Yes       | No        | No        |
+| XSS/SQLi          | Yes       | Yes       | No        | No        |
+| CSRF              | Yes       | Yes       | No        | No        |
+| Traversal         | No        | Yes       | No        | No        |
+| Enumeration       | No        | Yes       | No        | No        |
+| Command Injection | No        | Yes       | No        | No        |
+| Dynamic Scraping  | No        | Yes       | No        | No        |
+| DNS Fingerprint   | No        | Yes       | No        | No        |
+| Log Level         | INFO      | DEBUG     | INFO      | WARNING   |
 
 ### Creating Custom Profiles
 
@@ -664,6 +667,7 @@ attack:
   traversal: false
   enumeration: false
   csrf: true
+  command_injection: true
   max_payloads: 50
 
 logging:

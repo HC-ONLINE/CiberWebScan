@@ -312,6 +312,7 @@ Perform controlled security attack simulations.
 - Directory Enumeration
 - CSRF (Cross-Site Request Forgery) detection
 - Subdomain enumeration (DNS brute force)
+- OS Command Injection detection (GET, POST forms, and POST/JSON bodies)
 - Custom payloads and wordlists
 
 **Request:**
@@ -325,6 +326,8 @@ Perform controlled security attack simulations.
   "enumeration": true,
   "csrf": true,
   "subdomain": true,
+  "command_injection": true,
+  "json_body": { "cmd": "id" },
   "all_attacks": false,
   "intensity": "medium",
   "max_payloads": 50,
@@ -338,33 +341,35 @@ Perform controlled security attack simulations.
 
 **Parameters:**
 
-| Parameter                 | Type        | Default      | Description                      |
-| ------------------------- | ----------- | ------------ | -------------------------------- |
-| `url`                     | string      | required     | Target URL                       |
-| `xss`                     | boolean     | null         | Test XSS vulnerabilities         |
-| `sqli`                    | boolean     | null         | Test SQL injection               |
-| `traversal`               | boolean     | null         | Test path traversal              |
-| `enumeration`             | boolean     | null         | Directory enumeration            |
-| `csrf`                    | boolean     | null         | Test CSRF vulnerabilities        |
-| `subdomain`               | boolean     | null         | Enumerate active subdomains      |
-| `all_attacks`             | boolean     | false        | Enable all attack types          |
-| `intensity`               | string      | medium       | low, medium, or high             |
-| `max_payloads`            | integer     | null         | Max payloads per attack (1-1000) |
-| `custom_payloads_file`    | string      | null         | Path to custom payloads          |
-| `custom_wordlist`         | string      | null         | Custom wordlist for enumeration  |
-| `timeout`                 | float       | 10.0         | Request timeout (1.0-300.0)      |
-| `delay_between_requests`  | float       | 0.1          | Delay between requests (seconds) |
-| `concurrent_requests`     | integer     | 1            | Concurrent requests (1-10)       |
-| `skip_dangerous_payloads` | boolean     | true         | Skip dangerous payloads          |
-| `scope_urls`              | array       | []           | URLs to scope attack to          |
-| `export`                  | string      | null         | Export file path                 |
-| `export_format`           | string      | json         | json, jsonl, csv, or html        |
-| `headers`                 | object      | {}           | Custom HTTP headers              |
-| `cookies`                 | object      | {}           | Cookies                          |
-| `proxy`                   | string      | null         | HTTP proxy URL                   |
-| `user_agent`              | string      | null         | Custom User-Agent                |
-| `verbose`                 | boolean     | false        | Verbose output                   |
-| **`user_consent`**        | **boolean** | **required** | **Must be true to proceed**      |
+| Parameter                 | Type        | Default      | Description                                                                           |
+| ------------------------- | ----------- | ------------ | ------------------------------------------------------------------------------------- |
+| `url`                     | string      | required     | Target URL                                                                            |
+| `xss`                     | boolean     | null         | Test XSS vulnerabilities                                                              |
+| `sqli`                    | boolean     | null         | Test SQL injection                                                                    |
+| `traversal`               | boolean     | null         | Test path traversal                                                                   |
+| `enumeration`             | boolean     | null         | Directory enumeration                                                                 |
+| `csrf`                    | boolean     | null         | Test CSRF vulnerabilities                                                             |
+| `subdomain`               | boolean     | null         | Enumerate active subdomains                                                           |
+| `command_injection`       | boolean     | null         | Test OS command injection                                                             |
+| `json_body`               | object      | null         | JSON body template for POST/JSON injection testing (each key is tested one at a time) |
+| `all_attacks`             | boolean     | false        | Enable all attack types                                                               |
+| `intensity`               | string      | medium       | low, medium, or high                                                                  |
+| `max_payloads`            | integer     | null         | Max payloads per attack (1-1000)                                                      |
+| `custom_payloads_file`    | string      | null         | Path to custom payloads                                                               |
+| `custom_wordlist`         | string      | null         | Custom wordlist for enumeration                                                       |
+| `timeout`                 | float       | 10.0         | Request timeout (1.0-300.0)                                                           |
+| `delay_between_requests`  | float       | 0.1          | Delay between requests (seconds)                                                      |
+| `concurrent_requests`     | integer     | 1            | Concurrent requests (1-10)                                                            |
+| `skip_dangerous_payloads` | boolean     | true         | Skip dangerous payloads                                                               |
+| `scope_urls`              | array       | []           | URLs to scope attack to                                                               |
+| `export`                  | string      | null         | Export file path                                                                      |
+| `export_format`           | string      | json         | json, jsonl, csv, or html                                                             |
+| `headers`                 | object      | {}           | Custom HTTP headers                                                                   |
+| `cookies`                 | object      | {}           | Cookies                                                                               |
+| `proxy`                   | string      | null         | HTTP proxy URL                                                                        |
+| `user_agent`              | string      | null         | Custom User-Agent                                                                     |
+| `verbose`                 | boolean     | false        | Verbose output                                                                        |
+| **`user_consent`**        | **boolean** | **required** | **Must be true to proceed**                                                           |
 
 **Response:**
 
