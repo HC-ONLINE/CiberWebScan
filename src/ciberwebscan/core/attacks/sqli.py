@@ -38,6 +38,9 @@ class SQLiAttacker(AttackEngine):
             re.compile(r"mysql_fetch_row\(\)", re.IGNORECASE),
             re.compile(r"Unknown column.*in 'field list'", re.IGNORECASE),
             re.compile(r"Table.*doesn't exist", re.IGNORECASE),
+            # MySQL/MariaDB
+            re.compile(r"error in your SQL syntax", re.IGNORECASE),
+            re.compile(r"right syntax to use near", re.IGNORECASE),
             # PostgreSQL
             re.compile(r"PSQLException", re.IGNORECASE),
             re.compile(r"unterminated quoted string", re.IGNORECASE),
@@ -214,8 +217,10 @@ class SQLiAttacker(AttackEngine):
         """Test a specific parameter for SQL injection."""
         try:
             if method.upper() == "GET":
+                test_params = self._preserve_query_params(url)
+                test_params[param_name] = payload
                 test_response = await self.send_request(
-                    context, url, "GET", params={param_name: payload}
+                    context, url, "GET", params=test_params
                 )
             else:
                 test_response = await self.send_request(
@@ -256,6 +261,18 @@ class SQLiAttacker(AttackEngine):
             self.logger.debug(f"Error testing SQLi in parameter {param_name}: {e}")
 
         return None
+
+    @staticmethod
+    def _preserve_query_params(url: str) -> dict[str, str]:
+        """Return the original query params of a URL (first value each).
+
+        Keeps static parameters (e.g. ``Submit``, UI state) intact when a
+        payload replaces the parameter under test.
+        """
+        parsed = urlparse(url)
+        if not parsed.query:
+            return {}
+        return {name: values[0] for name, values in parse_qs(parsed.query).items()}
 
     def _analyze_sqli_response(
         self,
