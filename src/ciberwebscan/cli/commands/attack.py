@@ -9,8 +9,9 @@ Unauthorized security testing is illegal and unethical.
 
 from __future__ import annotations
 
+import json
 import sys
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 
@@ -90,6 +91,13 @@ def attack_cmd(
             help="Enumerate active subdomains via DNS brute force (uses config default if not set)",
         ),
     ] = None,
+    command_injection: Annotated[
+        bool | None,
+        typer.Option(
+            "--command-injection",
+            help="Test for OS Command Injection vulnerabilities (uses config default if not set)",
+        ),
+    ] = None,
     all_attacks: Annotated[
         bool,
         typer.Option("--all", help="Run all attack types"),
@@ -117,6 +125,13 @@ def attack_cmd(
             "--payloads",
             "-p",
             help="Custom payloads file (JSON)",
+        ),
+    ] = None,
+    json_body: Annotated[
+        str | None,
+        typer.Option(
+            "--json-body",
+            help='JSON body template for POST/JSON testing (format: \'{"param": "value"}\')',
         ),
     ] = None,
     wordlist: Annotated[
@@ -229,16 +244,32 @@ def attack_cmd(
 
         # Enable all attacks if --all flag is used
         if all_attacks:
-            xss = sqli = traversal = enumeration = csrf = subdomain = True
+            xss = sqli = traversal = enumeration = csrf = subdomain = (
+                command_injection
+            ) = True
 
         # Validate at least one attack type is specified BEFORE config defaults are applied
-        if not any([xss, sqli, traversal, enumeration, csrf, subdomain]):
+        if not any(
+            [xss, sqli, traversal, enumeration, csrf, subdomain, command_injection]
+        ):
             print_error("No attack types selected")
             print_info(
-                "Use --xss, --sqli, --traversal, --enumeration, --csrf, --subdomain, or --all"
+                "Use --xss, --sqli, --traversal, --enumeration, --csrf, --subdomain, --command-injection, or --all"
             )
             print_info("Or enable attack types in your config.yaml (config.attack.*)")
             sys.exit(2)
+
+        # Parse JSON body template if provided
+        json_body_dict: dict[str, Any] | None = None
+        if json_body:
+            try:
+                parsed_body = json.loads(json_body)
+                if not isinstance(parsed_body, dict):
+                    raise ValueError("must be a JSON object")
+                json_body_dict = parsed_body
+            except (json.JSONDecodeError, ValueError) as e:
+                print_error(f"Invalid --json-body: {e}")
+                sys.exit(2)
 
         # Parse headers if provided
         headers_dict: dict[str, str] = {}
@@ -268,10 +299,12 @@ def attack_cmd(
             enumeration=enumeration,
             csrf=csrf,
             subdomain=subdomain,
+            command_injection=command_injection,
             intensity=intensity,
             max_payloads=max_payloads,
             custom_payloads_file=payloads,
             custom_wordlist=wordlist,
+            json_body=json_body_dict,
             timeout=timeout,
             headers=headers_dict,
             cookies=cookies_dict,
@@ -300,6 +333,8 @@ def attack_cmd(
                 attacks_list.append("CSRF")
             if subdomain:
                 attacks_list.append("Subdomain Enumeration")
+            if command_injection:
+                attacks_list.append("Command Injection")
 
             print_info(f"Attack Types: {', '.join(attacks_list)}")
             print_info(f"Intensity: {intensity.upper()}")
@@ -343,6 +378,11 @@ def attack_cmd(
                 if attack_result.subdomain_findings > 0:
                     print_subheader(
                         f"Subdomain Findings: {attack_result.subdomain_findings}"
+                    )
+                if attack_result.command_injection_findings > 0:
+                    print_subheader(
+                        f"Command Injection Findings: "
+                        f"{attack_result.command_injection_findings}"
                     )
 
                 # Display individual vulnerabilities

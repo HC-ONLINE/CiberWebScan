@@ -228,6 +228,14 @@ class AttackRequest(BaseModel):
         default=None,
         description="Enumerate active subdomains via DNS brute force (None uses config default)",
     )
+    command_injection: bool | None = Field(
+        default=None,
+        description="Test for OS command injection (None uses config default)",
+    )
+    json_body: dict[str, Any] | None = Field(
+        default=None,
+        description="JSON body template for POST/JSON injection testing",
+    )
     all_attacks: bool = Field(
         default=False,
         description="Enable all attack types",

@@ -175,6 +175,8 @@ ciberwebscan attack <URL> --consent [OPTIONS]
 - `--enumeration`: Test for Directory/File enumeration
 - `--csrf`: Test for CSRF (Cross-Site Request Forgery) vulnerabilities
 - `--subdomain`: Enumerate active subdomains via DNS brute force
+- `--command-injection`: Test for OS Command Injection vulnerabilities
+- `--json-body <JSON>`: JSON body template for POST/JSON testing (e.g. `'{"cmd": "id"}'`)
 - `--all`: Run all attack types
 - `--intensity, -i <LEVEL>`: Attack intensity: low, medium, high (default: medium)
 - `--max-payloads <NUMBER>`: Maximum payloads per attack (default: 50)
@@ -206,6 +208,8 @@ ciberwebscan attack https://example.com --consent --csrf
 # Subdomain enumeration (DNS brute force)
 ciberwebscan attack https://example.com --consent --subdomain
 
+# OS Command Injection over a JSON API endpoint
+ciberwebscan attack https://example.com/api/run --consent --command-injection --json-body '{"cmd": "id"}'
 
 # All attacks with low intensity
 ciberwebscan attack https://example.com --consent --all --intensity low
@@ -572,6 +576,7 @@ ciberwebscan attack https://testsite.com \
   --consent \
   --xss \
   --sqli \
+  --command-injection \
   --intensity low \
   --output vulnerabilities.json
 ```

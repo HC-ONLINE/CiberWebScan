@@ -48,6 +48,7 @@ async def attack_target(
         enumeration = True if request.all_attacks else request.enumeration
         csrf = True if request.all_attacks else request.csrf
         subdomain = True if request.all_attacks else request.subdomain
+        command_injection = True if request.all_attacks else request.command_injection
 
         options = AttackOptions(
             url=str(request.url),
@@ -58,6 +59,7 @@ async def attack_target(
             enumeration=enumeration,
             csrf=csrf,
             subdomain=subdomain,
+            command_injection=command_injection,
             intensity=request.intensity,
             max_payloads=request.max_payloads,
             timeout=request.timeout,
@@ -65,6 +67,7 @@ async def attack_target(
             concurrent_requests=request.concurrent_requests,
             custom_payloads_file=request.custom_payloads_file,
             custom_wordlist=request.custom_wordlist,
+            json_body=request.json_body,
             skip_dangerous_payloads=request.skip_dangerous_payloads,
             scope_urls=request.scope_urls,
             export=request.export,

@@ -20,7 +20,7 @@ CLI (Typer) / API (FastAPI)
         ↓
     Core Modules
     ├── analyzers/  (ssl, fingerprint, headers, cve)
-    ├── attacks/    (xss, sqli, traversal, enumeration, csrf, subdomain)
+    ├── attacks/    (xss, sqli, traversal, enumeration, csrf, subdomain, command_injection)
     ├── client/     (HTTPClient with retry/rate-limit, proxy, user-agent)
     └── scraping/   (static BeautifulSoup, dynamic Playwright)
         ↓
@@ -227,14 +227,15 @@ Dynamic mode requires: `playwright install` (first time)
 
 ## Attack Modules
 
-| Module      | File                          | Description                         |
-| ----------- | ----------------------------- | ----------------------------------- |
-| XSS         | `core/attacks/xss.py`         | Cross-site scripting detection      |
-| SQLi        | `core/attacks/sqli.py`        | SQL injection detection             |
-| Traversal   | `core/attacks/traversal.py`   | Path traversal detection            |
-| Enumeration | `core/attacks/enumeration.py` | Resource enumeration                |
-| CSRF        | `core/attacks/csrf.py`        | CSRF detection                      |
-| Subdomain   | `core/attacks/subdomain.py`   | DNS brute force subdomain discovery |
+| Module            | File                                | Description                                                                                                              |
+| ----------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| XSS               | `core/attacks/xss.py`               | Cross-site scripting detection                                                                                           |
+| SQLi              | `core/attacks/sqli.py`              | SQL injection detection                                                                                                  |
+| Traversal         | `core/attacks/traversal.py`         | Path traversal detection                                                                                                 |
+| Enumeration       | `core/attacks/enumeration.py`       | Resource enumeration                                                                                                     |
+| CSRF              | `core/attacks/csrf.py`              | CSRF detection                                                                                                           |
+| Subdomain         | `core/attacks/subdomain.py`         | DNS brute force subdomain discovery                                                                                      |
+| Command Injection | `core/attacks/command_injection.py` | OS command injection via GET, POST forms, and POST/JSON bodies (payload per parameter, echo-marker/time/error detection) |
 
 Base class in `core/attacks/base.py`, payloads in `core/attacks/attack_payloads.json` and `core/attacks/payloads.py`.
 
@@ -278,6 +279,7 @@ CIBERWEBSCAN_SCRAPING_DYNAMIC_ENABLED=false
 
 # Attacks
 CIBERWEBSCAN_ATTACKS_XSS_ENABLED=true
+CIBERWEBSCAN_ATTACK_COMMAND_INJECTION=false
 ```
 
 See `.env.example` for full list.
@@ -368,48 +370,48 @@ def test_analyze_route(mock_service_class):
 
 ## File Locations
 
-| Purpose             | Location                                                                                    |
-| ------------------- | ------------------------------------------------------------------------------------------- |
-| CLI entry point     | `src/ciberwebscan/cli/app.py`                                                               |
-| CLI commands        | `src/ciberwebscan/cli/commands/`                                                            |
-| CLI output helpers  | `src/ciberwebscan/cli/output.py`                                                            |
-| CLI validators      | `src/ciberwebscan/cli/validators.py`                                                        |
-| API app factory     | `src/ciberwebscan/api/app.py`                                                               |
-| API routes          | `src/ciberwebscan/api/routes/`                                                              |
-| API models          | `src/ciberwebscan/api/models/requests.py`, `responses.py`                                   |
-| API auth            | `src/ciberwebscan/api/auth.py`                                                              |
-| API middleware      | `src/ciberwebscan/api/middleware.py`                                                        |
-| API download helper | `src/ciberwebscan/api/helpers/download_helper.py`                                           |
-| Pydantic config     | `src/ciberwebscan/config/models.py`                                                         |
-| Config loader       | `src/ciberwebscan/config/loader.py`                                                         |
-| Service base        | `src/ciberwebscan/services/base.py`                                                         |
-| Services            | `src/ciberwebscan/services/` (analyze, attack, scrape, config, quick, download, cleanup)    |
-| SSL analyzer        | `src/ciberwebscan/core/analyzers/ssl/`                                                      |
-| Fingerprint         | `src/ciberwebscan/core/analyzers/fingerprint/` (includes `signatures.json`)                 |
-| Security headers    | `src/ciberwebscan/core/analyzers/headers/`                                                  |
-| CVE lookup          | `src/ciberwebscan/core/analyzers/cve/` (nvd, vulners, circl, aggregator)                    |
-| Attack modules      | `src/ciberwebscan/core/attacks/` (base, xss, sqli, traversal, enumeration, csrf, subdomain) |
-| Attack payloads     | `src/ciberwebscan/core/attacks/attack_payloads.json`, `payloads.py`                         |
-| HTTP client         | `src/ciberwebscan/core/client/http_client.py`                                               |
-| Proxy support       | `src/ciberwebscan/core/client/proxy.py`                                                     |
-| User agent          | `src/ciberwebscan/core/client/user_agent.py`                                                |
-| Static scraping     | `src/ciberwebscan/core/scraping/static.py`                                                  |
-| Dynamic scraping    | `src/ciberwebscan/core/scraping/dynamic.py`                                                 |
-| Export base         | `src/ciberwebscan/export/base.py`                                                           |
-| Export formats      | `src/ciberwebscan/export/` (json, jsonl, csv, html)                                         |
-| Export models       | `src/ciberwebscan/export/models.py`                                                         |
-| Logging setup       | `src/ciberwebscan/utils/logging.py`                                                         |
-| URL validators      | `src/ciberwebscan/utils/validators.py`                                                      |
-| Cleanup scheduler   | `src/ciberwebscan/services/cleanup_scheduler.py`                                            |
-| Example profiles    | `examples/profiles/` (bugbounty, pentest, recon, stealth)                                   |
-| Manual API tests    | `scripts/apiManualTest/`                                                                    |
-| Unit tests          | `tests/unit/`                                                                               |
-| Integration tests   | `tests/integration/`                                                                        |
-| Shared fixtures     | `tests/conftest.py`                                                                         |
-| GitHub Actions      | `.github/workflows/ci.yml`, `docker.yml`                                                    |
-| Pre-commit config   | `.pre-commit-config.yaml`                                                                   |
-| Dockerfile          | `Dockerfile`                                                                                |
-| Docs                | `docs/` (API.md, CLI.md, CONFIGURATION.md, CONTRIBUTING.md, etc.)                           |
+| Purpose             | Location                                                                                                       |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| CLI entry point     | `src/ciberwebscan/cli/app.py`                                                                                  |
+| CLI commands        | `src/ciberwebscan/cli/commands/`                                                                               |
+| CLI output helpers  | `src/ciberwebscan/cli/output.py`                                                                               |
+| CLI validators      | `src/ciberwebscan/cli/validators.py`                                                                           |
+| API app factory     | `src/ciberwebscan/api/app.py`                                                                                  |
+| API routes          | `src/ciberwebscan/api/routes/`                                                                                 |
+| API models          | `src/ciberwebscan/api/models/requests.py`, `responses.py`                                                      |
+| API auth            | `src/ciberwebscan/api/auth.py`                                                                                 |
+| API middleware      | `src/ciberwebscan/api/middleware.py`                                                                           |
+| API download helper | `src/ciberwebscan/api/helpers/download_helper.py`                                                              |
+| Pydantic config     | `src/ciberwebscan/config/models.py`                                                                            |
+| Config loader       | `src/ciberwebscan/config/loader.py`                                                                            |
+| Service base        | `src/ciberwebscan/services/base.py`                                                                            |
+| Services            | `src/ciberwebscan/services/` (analyze, attack, scrape, config, quick, download, cleanup)                       |
+| SSL analyzer        | `src/ciberwebscan/core/analyzers/ssl/`                                                                         |
+| Fingerprint         | `src/ciberwebscan/core/analyzers/fingerprint/` (includes `signatures.json`)                                    |
+| Security headers    | `src/ciberwebscan/core/analyzers/headers/`                                                                     |
+| CVE lookup          | `src/ciberwebscan/core/analyzers/cve/` (nvd, vulners, circl, aggregator)                                       |
+| Attack modules      | `src/ciberwebscan/core/attacks/` (base, xss, sqli, traversal, enumeration, csrf, subdomain, command_injection) |
+| Attack payloads     | `src/ciberwebscan/core/attacks/attack_payloads.json`, `payloads.py`                                            |
+| HTTP client         | `src/ciberwebscan/core/client/http_client.py`                                                                  |
+| Proxy support       | `src/ciberwebscan/core/client/proxy.py`                                                                        |
+| User agent          | `src/ciberwebscan/core/client/user_agent.py`                                                                   |
+| Static scraping     | `src/ciberwebscan/core/scraping/static.py`                                                                     |
+| Dynamic scraping    | `src/ciberwebscan/core/scraping/dynamic.py`                                                                    |
+| Export base         | `src/ciberwebscan/export/base.py`                                                                              |
+| Export formats      | `src/ciberwebscan/export/` (json, jsonl, csv, html)                                                            |
+| Export models       | `src/ciberwebscan/export/models.py`                                                                            |
+| Logging setup       | `src/ciberwebscan/utils/logging.py`                                                                            |
+| URL validators      | `src/ciberwebscan/utils/validators.py`                                                                         |
+| Cleanup scheduler   | `src/ciberwebscan/services/cleanup_scheduler.py`                                                               |
+| Example profiles    | `examples/profiles/` (bugbounty, pentest, recon, stealth)                                                      |
+| Manual API tests    | `scripts/apiManualTest/`                                                                                       |
+| Unit tests          | `tests/unit/`                                                                                                  |
+| Integration tests   | `tests/integration/`                                                                                           |
+| Shared fixtures     | `tests/conftest.py`                                                                                            |
+| GitHub Actions      | `.github/workflows/ci.yml`, `docker.yml`                                                                       |
+| Pre-commit config   | `.pre-commit-config.yaml`                                                                                      |
+| Dockerfile          | `Dockerfile`                                                                                                   |
+| Docs                | `docs/` (API.md, CLI.md, CONFIGURATION.md, CONTRIBUTING.md, etc.)                                              |
 
 ## Docker & CI/CD
 

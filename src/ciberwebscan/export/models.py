@@ -329,6 +329,7 @@ class AttackResult(BaseModel):
     enumeration_findings: int = 0
     csrf_findings: int = 0
     subdomain_findings: int = 0
+    command_injection_findings: int = 0
     duration_seconds: float = 0.0
 
 

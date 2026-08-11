@@ -59,6 +59,17 @@ class PayloadLoader:
             ],
             "enumeration": ["admin", "login", "dashboard", "backup", "config"],
             "subdomain": ["www", "mail", "admin", "api", "dev", "test", "ftp"],
+            "command_injection": [
+                ";id",
+                "|id",
+                "$(id)",
+                "`id`",
+                ";whoami",
+                "|whoami",
+                "%0awhoami%0a",
+                ";sleep 3",
+                "|echo cmditest;echo",
+            ],
         }
 
     def get_payloads(

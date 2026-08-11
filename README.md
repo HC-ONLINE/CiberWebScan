@@ -140,6 +140,9 @@ ciberwebscan attack --url https://testsite.example.com --enumeration
 
 # Subdomain enumeration (DNS brute force)
 ciberwebscan attack --url https://testsite.example.com --subdomain
+
+# OS command injection (GET params, POST forms, or JSON bodies)
+ciberwebscan attack --url https://testsite.example.com/api --command-injection --json-body '{"cmd": "id"}'
 ```
 
 #### Quick Scan (Combined)
