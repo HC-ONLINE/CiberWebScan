@@ -28,7 +28,7 @@ router = APIRouter()
 
 
 @router.post("/attack", response_model=APIResponse[AttackResult])
-async def attack_target(
+def attack_target(
     request: AttackRequest,
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],
 ) -> APIResponse[AttackResult]:
@@ -41,6 +41,10 @@ async def attack_target(
     Setting `user_consent=true` confirms that you have that permission.
     """
     try:
+        from ciberwebscan.config.loader import get_config as get_app_config
+
+        app_config = get_app_config()
+
         # Resolve individual attack flags; all_attacks overrides each one
         xss = True if request.all_attacks else request.xss
         sqli = True if request.all_attacks else request.sqli
@@ -53,6 +57,7 @@ async def attack_target(
         options = AttackOptions(
             url=str(request.url),
             user_consent=request.user_consent,
+            config=app_config.attack,
             xss=xss,
             sqli=sqli,
             traversal=traversal,
