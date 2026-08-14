@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.13.3](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.13.2...v2.13.3) (2026-08-14)
+
+
+### Bug Fixes
+
+* change attack_target to synchronous and add app config usage ([2dc041b](https://github.com/HC-ONLINE/CiberWebScan/commit/2dc041bd1911e99ecd5fcbc9bff5675c02fe6dae))
+
 ## [2.13.2](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.13.1...v2.13.2) (2026-08-11)
 
 
