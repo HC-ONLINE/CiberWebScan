@@ -31,6 +31,7 @@ requires-python = ">=3.10"
 # and the underlying scanning engine require these libraries.
 dependencies = [
     "beautifulsoup4==4.15.0",
+    "click==8.5.0",
     "httpx[http2]==0.28.1",
     "playwright==1.61.0",
     "lxml==6.1.1",
