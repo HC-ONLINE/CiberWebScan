@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.14.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.13.3...v2.14.0) (2026-08-31)
+
+
+### Features
+
+* add async runner utility for bridging sync and async contexts ([aa25bb3](https://github.com/HC-ONLINE/CiberWebScan/commit/aa25bb30373fbae83a0b0fd6e64aec91289fbe48))
+
+
+### Bug Fixes
+
+* replace direct asyncio calls with run_async utility in ScrapeService ([10104ec](https://github.com/HC-ONLINE/CiberWebScan/commit/10104ec6e459d12ed2a096251578c729a808fb4a))
+
 ## [2.13.3](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.13.2...v2.13.3) (2026-08-14)
 
 
