@@ -67,12 +67,18 @@ class TestCompletionHelpers:
         assert "complete" in script
         assert "ciberwebscan" in script
 
+    def test_get_completion_script_powershell(self):
+        """Test _get_completion_script returns powershell script."""
+        script = _get_completion_script(Shell.POWERSHELL)
+        assert "Register-ArgumentCompleter" in script
+        assert "ciberwebscan" in script
+
     def test_get_completion_script_unsupported(self):
         """Test _get_completion_script raises on unsupported shell."""
         import pytest
 
         with pytest.raises(ValueError, match="Unsupported shell"):
-            _get_completion_script("powershell")
+            _get_completion_script("cmd")
 
     def test_get_install_path_bash(self):
         """Test _get_install_path for bash."""
@@ -89,6 +95,11 @@ class TestCompletionHelpers:
         path = _get_install_path(Shell.FISH)
         assert "fish" in str(path)
 
+    def test_get_install_path_powershell(self):
+        """Test _get_install_path for powershell."""
+        path = _get_install_path(Shell.POWERSHELL)
+        assert "PowerShell" in str(path)
+
     def test_get_completion_filename_bash(self):
         """Test _get_completion_filename for bash."""
         assert _get_completion_filename(Shell.BASH) == "ciberwebscan.sh"
@@ -100,6 +111,10 @@ class TestCompletionHelpers:
     def test_get_completion_filename_fish(self):
         """Test _get_completion_filename for fish."""
         assert _get_completion_filename(Shell.FISH) == "ciberwebscan.fish"
+
+    def test_get_completion_filename_powershell(self):
+        """Test _get_completion_filename for powershell."""
+        assert _get_completion_filename(Shell.POWERSHELL) == "ciberwebscan.ps1"
 
     def test_write_completion_file_bash(self, tmp_path):
         """Test writing bash completion file."""
@@ -127,6 +142,15 @@ class TestCompletionHelpers:
         assert path.name == "ciberwebscan.fish"
         content = path.read_text()
         assert "complete" in content
+
+    def test_write_completion_file_powershell(self, tmp_path):
+        """Test writing powershell completion file."""
+        script = _get_completion_script(Shell.POWERSHELL)
+        path = _write_completion_file(Shell.POWERSHELL, script, tmp_path)
+        assert path.exists()
+        assert path.name == "ciberwebscan.ps1"
+        content = path.read_text()
+        assert "Register-ArgumentCompleter" in content
 
     def test_remove_completion_file_bash(self, tmp_path):
         """Test removing bash completion file."""
@@ -192,7 +216,7 @@ class TestCompletionCommands:
     @patch("ciberwebscan.cli.commands.completion._detect_shell")
     def test_completion_install_unsupported_shell(self, mock_detect):
         """Test completion install with unsupported shell."""
-        mock_detect.return_value = "powershell"
+        mock_detect.return_value = "cmd"
 
         result = runner.invoke(app, ["completion", "install"])
         assert result.exit_code == 1
