@@ -32,6 +32,7 @@ from ciberwebscan.services.base import (
     ServiceResult,
     ValidationError,
 )
+from ciberwebscan.utils.async_runner import run_async
 
 logger = logging.getLogger(__name__)
 
@@ -435,8 +436,6 @@ class ScrapeService(BaseService):
     def _scrape_dynamic(self, url: str, options: ScrapeOptions) -> ScrapeResult:
         """Perform dynamic scraping with browser."""
         try:
-            import asyncio
-
             from ciberwebscan.core.scraping import BrowserType, DynamicScrapeConfig
 
             dyn_cfg = self.config.dynamic
@@ -450,17 +449,8 @@ class ScrapeService(BaseService):
                 extract_forms=options.extract_forms,
             )
 
-            # Run the async scrape method in the current event loop
-            try:
-                loop = asyncio.get_running_loop()
-                # If we're already in an async context, we need to handle it properly
-                # For now, let's use a simpler approach and run it sync
-                core_result = loop.run_until_complete(
-                    self.dynamic_scraper.scrape(url, config)
-                )
-            except RuntimeError:
-                # No running loop - create one to run the coroutine
-                core_result = asyncio.run(self.dynamic_scraper.scrape(url, config))
+            # Run the async scrape method safely from sync context
+            core_result = run_async(self.dynamic_scraper.scrape(url, config))
 
             # dynamic scraper returns DynamicScrapeResult-like dataclass
             from ciberwebscan.export.models import (
@@ -541,7 +531,6 @@ class ScrapeService(BaseService):
 
     def close(self) -> None:
         """Clean up resources properly handling async/sync contexts."""
-        import asyncio
         import contextlib
 
         # 1. Close StaticScraper's HTTPClient
@@ -554,15 +543,8 @@ class ScrapeService(BaseService):
         # 2. Close DynamicScraper's Playwright browser (async)
         if self._dynamic_scraper:
             try:
-                # _close_browser is async - need to run it properly
                 coro = self._dynamic_scraper._close_browser()
-                try:
-                    loop = asyncio.get_running_loop()
-                    # Already in async context - schedule as task
-                    loop.create_task(coro)
-                except RuntimeError:
-                    # No running loop - create one to run the coroutine
-                    asyncio.run(coro)
+                run_async(coro)
             except Exception as e:
                 self.logger.warning(f"Failed to close dynamic scraper: {e}")
             finally:

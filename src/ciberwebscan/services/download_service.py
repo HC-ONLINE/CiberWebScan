@@ -8,7 +8,6 @@ of download tokens. Uses in-memory storage with asyncio locks.
 from __future__ import annotations
 
 import asyncio
-import concurrent.futures
 import uuid
 from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone
@@ -17,23 +16,7 @@ from pathlib import Path
 from ciberwebscan.api.models.responses import DownloadInfo, DownloadTokenResponse
 from ciberwebscan.config.loader import get_config
 from ciberwebscan.services.base import BaseService, ServiceResult
-
-
-def _run_async(coro):
-    """
-    Run async coroutine safely, handling both async and sync contexts
-    In async context (FastAPI): uses ThreadPoolExecutor to avoid event loop issues
-    In sync context: uses asyncio.run()
-    """
-    try:
-        asyncio.get_running_loop()
-        # We're in an async context, use thread executor
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future = executor.submit(lambda: asyncio.run(coro))
-            return future.result(timeout=30)
-    except RuntimeError:
-        # No event loop running, safe to use asyncio.run()
-        return asyncio.run(coro)
+from ciberwebscan.utils.async_runner import run_async
 
 
 class _DownloadRegistry:
@@ -171,7 +154,7 @@ class DownloadService(BaseService):
             )
 
             # Store token (async operation)
-            _run_async(_registry.store(token, info, file_data))
+            run_async(_registry.store(token, info, file_data))
 
             download_url = f"/api/v1/download/{token}"
             response = DownloadTokenResponse(
@@ -210,7 +193,7 @@ class DownloadService(BaseService):
             config = get_config()
 
             # Get token info
-            info = _run_async(_registry.get_info(token))
+            info = run_async(_registry.get_info(token))
 
             if info is None:
                 return ServiceResult(success=False, error="Token not found")
@@ -241,7 +224,7 @@ class DownloadService(BaseService):
                 )
 
             # Decrement attempts
-            still_valid = _run_async(_registry.update_attempts(token))
+            still_valid = run_async(_registry.update_attempts(token))
             if not still_valid:
                 return ServiceResult(
                     success=False,
@@ -275,7 +258,7 @@ class DownloadService(BaseService):
         """
         try:
             config = get_config()
-            file_data = _run_async(_registry.get_file_data(token))
+            file_data = run_async(_registry.get_file_data(token))
 
             if file_data is None:
                 return ServiceResult(
@@ -303,7 +286,7 @@ class DownloadService(BaseService):
             ServiceResult with count of tokens cleaned up
         """
         try:
-            count = _run_async(_registry.cleanup_expired())
+            count = run_async(_registry.cleanup_expired())
             if count > 0:
                 self.logger.info(f"Cleanup job: deleted {count} expired tokens")
             return ServiceResult(success=True, data=count)
@@ -322,7 +305,7 @@ class DownloadService(BaseService):
             ServiceResult with success status
         """
         try:
-            result = _run_async(_registry.delete(token))
+            result = run_async(_registry.delete(token))
             if result:
                 self.logger.info(f"Token deleted after successful download: {token}")
                 return ServiceResult(success=True, data=True)
