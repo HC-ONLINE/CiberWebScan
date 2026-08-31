@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.15.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.14.0...v2.15.0) (2026-08-31)
+
+
+### Features
+
+* add click dependency for improved CLI functionality ([b2b745d](https://github.com/HC-ONLINE/CiberWebScan/commit/b2b745d331b0c7cef9bd773466bce6753204843a))
+* add PowerShell support for shell completion ([4c97cb8](https://github.com/HC-ONLINE/CiberWebScan/commit/4c97cb8ddcec0fe35b0917f2a8bfca5a4bb6ec99))
+* update documentation to include PowerShell support for shell completion ([ef29f29](https://github.com/HC-ONLINE/CiberWebScan/commit/ef29f29d105dc6393d268b186a1321f638d2ba23))
+
+
+### Bug Fixes
+
+* add validation for supported shells in completion script generation ([1a3fad7](https://github.com/HC-ONLINE/CiberWebScan/commit/1a3fad7a4bc4613acf1f4214c0bb360d72f8f263))
+
 ## [2.14.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.13.3...v2.14.0) (2026-08-31)
 
 
