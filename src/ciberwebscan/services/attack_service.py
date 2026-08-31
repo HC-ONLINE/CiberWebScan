@@ -41,6 +41,7 @@ from ciberwebscan.services.base import (
     ServiceResult,
     ValidationError,
 )
+from ciberwebscan.utils.async_runner import run_async
 
 logger = logging.getLogger(__name__)
 
@@ -485,13 +486,10 @@ class AttackService(BaseService):
 
     def _execute_xss_attack(self, context: AttackContext) -> list[VulnerabilityFinding]:
         """Execute XSS attack simulation."""
-        import asyncio
-
         attacker = XSSAttacker()
 
         try:
-            # Run async attack in sync context
-            vulnerabilities = asyncio.run(attacker.execute(context))
+            vulnerabilities = run_async(attacker.execute(context))
             return vulnerabilities
         except Exception as e:
             self.logger.error(f"XSS attack failed: {e}")
@@ -501,12 +499,10 @@ class AttackService(BaseService):
         self, context: AttackContext
     ) -> list[VulnerabilityFinding]:
         """Execute SQL Injection attack simulation."""
-        import asyncio
-
         attacker = SQLiAttacker()
 
         try:
-            vulnerabilities = asyncio.run(attacker.execute(context))
+            vulnerabilities = run_async(attacker.execute(context))
             return vulnerabilities
         except Exception as e:
             self.logger.error(f"SQLi attack failed: {e}")
@@ -516,12 +512,10 @@ class AttackService(BaseService):
         self, context: AttackContext
     ) -> list[VulnerabilityFinding]:
         """Execute Path Traversal attack simulation."""
-        import asyncio
-
         attacker = PathTraversalAttacker()
 
         try:
-            vulnerabilities = asyncio.run(attacker.execute(context))
+            vulnerabilities = run_async(attacker.execute(context))
             return vulnerabilities
         except Exception as e:
             self.logger.error(f"Path Traversal attack failed: {e}")
@@ -531,14 +525,12 @@ class AttackService(BaseService):
         self, context: AttackContext, custom_wordlist: str | None = None
     ) -> list[VulnerabilityFinding]:
         """Execute Directory Enumeration attack simulation."""
-        import asyncio
-
         enumerator = DirectoryEnumerator()
 
         try:
             # If custom wordlist provided, could load it here
             # For now, using default payloads
-            vulnerabilities = asyncio.run(enumerator.execute(context))
+            vulnerabilities = run_async(enumerator.execute(context))
             return vulnerabilities
         except Exception as e:
             self.logger.error(f"Directory enumeration failed: {e}")
@@ -548,12 +540,10 @@ class AttackService(BaseService):
         self, context: AttackContext
     ) -> list[VulnerabilityFinding]:
         """Execute CSRF vulnerability analysis."""
-        import asyncio
-
         attacker = CSRFAttacker()
 
         try:
-            vulnerabilities = asyncio.run(attacker.execute(context))
+            vulnerabilities = run_async(attacker.execute(context))
             return vulnerabilities
         except Exception as e:
             self.logger.error(f"CSRF analysis failed: {e}")
@@ -563,12 +553,10 @@ class AttackService(BaseService):
         self, context: AttackContext, custom_wordlist: str | None = None
     ) -> list[VulnerabilityFinding]:
         """Execute subdomain enumeration."""
-        import asyncio
-
         enumerator = SubdomainEnumerator()
 
         try:
-            vulnerabilities = asyncio.run(
+            vulnerabilities = run_async(
                 enumerator.execute(context, custom_wordlist=custom_wordlist)
             )
             return vulnerabilities
@@ -580,12 +568,10 @@ class AttackService(BaseService):
         self, context: AttackContext
     ) -> list[VulnerabilityFinding]:
         """Execute command injection attack simulation."""
-        import asyncio
-
         attacker = CommandInjectionAttacker()
 
         try:
-            vulnerabilities = asyncio.run(attacker.execute(context))
+            vulnerabilities = run_async(attacker.execute(context))
             return vulnerabilities
         except Exception as e:
             self.logger.error(f"Command injection attack failed: {e}")
