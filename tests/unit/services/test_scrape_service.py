@@ -335,8 +335,9 @@ class TestScrapeDynamicConfigDefaults:
         mock_dsc.return_value = Mock()
         mock_bt.side_effect = lambda v: Mock(value=v)
 
-        with patch("asyncio.get_running_loop", side_effect=RuntimeError) and patch(
-            "asyncio.run", return_value=mock_result
+        with patch(
+            "ciberwebscan.services.scrape_service.run_async",
+            return_value=mock_result,
         ):
             scrape_service._scrape_dynamic("https://example.com", options)
 
