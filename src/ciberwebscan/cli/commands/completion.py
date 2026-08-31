@@ -49,6 +49,9 @@ def _detect_shell() -> str:
 
 def _get_completion_script(shell: str) -> str:
     """Generate the completion script using Click's internal engine."""
+    if shell not in SUPPORTED_SHELLS:
+        raise ValueError(f"Unsupported shell: {shell}")
+
     comp_cls = get_completion_class(shell)
 
     if not comp_cls:
