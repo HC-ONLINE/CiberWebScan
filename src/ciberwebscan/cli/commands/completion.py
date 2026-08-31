@@ -1,7 +1,7 @@
 """
 Completion command for CiberWebScan CLI.
 
-Manages shell completion installation for bash, zsh, and fish.
+Manages shell completion installation for bash, zsh, fish, and powershell.
 Uses Click's internal shell_completion module for script generation.
 """
 
@@ -31,9 +31,10 @@ class Shell(str):
     BASH = "bash"
     ZSH = "zsh"
     FISH = "fish"
+    POWERSHELL = "powershell"
 
 
-SUPPORTED_SHELLS = [Shell.BASH, Shell.ZSH, Shell.FISH]
+SUPPORTED_SHELLS = [Shell.BASH, Shell.ZSH, Shell.FISH, Shell.POWERSHELL]
 
 
 def _detect_shell() -> str:
@@ -49,6 +50,9 @@ def _detect_shell() -> str:
 
 def _get_completion_script(shell: str) -> str:
     """Generate the completion script using Click's internal engine."""
+    if shell not in SUPPORTED_SHELLS:
+        raise ValueError(f"Unsupported shell: {shell}")
+
     comp_cls = get_completion_class(shell)
 
     if not comp_cls:
@@ -76,6 +80,8 @@ def _get_install_path(shell: str) -> Path:
         return home / ".zsh" / "completions"
     elif shell == Shell.FISH:
         return home / ".config" / "fish" / "completions"
+    elif shell == Shell.POWERSHELL:
+        return home / "Documents" / "PowerShell" / "Modules"
     else:
         raise ValueError(f"Unsupported shell: {shell}")
 
@@ -88,6 +94,8 @@ def _get_completion_filename(shell: str) -> str:
         return f"_{PROG_NAME}"
     elif shell == Shell.FISH:
         return f"{PROG_NAME}.fish"
+    elif shell == Shell.POWERSHELL:
+        return f"{PROG_NAME}.ps1"
     else:
         raise ValueError(f"Unsupported shell: {shell}")
 
@@ -143,6 +151,7 @@ def completion_install(
         ciberwebscan completion install --shell zsh
         ciberwebscan completion install --shell bash
         ciberwebscan completion install --shell fish
+        ciberwebscan completion install --shell powershell
     """
     from ciberwebscan.cli.output import (
         print_error,
@@ -185,6 +194,9 @@ def completion_install(
             print_info("\nRestart your shell or run:")
             display_path = str(file_path).replace(home_str, "~")
             print_info(f"  source {display_path}")
+        elif shell == Shell.POWERSHELL:
+            print_info("\nAdd this to your PowerShell profile ($PROFILE):")
+            print_info(f"  . '{file_path}'")
 
     except PermissionError as err:
         print_error(f"Permission denied writing to {target_path}")
