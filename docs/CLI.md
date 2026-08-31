@@ -302,7 +302,7 @@ ciberwebscan api --reload
 
 ### Completion Command
 
-Manage shell completion for bash, zsh, and fish.
+Manage shell completion for bash, zsh, fish, and powershell.
 
 #### completion install
 
@@ -314,7 +314,7 @@ ciberwebscan completion install [OPTIONS]
 
 **Options:**
 
-- `--shell, -s <SHELL>`: Shell to install completion for (auto-detected if not specified). Options: bash, zsh, fish
+- `--shell, -s <SHELL>`: Shell to install completion for (auto-detected if not specified). Options: bash, zsh, fish, powershell
 
 **Examples:**
 
@@ -326,6 +326,7 @@ ciberwebscan completion install
 ciberwebscan completion install --shell zsh
 ciberwebscan completion install --shell bash
 ciberwebscan completion install --shell fish
+ciberwebscan completion install --shell powershell
 ```
 
 #### completion show
@@ -338,7 +339,7 @@ ciberwebscan completion show [OPTIONS]
 
 **Options:**
 
-- `--shell, -s <SHELL>`: Shell to show completion for (auto-detected if not specified). Options: bash, zsh, fish
+- `--shell, -s <SHELL>`: Shell to show completion for (auto-detected if not specified). Options: bash, zsh, fish, powershell
 
 **Examples:**
 
@@ -360,7 +361,7 @@ ciberwebscan completion uninstall [OPTIONS]
 
 **Options:**
 
-- `--shell, -s <SHELL>`: Shell to uninstall completion for (auto-detected if not specified). Options: bash, zsh, fish
+- `--shell, -s <SHELL>`: Shell to uninstall completion for (auto-detected if not specified). Options: bash, zsh, fish, powershell
 
 **Examples:**
 

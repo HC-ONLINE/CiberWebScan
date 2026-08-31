@@ -64,7 +64,7 @@ You should see the main help output with available commands.
 
 ### Shell Completion
 
-CiberWebScan supports shell completion for bash, zsh, and fish. After installation, enable it with:
+CiberWebScan supports shell completion for bash, zsh, fish, and powershell. After installation, enable it with:
 
 ```bash
 # Auto-detect your shell and install completion
@@ -74,6 +74,7 @@ ciberwebscan completion install
 ciberwebscan completion install --shell zsh
 ciberwebscan completion install --shell bash
 ciberwebscan completion install --shell fish
+ciberwebscan completion install --shell powershell
 ```
 
 The command will print post-installation instructions specific to your shell. See `ciberwebscan completion --help` for more options.
