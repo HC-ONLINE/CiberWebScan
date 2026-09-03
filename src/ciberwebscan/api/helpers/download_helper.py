@@ -1,12 +1,16 @@
 """
 Helper functions for download token generation in routes.
 
-Provides utility functions to enrich service results with download tokens.
+Provides utility functions to enrich service results with download tokens
+and generate correct download URLs via FastAPI's request.url_for().
 """
 
 from __future__ import annotations
 
 from typing import TypeVar
+from urllib.parse import urlparse
+
+from fastapi import Request
 
 from ciberwebscan.services.base import ServiceResult
 from ciberwebscan.services.download_service import DownloadService
@@ -18,24 +22,29 @@ def enrich_response_with_token(
     result: ServiceResult[T],
     user_id: str,
     download_service: DownloadService,
-) -> tuple[T | None, str | None]:
+    request: Request,
+) -> tuple[T | None, str | None, str | None]:
     """
     Intercept export_path from service result and generate download token.
 
     Safely extracts the file_path from the result and generates a download token.
     If no export_path exists or token generation fails, logs error but doesn't fail.
+    Generates the download URL using request.url_for() to ensure consistency
+    with the actual registered route.
 
     Args:
         result: ServiceResult from analysis/attack/scrape service
         user_id: ID of user who made the request
         download_service: DownloadService instance
+        request: FastAPI Request object for URL generation
 
     Returns:
-        Tuple of (data, download_token) where token is None if not generated
+        Tuple of (data, download_token, download_url) where token and url
+        are None if not generated
     """
     # If no export_path, return data without token
     if result.export_path is None:
-        return result.data, None
+        return result.data, None, None
 
     # Generate token from the exported file
     token_result = download_service.generate_download_token(
@@ -49,6 +58,9 @@ def enrich_response_with_token(
         download_service.logger.warning(
             f"Failed to generate download token: {token_result.error}"
         )
-        return result.data, None
+        return result.data, None, None
 
-    return result.data, token_result.data.token
+    token = token_result.data.token
+    download_url = urlparse(str(request.url_for("download_file", token=token))).path
+
+    return result.data, token, download_url
