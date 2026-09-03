@@ -63,7 +63,6 @@ class TestGenerateDownloadToken:
         assert isinstance(result.data, DownloadTokenResponse)
         assert result.data.token is not None
         assert len(result.data.token) == 36  # UUID v4 length
-        assert result.data.download_url == f"/api/v1/download/{result.data.token}"
         assert result.data.expires_at > datetime.now(timezone.utc)
 
     def test_generate_token_file_not_found(self, service: DownloadService):

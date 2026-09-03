@@ -7,8 +7,9 @@ from __future__ import annotations
 import logging
 import uuid
 from typing import Annotated, Any
+from urllib.parse import urlparse
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import ValidationError
 
 from ciberwebscan.api.auth import AuthenticatedUser, get_current_user
@@ -30,6 +31,7 @@ router = APIRouter()
 @router.post("/scrape", response_model=APIResponse[ScrapeResult | list[dict[str, Any]]])
 async def scrape_url(
     request: ScrapeRequest,
+    http_request: Request,
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],
 ) -> APIResponse[ScrapeResult | list[dict[str, Any]]]:
     """
@@ -76,10 +78,9 @@ async def scrape_url(
 
         # Enrich response with download token
         download_service = DownloadService()
-        data, download_token = enrich_response_with_token(
-            result, user.identifier, download_service
+        data, download_token, download_url = enrich_response_with_token(
+            result, user.identifier, download_service, http_request
         )
-        download_url = f"/api/v1/download/{download_token}" if download_token else None
 
         return APIResponse[ScrapeResult | list[dict[str, Any]]](
             success=True,
@@ -105,6 +106,7 @@ async def scrape_url(
 @router.post("/scrape/batch", response_model=APIResponse[ScrapeBatchResultResponse])
 async def scrape_batch(
     request: ScrapeBatchRequest,
+    http_request: Request,
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],
 ) -> APIResponse[ScrapeBatchResultResponse]:
     """
@@ -174,7 +176,9 @@ async def scrape_batch(
             )
             if token_result.success and token_result.data:
                 download_token = token_result.data.token
-                download_url = token_result.data.download_url
+                download_url = urlparse(
+                    str(http_request.url_for("download_file", token=download_token))
+                ).path
 
         return APIResponse[ScrapeBatchResultResponse](
             success=True,

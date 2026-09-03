@@ -113,7 +113,7 @@ class DownloadService(BaseService):
             file_format: Format of the exported file (json/jsonl/csv)
 
         Returns:
-            ServiceResult with DownloadTokenResponse containing token and URL
+            ServiceResult with DownloadTokenResponse containing token and expiration
         """
         try:
             config = get_config()
@@ -156,11 +156,9 @@ class DownloadService(BaseService):
             # Store token (async operation)
             run_async(_registry.store(token, info, file_data))
 
-            download_url = f"/api/v1/download/{token}"
             response = DownloadTokenResponse(
                 token=token,
                 expires_at=expires_at,
-                download_url=download_url,
             )
 
             self.logger.info(
