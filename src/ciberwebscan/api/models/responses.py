@@ -251,7 +251,6 @@ class DownloadTokenResponse(BaseModel):
 
     token: str = Field(..., description="Unique download token")
     expires_at: datetime = Field(..., description="Token expiration timestamp")
-    download_url: str = Field(..., description="URL to download the file")
 
 
 class DownloadInfo(BaseModel):
