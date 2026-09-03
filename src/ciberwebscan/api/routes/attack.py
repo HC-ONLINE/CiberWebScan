@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import ValidationError
 
 from ciberwebscan.api.auth import AuthenticatedUser, get_current_user
@@ -30,6 +30,7 @@ router = APIRouter()
 @router.post("/attack", response_model=APIResponse[AttackResult])
 def attack_target(
     request: AttackRequest,
+    http_request: Request,
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],
 ) -> APIResponse[AttackResult]:
     """
@@ -95,10 +96,9 @@ def attack_target(
 
         # Enrich response with download token
         download_service = DownloadService()
-        data, download_token = enrich_response_with_token(
-            result, user.identifier, download_service
+        data, download_token, download_url = enrich_response_with_token(
+            result, user.identifier, download_service, http_request
         )
-        download_url = f"/api/v1/download/{download_token}" if download_token else None
 
         return APIResponse[AttackResult](
             success=True,
