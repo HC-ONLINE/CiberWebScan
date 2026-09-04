@@ -609,12 +609,12 @@ class AttackService(BaseService):
                     format=options.export_format,
                 )
 
-            result.exported = exported
-            result.export_path = final_path
-            result.export_format = options.export_format
+                result.exported = exported
+                result.export_path = final_path
+                result.export_format = options.export_format
 
-            if exported:
-                self.logger.info(f"Attack results exported to: {final_path}")
+                if exported:
+                    self.logger.info(f"Attack results exported to: {final_path}")
 
         except Exception as e:
             self.logger.warning(f"Export failed: {e}")
