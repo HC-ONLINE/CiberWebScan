@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.15.2](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.15.1...v2.15.2) (2026-09-04)
+
+
+### Bug Fixes
+
+* prevent potential UnboundLocalError in _export_attack_result ([caebd97](https://github.com/HC-ONLINE/CiberWebScan/commit/caebd97f2049d9fa5ccfe131682b545a586b7230))
+
 ## [2.15.1](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.15.0...v2.15.1) (2026-09-03)
 
 
