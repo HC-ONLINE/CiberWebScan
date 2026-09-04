@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.15.1](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.15.0...v2.15.1) (2026-09-03)
+
+
+### Bug Fixes
+
+* add http_request parameter to enrich_response_with_token in analyze, attack, and scrape endpoints ([fed166f](https://github.com/HC-ONLINE/CiberWebScan/commit/fed166f5c4a64d55fe20af706b5d21b3b82fb4bf))
+* correct download URL generation to use actual registered route ([edc5a3a](https://github.com/HC-ONLINE/CiberWebScan/commit/edc5a3af4f77fe11218d7f26bfce4c97037a100b))
+* remove incorrect download_url field from DownloadTokenResponse model ([91f0f5a](https://github.com/HC-ONLINE/CiberWebScan/commit/91f0f5a34916fabce2139cfb0aa9da0386ade261))
+* update DownloadTokenResponse to remove download_url and clarify expiration ([a0e2a38](https://github.com/HC-ONLINE/CiberWebScan/commit/a0e2a38306fc1f5a523b1d7a95cfabdcd9c1567e))
+* update enrich_response_with_token to include download_url generation ([48a8e60](https://github.com/HC-ONLINE/CiberWebScan/commit/48a8e6002774057dc2281776f64ffc84e8694cc7))
+
 ## [2.15.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.14.0...v2.15.0) (2026-08-31)
 
 
