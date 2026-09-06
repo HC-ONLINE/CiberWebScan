@@ -75,5 +75,17 @@ export:
   streaming: true
   pretty: true
 
+# CORS: permitir solo el dashboard del programa de bug bounty
+api:
+  cors_origins:
+    - "https://bugbounty-dashboard.example.com"
+  cors_allow_credentials: true
+  cors_allow_methods:
+    - "GET"
+    - "POST"
+  cors_allow_headers:
+    - "Authorization"
+    - "X-API-Key"
+
 logging:
   level: INFO

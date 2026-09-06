@@ -73,6 +73,11 @@ Examples that work out of the box:
 - `CIBERWEBSCAN_ANALYSIS_CVE_NVD_API_KEY` → `analysis.cve.nvd_api_key`
 - `CIBERWEBSCAN_CACHE_MAX_SIZE_MB` → `cache.max_size_mb`
 - `CIBERWEBSCAN_API_RATE_LIMIT_REQUESTS_PER_MINUTE` → `api.rate_limit.requests_per_minute`
+- `CIBERWEBSCAN_API_CORS_ORIGINS` → `api.cors_origins`
+- `CIBERWEBSCAN_API_CORS_ALLOW_CREDENTIALS` → `api.cors_allow_credentials`
+- `CIBERWEBSCAN_API_CORS_ALLOW_METHODS` → `api.cors_allow_methods`
+- `CIBERWEBSCAN_API_CORS_ALLOW_HEADERS` → `api.cors_allow_headers`
+- `CIBERWEBSCAN_API_CORS_EXPOSE_HEADERS` → `api.cors_expose_headers`
 - `NVD_API_KEY`, `VULNERS_API_KEY` (read directly by CVE clients)
 
 Not supported (and why):
@@ -131,6 +136,13 @@ http:
 scraping:
   dynamic:
     headless: false
+
+api:
+  auth:
+    api_keys: "my-api-key-1,my-api-key-2"
+  cors_origins:
+    - "http://localhost:3000"
+  cors_allow_credentials: true
 ```
 
 ## Configuration Sections
@@ -477,7 +489,7 @@ Configure caching behavior.
 
 ### API
 
-Configure the FastAPI server and authentication settings.
+Configure the FastAPI server, authentication, and CORS settings.
 
 ```json
 {
@@ -491,23 +503,68 @@ Configure the FastAPI server and authentication settings.
       "enabled": true,
       "requests_per_minute": 60
     },
-    "cors_origins": ["*"]
+    "cors_origins": ["http://localhost:3000"],
+    "cors_allow_credentials": true,
+    "cors_allow_methods": ["GET", "POST", "PUT", "DELETE", "PATCH"],
+    "cors_allow_headers": ["Authorization", "Content-Type", "X-API-Key"],
+    "cors_expose_headers": []
   }
 }
 ```
 
 #### Default values (quick reference)
 
-| Key                                  |   Default | Description                               |
-| ------------------------------------ | --------: | ----------------------------------------- |
-| `api.host`                           | `0.0.0.0` | API server bind address                   |
-| `api.port`                           |    `8000` | API server port (1-65535)                 |
-| `api.auth.api_keys`                  |      `[]` | List of valid API keys for authentication |
-| `api.rate_limit.enabled`             |    `true` | Rate limiting enabled by default          |
-| `api.rate_limit.requests_per_minute` |      `60` | Max requests per minute (1-10000)         |
-| `api.cors_origins`                   |   `["*"]` | CORS allowed origins                      |
+| Key                                  |   Default | Description                                    |
+| ------------------------------------ | --------: | ---------------------------------------------- |
+| `api.host`                           | `0.0.0.0` | API server bind address                        |
+| `api.port`                           |    `8000` | API server port (1-65535)                      |
+| `api.auth.api_keys`                  |      `[]` | List of valid API keys for authentication      |
+| `api.rate_limit.enabled`             |    `true` | Rate limiting enabled by default               |
+| `api.rate_limit.requests_per_minute` |      `60` | Max requests per minute (1-10000)              |
+| `api.cors_origins`                   |      `[]` | Allowed CORS origins (empty = no cross-origin) |
+| `api.cors_allow_credentials`         |   `false` | Allow credentials in cross-origin requests     |
+| `api.cors_allow_methods`             | see below | HTTP methods allowed for CORS                  |
+| `api.cors_allow_headers`             | see below | HTTP headers allowed for CORS                  |
+| `api.cors_expose_headers`            |      `[]` | Headers to expose to the browser               |
 
-> Note: Use specific domains in cors_origins for production environments to improve security.
+**Default `cors_allow_methods`:** `["GET", "POST", "PUT", "DELETE", "PATCH"]`
+
+**Default `cors_allow_headers`:** `["Authorization", "Content-Type", "X-API-Key"]`
+
+#### CORS Security
+
+CORS (Cross-Origin Resource Sharing) controls which domains can access your API from a browser. The defaults are **secure by default**:
+
+- `cors_origins: []` — No cross-origin requests allowed (browser blocks them)
+- `cors_allow_credentials: false` — Credentials not sent cross-origin
+- Only explicitly listed origins can make credentialed requests
+
+**Production example** — allow only your frontend domain:
+
+```yaml
+api:
+  cors_origins:
+    - "https://app.example.com"
+  cors_allow_credentials: true
+  cors_allow_methods:
+    - "GET"
+    - "POST"
+  cors_allow_headers:
+    - "Authorization"
+    - "X-API-Key"
+```
+
+**Development example** — allow local dev servers:
+
+```yaml
+api:
+  cors_origins:
+    - "http://localhost:3000"
+    - "http://localhost:5173"
+  cors_allow_credentials: true
+```
+
+**Warning:** Using `cors_origins: ["*"]` with `cors_allow_credentials: true` is invalid per the CORS specification — browsers will reject the response. Use specific origins instead.
 
 ### Logging
 
@@ -619,19 +676,20 @@ ciberwebscan config reset -y
 
 ### Profile Comparison
 
-| Feature           | bugbounty | pentest   | recon     | stealth   |
-| ----------------- | --------- | --------- | --------- | --------- |
-| Rate Limit        | 2.0 req/s | 5.0 req/s | 3.0 req/s | 0.5 req/s |
-| Adaptive AIMD     | Yes       | Yes       | Yes       | Yes       |
-| CVE Lookup        | Yes       | Yes       | No        | No        |
-| XSS/SQLi          | Yes       | Yes       | No        | No        |
-| CSRF              | Yes       | Yes       | No        | No        |
-| Traversal         | No        | Yes       | No        | No        |
-| Enumeration       | No        | Yes       | No        | No        |
-| Command Injection | No        | Yes       | No        | No        |
-| Dynamic Scraping  | No        | Yes       | No        | No        |
-| DNS Fingerprint   | No        | Yes       | No        | No        |
-| Log Level         | INFO      | DEBUG     | INFO      | WARNING   |
+| Feature           | bugbounty       | pentest         | recon     | stealth   |
+| ----------------- | --------------- | --------------- | --------- | --------- |
+| Rate Limit        | 2.0 req/s       | 5.0 req/s       | 3.0 req/s | 0.5 req/s |
+| Adaptive AIMD     | Yes             | Yes             | Yes       | Yes       |
+| CVE Lookup        | Yes             | Yes             | No        | No        |
+| XSS/SQLi          | Yes             | Yes             | No        | No        |
+| CSRF              | Yes             | Yes             | No        | No        |
+| Traversal         | No              | Yes             | No        | No        |
+| Enumeration       | No              | Yes             | No        | No        |
+| Command Injection | No              | Yes             | No        | No        |
+| Dynamic Scraping  | No              | Yes             | No        | No        |
+| DNS Fingerprint   | No              | Yes             | No        | No        |
+| CORS Origins      | explicit domain | explicit domain | [] (none) | [] (none) |
+| Log Level         | INFO            | DEBUG           | INFO      | WARNING   |
 
 ### Creating Custom Profiles
 

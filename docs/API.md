@@ -611,7 +611,31 @@ curl -H "X-API-Key: your-key" \
 
 ### Authentication
 
-#### GET /api/auth/me
+The API uses API key authentication via the `X-API-Key` header.
+
+#### Setting up API keys
+
+API keys can be configured via the config file or environment variables:
+
+**Config file (`~/.ciberwebscan/config.yaml`):**
+
+```yaml
+api:
+  auth:
+    api_keys:
+      - "my-secret-key-1"
+      - "my-secret-key-2"
+```
+
+**Environment variable:**
+
+```bash
+CIBERWEBSCAN_API_AUTH_API_KEYS="my-secret-key-1,my-secret-key-2"
+```
+
+#### Auth endpoints
+
+##### GET /api/auth/me
 
 Get information about the current authenticated user.
 
@@ -827,6 +851,10 @@ CIBERWEBSCAN_API_RATE_LIMIT_REQUESTS_PER_MINUTE=60
 
 # CORS
 CIBERWEBSCAN_API_CORS_ORIGINS="http://localhost:3000,https://example.com"
+CIBERWEBSCAN_API_CORS_ALLOW_CREDENTIALS=true
+CIBERWEBSCAN_API_CORS_ALLOW_METHODS="GET,POST"
+CIBERWEBSCAN_API_CORS_ALLOW_HEADERS="Authorization,Content-Type,X-API-Key"
+CIBERWEBSCAN_API_CORS_EXPOSE_HEADERS="X-Custom-Header"
 
 # Downloads
 CIBERWEBSCAN_DOWNLOAD_ENABLED=true
@@ -845,12 +873,43 @@ The API includes rate limiting to prevent abuse:
 
 ### CORS
 
-Cross-Origin Resource Sharing is configured for:
+Cross-Origin Resource Sharing is fully configurable via `config.yaml` or environment variables:
 
-- Origins: Configurable via environment variable
-- Credentials: Enabled
-- Methods: All (GET, POST, PUT, DELETE, etc.)
-- Headers: All
+| Setting                  | Default                                  | Description                               |
+| ------------------------ | ---------------------------------------- | ----------------------------------------- |
+| `cors_origins`           | `[]`                                     | Allowed origins (empty = no cross-origin) |
+| `cors_allow_credentials` | `false`                                  | Allow credentials (API keys, cookies)     |
+| `cors_allow_methods`     | `GET, POST, PUT, DELETE, PATCH`          | Allowed HTTP methods                      |
+| `cors_allow_headers`     | `Authorization, Content-Type, X-API-Key` | Allowed headers                           |
+| `cors_expose_headers`    | `[]`                                     | Headers exposed to the browser            |
+
+**Example — allow only your frontend:**
+
+```yaml
+# config.yaml
+api:
+  cors_origins:
+    - "https://app.example.com"
+  cors_allow_credentials: true
+  cors_allow_methods:
+    - "GET"
+    - "POST"
+  cors_allow_headers:
+    - "Authorization"
+    - "X-API-Key"
+```
+
+```bash
+# Or via environment variables
+CIBERWEBSCAN_API_CORS_ORIGINS="https://app.example.com"
+CIBERWEBSCAN_API_CORS_ALLOW_CREDENTIALS=true
+```
+
+**Security notes:**
+
+- Default `cors_origins: []` blocks all cross-origin requests (secure by default)
+- `["*"]` with `credentials: true` is rejected by browsers (CORS spec violation)
+- Use specific production domains, not wildcards
 
 ## API Documentation
 
