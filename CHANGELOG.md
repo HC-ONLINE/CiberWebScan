@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.16.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.15.2...v2.16.0) (2026-09-06)
+
+
+### Features
+
+* add configurable CORS settings to APIConfig ([0494e7e](https://github.com/HC-ONLINE/CiberWebScan/commit/0494e7ea2e5d96ad8672d8562a5c03f7586c680e))
+* enhance CORS configuration with customizable options ([2313848](https://github.com/HC-ONLINE/CiberWebScan/commit/2313848cd24bdd30e40771afe8a21d8cac5b39b3))
+* enhance CORS configuration with detailed setup instructions and examples ([521da13](https://github.com/HC-ONLINE/CiberWebScan/commit/521da13ac7e5a00292555e6098dfa0fa73610d73))
+
 ## [2.15.2](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.15.1...v2.15.2) (2026-09-04)
 
 
