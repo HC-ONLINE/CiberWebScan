@@ -25,6 +25,7 @@ from ciberwebscan.cli.validators import (
     ValidationError,
     validate_file_path,
 )
+from ciberwebscan.services.config_service import is_sensitive_key
 
 config = typer.Typer(
     name="config",
@@ -125,7 +126,8 @@ def config_get(
         else:
             if result.success and result.data:
                 cv = result.data
-                print_key_value(cv.key, cv.value)
+                display_value = "***" if is_sensitive_key(cv.key) else cv.value
+                print_key_value(cv.key, display_value)
                 print_info(f"  (default: {cv.default}, source: {cv.source})")
             exit_code = format_service_result(result, json_output=False)
 
@@ -192,7 +194,8 @@ def config_set(
             print_error(result.error or "Unknown error")
             sys.exit(1)
 
-        print_success(f"Set {key} = {parsed_value}")
+        display_val = "***" if is_sensitive_key(key) else parsed_value
+        print_success(f"Set {key} = {display_val}")
 
         # Save to file if requested
         if save_config:
