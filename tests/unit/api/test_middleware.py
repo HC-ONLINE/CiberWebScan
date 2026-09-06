@@ -1,7 +1,7 @@
 """
 Tests for API middleware.
 
-Tests for RequestLoggingMiddleware and RateLimitingMiddleware.
+Tests for RequestLoggingMiddleware, RateLimitingMiddleware, and CORS configuration.
 """
 
 from __future__ import annotations
@@ -10,6 +10,7 @@ import logging
 
 import pytest
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.testclient import TestClient
 
 from ciberwebscan.api.middleware import (
@@ -17,6 +18,7 @@ from ciberwebscan.api.middleware import (
     add_rate_limiting_middleware,
     add_request_logging_middleware,
 )
+from ciberwebscan.config.models import APIConfig
 
 # =============================================================================
 # Fixtures
@@ -450,3 +452,108 @@ class TestEdgeCases:
         # Whitespace-only X-Forwarded-For should fall back to client IP
         response = client.get("/test", headers={"X-Forwarded-For": "   "})
         assert response.status_code == 200
+
+
+# =============================================================================
+# CORS Middleware Configuration Tests
+# =============================================================================
+
+
+class TestCORSConfiguration:
+    """Tests for CORS middleware configuration from APIConfig."""
+
+    def _find_cors_kwargs(self, app: FastAPI) -> dict | None:
+        """Find CORSMiddleware kwargs in user_middleware."""
+        for mw in app.user_middleware:
+            if mw.cls is CORSMiddleware:
+                return mw.kwargs
+        return None
+
+    def test_cors_middleware_added(self):
+        """Test that CORS middleware is added to the app."""
+        from ciberwebscan.api.app import create_app
+
+        app = create_app()
+        cors_kwargs = self._find_cors_kwargs(app)
+        assert cors_kwargs is not None
+
+    def test_cors_origins_applied(self):
+        """Test that configured CORS origins are applied to middleware."""
+        from unittest.mock import patch
+
+        from ciberwebscan.config.models import AppConfig
+
+        config = AppConfig(
+            api=APIConfig(
+                cors_origins=["http://localhost:3000", "https://example.com"],
+                cors_allow_credentials=True,
+            ),
+        )
+        with patch("ciberwebscan.api.app.get_config", return_value=config):
+            from ciberwebscan.api import app as app_module
+
+            test_app = app_module.create_app()
+            cors_kwargs = self._find_cors_kwargs(test_app)
+            assert cors_kwargs is not None
+            assert "http://localhost:3000" in cors_kwargs["allow_origins"]
+            assert "https://example.com" in cors_kwargs["allow_origins"]
+
+    def test_cors_empty_origins_fallback(self):
+        """Test that empty cors_origins results in ['*'] in middleware."""
+        from unittest.mock import patch
+
+        from ciberwebscan.config.models import AppConfig
+
+        config = AppConfig(api=APIConfig(cors_origins=[]))
+        with patch("ciberwebscan.api.app.get_config", return_value=config):
+            from ciberwebscan.api import app as app_module
+
+            test_app = app_module.create_app()
+            cors_kwargs = self._find_cors_kwargs(test_app)
+            assert cors_kwargs is not None
+            assert cors_kwargs["allow_origins"] == ["*"]
+
+    def test_cors_credentials_disabled_by_default(self):
+        """Test that credentials are disabled by default."""
+        from unittest.mock import patch
+
+        from ciberwebscan.config.models import AppConfig
+
+        config = AppConfig(api=APIConfig())
+        with patch("ciberwebscan.api.app.get_config", return_value=config):
+            from ciberwebscan.api import app as app_module
+
+            test_app = app_module.create_app()
+            cors_kwargs = self._find_cors_kwargs(test_app)
+            assert cors_kwargs is not None
+            assert cors_kwargs["allow_credentials"] is False
+
+    def test_cors_methods_not_wildcard_by_default(self):
+        """Test that methods are not wildcard by default."""
+        from unittest.mock import patch
+
+        from ciberwebscan.config.models import AppConfig
+
+        config = AppConfig(api=APIConfig())
+        with patch("ciberwebscan.api.app.get_config", return_value=config):
+            from ciberwebscan.api import app as app_module
+
+            test_app = app_module.create_app()
+            cors_kwargs = self._find_cors_kwargs(test_app)
+            assert cors_kwargs is not None
+            assert "*" not in cors_kwargs["allow_methods"]
+
+    def test_cors_headers_not_wildcard_by_default(self):
+        """Test that headers are not wildcard by default."""
+        from unittest.mock import patch
+
+        from ciberwebscan.config.models import AppConfig
+
+        config = AppConfig(api=APIConfig())
+        with patch("ciberwebscan.api.app.get_config", return_value=config):
+            from ciberwebscan.api import app as app_module
+
+            test_app = app_module.create_app()
+            cors_kwargs = self._find_cors_kwargs(test_app)
+            assert cors_kwargs is not None
+            assert "*" not in cors_kwargs["allow_headers"]

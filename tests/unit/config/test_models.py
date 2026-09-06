@@ -1,12 +1,17 @@
 """
 Unit tests for configuration models — proxy rotation fields, retry config,
-and rate limit config.
+rate limit config, and CORS config.
 """
 
 import pytest
 from pydantic import ValidationError
 
-from ciberwebscan.config.models import ProxyConfig, RateLimitConfig, RetryConfig
+from ciberwebscan.config.models import (
+    APIConfig,
+    ProxyConfig,
+    RateLimitConfig,
+    RetryConfig,
+)
 
 
 class TestRetryConfig:
@@ -132,3 +137,67 @@ class TestProxyConfigProxyList:
         """rotation_interval < 1 should be rejected by Pydantic."""
         with pytest.raises(ValidationError):
             ProxyConfig(rotation_interval=0)
+
+
+# =============================================================================
+# APIConfig CORS Tests
+# =============================================================================
+
+
+class TestAPIConfigCORS:
+    """Tests for APIConfig CORS fields and validators."""
+
+    def test_cors_defaults_are_secure(self):
+        """Default CORS config should be secure by default."""
+        cfg = APIConfig()
+        assert cfg.cors_origins == []
+        assert cfg.cors_allow_credentials is False
+        assert cfg.cors_allow_methods == ["GET", "POST", "PUT", "DELETE", "PATCH"]
+        assert cfg.cors_allow_headers == ["Authorization", "Content-Type", "X-API-Key"]
+        assert cfg.cors_expose_headers == []
+
+    def test_cors_origins_from_list(self):
+        """CORS origins should accept a list."""
+        cfg = APIConfig(cors_origins=["http://localhost:3000", "https://example.com"])
+        assert cfg.cors_origins == ["http://localhost:3000", "https://example.com"]
+
+    def test_cors_origins_from_string(self):
+        """CORS origins should parse comma-separated string."""
+        cfg = APIConfig(cors_origins="http://localhost:3000, https://example.com")
+        assert cfg.cors_origins == ["http://localhost:3000", "https://example.com"]
+
+    def test_cors_methods_from_list(self):
+        """CORS methods should accept a list."""
+        cfg = APIConfig(cors_allow_methods=["GET", "POST"])
+        assert cfg.cors_allow_methods == ["GET", "POST"]
+
+    def test_cors_methods_from_string(self):
+        """CORS methods should parse comma-separated string."""
+        cfg = APIConfig(cors_allow_methods="get, post, options")
+        assert cfg.cors_allow_methods == ["GET", "POST", "OPTIONS"]
+
+    def test_cors_headers_from_list(self):
+        """CORS headers should accept a list."""
+        cfg = APIConfig(cors_allow_headers=["Authorization"])
+        assert cfg.cors_allow_headers == ["Authorization"]
+
+    def test_cors_headers_from_string(self):
+        """CORS headers should parse comma-separated string."""
+        cfg = APIConfig(cors_allow_headers="Authorization, X-Custom")
+        assert cfg.cors_allow_headers == ["Authorization", "X-Custom"]
+
+    def test_cors_expose_headers_from_string(self):
+        """CORS expose headers should parse comma-separated string."""
+        cfg = APIConfig(cors_expose_headers="X-Total-Count, X-Page")
+        assert cfg.cors_expose_headers == ["X-Total-Count", "X-Page"]
+
+    def test_cors_credentials_true(self):
+        """CORS credentials should be configurable."""
+        cfg = APIConfig(cors_allow_credentials=True)
+        assert cfg.cors_allow_credentials is True
+
+    def test_cors_empty_origins_with_credentials(self):
+        """Empty origins with credentials should be allowed (middleware handles it)."""
+        cfg = APIConfig(cors_origins=[], cors_allow_credentials=True)
+        assert cfg.cors_origins == []
+        assert cfg.cors_allow_credentials is True
