@@ -566,6 +566,23 @@ api:
 
 **Warning:** Using `cors_origins: ["*"]` with `cors_allow_credentials: true` is invalid per the CORS specification — browsers will reject the response. Use specific origins instead.
 
+#### Sensitive Data Masking
+
+The following configuration fields contain secrets and are **automatically masked** (`"***"`) when read through the API (`GET /api/config`, `GET /api/config/sections/{section}`, `GET /api/config/value`) or the CLI (`ciberwebscan config show`, `ciberwebscan config get`):
+
+| Field                          | Description                     |
+| ------------------------------ | ------------------------------- |
+| `api.auth.api_keys`            | API keys for authentication     |
+| `analysis.cve.nvd_api_key`     | NVD API key for CVE lookups     |
+| `analysis.cve.vulners_api_key` | Vulners API key for CVE lookups |
+
+Masking behavior:
+
+- **API responses**: Sensitive values are replaced with `"***"` (lists become `["***", ...]`, `None` stays `None`). Metadata (default, source, description) is preserved.
+- **CLI output**: `config show` and `config get` display `"***"` for sensitive values.
+- **Logs**: `config set` logs `"***"` instead of the actual value.
+- **Disk writes**: The config file (`config save`, `config export`) and `POST /api/config/export` retain real values — masking only applies to read operations that return data to the user.
+
 ### Logging
 
 Configure logging behavior.
