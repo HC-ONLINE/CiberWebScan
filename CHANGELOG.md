@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.17.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.16.0...v2.17.0) (2026-09-06)
+
+
+### Features
+
+* implement sensitive field masking in configuration management ([585a93e](https://github.com/HC-ONLINE/CiberWebScan/commit/585a93e3754fd31d89c4e50bb0461bc17ac83d67))
+* implement sensitive field masking in configuration management ([d7150fd](https://github.com/HC-ONLINE/CiberWebScan/commit/d7150fd2538a0a0c3c3c34b3d9ee3389fbf7293b))
+
+
+### Documentation
+
+* add sensitive data masking section to configuration guide ([a72988a](https://github.com/HC-ONLINE/CiberWebScan/commit/a72988a5d21e5d89cb61728231de9b93339a397f))
+
 ## [2.16.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.15.2...v2.16.0) (2026-09-06)
 
 
