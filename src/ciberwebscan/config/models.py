@@ -347,9 +347,30 @@ class APIConfig(BaseModel):
     port: Annotated[int, Field(ge=1, le=65535)] = 8000
     auth: APIAuthConfig = Field(default_factory=lambda: APIAuthConfig())
     rate_limit: APIRateLimitConfig = Field(default_factory=lambda: APIRateLimitConfig())
+
+    # CORS — secure defaults
     cors_origins: list[str] = Field(
-        default=["*"],
-        description="Allowed CORS origins",
+        default=[],
+        description=(
+            "Allowed CORS origins. Empty list = no cross-origin requests allowed. "
+            "Use ['*'] to allow all origins (not recommended with credentials)."
+        ),
+    )
+    cors_allow_credentials: bool = Field(
+        default=False,
+        description="Allow credentials (cookies, API keys) in cross-origin requests.",
+    )
+    cors_allow_methods: list[str] = Field(
+        default=["GET", "POST", "PUT", "DELETE", "PATCH"],
+        description="HTTP methods allowed for CORS.",
+    )
+    cors_allow_headers: list[str] = Field(
+        default=["Authorization", "Content-Type", "X-API-Key"],
+        description="HTTP headers allowed for CORS.",
+    )
+    cors_expose_headers: list[str] = Field(
+        default=[],
+        description="HTTP headers to expose to the browser.",
     )
 
     @field_validator("cors_origins", mode="before")
@@ -358,6 +379,30 @@ class APIConfig(BaseModel):
         """Parse CORS origins from comma-separated string or list."""
         if isinstance(v, str):
             return [o.strip() for o in v.split(",") if o.strip()]
+        return v
+
+    @field_validator("cors_allow_methods", mode="before")
+    @classmethod
+    def parse_cors_methods(cls, v: str | list[str]) -> list[str]:
+        """Parse CORS methods from comma-separated string or list."""
+        if isinstance(v, str):
+            return [m.strip().upper() for m in v.split(",") if m.strip()]
+        return [m.upper() for m in v]
+
+    @field_validator("cors_allow_headers", mode="before")
+    @classmethod
+    def parse_cors_headers(cls, v: str | list[str]) -> list[str]:
+        """Parse CORS headers from comma-separated string or list."""
+        if isinstance(v, str):
+            return [h.strip() for h in v.split(",") if h.strip()]
+        return v
+
+    @field_validator("cors_expose_headers", mode="before")
+    @classmethod
+    def parse_cors_expose_headers(cls, v: str | list[str]) -> list[str]:
+        """Parse CORS expose headers from comma-separated string or list."""
+        if isinstance(v, str):
+            return [h.strip() for h in v.split(",") if h.strip()]
         return v
 
 
