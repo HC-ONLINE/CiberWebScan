@@ -486,3 +486,105 @@ class TestConfigEndpoints:
 
             assert response.status_code == 200
             mock_service.save.assert_called_once_with(None)
+
+
+# =============================================================================
+# Sensitive Field Masking Tests
+# =============================================================================
+
+
+class TestSensitiveFieldMasking:
+    """Test that API endpoints mask sensitive configuration fields."""
+
+    def test_get_all_config_masks_api_keys(self, client):
+        """Test GET /api/config masks api.auth.api_keys."""
+        with patch(
+            "ciberwebscan.api.routes.config.ConfigService"
+        ) as mock_service_class:
+            mock_service = MagicMock()
+            mock_service_class.return_value = mock_service
+
+            mock_result = MagicMock()
+            mock_result.success = True
+            mock_result.data = {
+                "api": {
+                    "auth": {
+                        "api_keys": ["***", "***"],
+                    },
+                    "host": "0.0.0.0",
+                },
+                "http": {"timeout": {"connect": 10}},
+            }
+            mock_service.get_all.return_value = mock_result
+
+            response = client.get("/api/config")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["success"] is True
+            # API keys should be masked
+            api_keys = data["data"]["api"]["auth"]["api_keys"]
+            assert all(v == "***" for v in api_keys)
+            # Non-sensitive values should be preserved
+            assert data["data"]["api"]["host"] == "0.0.0.0"
+            assert data["data"]["http"]["timeout"]["connect"] == 10
+
+    def test_get_config_section_masks_sensitive(self, client):
+        """Test GET /api/config/sections/{section} masks sensitive fields."""
+        with patch(
+            "ciberwebscan.api.routes.config.ConfigService"
+        ) as mock_service_class:
+            mock_service = MagicMock()
+            mock_service_class.return_value = mock_service
+
+            mock_result = MagicMock()
+            mock_result.success = True
+            mock_result.data = {
+                "auth": {
+                    "api_keys": ["***"],
+                },
+                "host": "0.0.0.0",
+            }
+            mock_service.get_section.return_value = mock_result
+
+            response = client.get("/api/config/sections/api")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["success"] is True
+            api_keys = data["data"]["auth"]["api_keys"]
+            assert all(v == "***" for v in api_keys)
+            assert data["data"]["host"] == "0.0.0.0"
+
+    def test_get_config_value_masks_sensitive(self, client):
+        """Test GET /api/config/value masks sensitive values."""
+        with patch(
+            "ciberwebscan.api.routes.config.ConfigService"
+        ) as mock_service_class:
+            mock_service = MagicMock()
+            mock_service_class.return_value = mock_service
+
+            from ciberwebscan.services.config_service import ConfigValue
+
+            config_value = ConfigValue(
+                key="api.auth.api_keys",
+                value=["***", "***"],
+                default=[],
+                source="file",
+                description="List of valid API keys",
+            )
+
+            mock_result = MagicMock()
+            mock_result.success = True
+            mock_result.data = config_value
+            mock_service.get.return_value = mock_result
+
+            response = client.get("/api/config/value?path=api.auth.api_keys")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["success"] is True
+            assert data["data"]["value"] == ["***", "***"]
+            # Metadata should be preserved
+            assert data["data"]["source"] == "file"
+            assert data["data"]["key"] == "api.auth.api_keys"

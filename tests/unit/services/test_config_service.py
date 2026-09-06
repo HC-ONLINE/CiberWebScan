@@ -11,6 +11,7 @@ import pytest
 from ciberwebscan.services.config_service import (
     ConfigService,
     ConfigValue,
+    is_sensitive_key,
 )
 
 # =============================================================================
@@ -304,3 +305,149 @@ class TestConfigValue:
         assert value.default == 10
         assert value.source == "runtime"
         assert value.description == "A test key"
+
+
+# =============================================================================
+# Sensitive Field Sanitization Tests
+# =============================================================================
+
+
+class TestIsSensitiveKey:
+    """Tests for is_sensitive_key utility function."""
+
+    def test_api_keys_is_sensitive(self):
+        assert is_sensitive_key("api.auth.api_keys") is True
+
+    def test_nvd_api_key_is_sensitive(self):
+        assert is_sensitive_key("analysis.cve.nvd_api_key") is True
+
+    def test_vulners_api_key_is_sensitive(self):
+        assert is_sensitive_key("analysis.cve.vulners_api_key") is True
+
+    def test_non_sensitive_key(self):
+        assert is_sensitive_key("http.timeout.connect") is False
+
+    def test_scraping_key(self):
+        assert is_sensitive_key("scraping.extract_links") is False
+
+    def test_partial_match_not_enough(self):
+        # "some.api_key_field" leaf is "api_key_field" which does NOT contain
+        # the sensitive substring "_api_key" (leading underscore required).
+        assert is_sensitive_key("some.api_key_field") is False
+
+    def test_leaf_matching_secret(self):
+        assert is_sensitive_key("custom.my_secret") is True
+
+
+class TestGetAllSanitization:
+    """Tests that get_all masks sensitive fields."""
+
+    def test_masks_api_keys(self, config_service: ConfigService):
+        result = config_service.get_all()
+        assert result.success is True
+        api_keys = result.data["api"]["auth"]["api_keys"]
+        # Should be a list of "***" strings, not the real keys
+        assert isinstance(api_keys, list)
+        assert all(v == "***" for v in api_keys)
+
+    def test_masks_nvd_api_key(self, config_service: ConfigService):
+        result = config_service.get_all()
+        assert result.success is True
+        nvd_key = result.data["analysis"]["cve"]["nvd_api_key"]
+        # None when not set, "***" when set
+        assert nvd_key is None or nvd_key == "***"
+
+    def test_masks_vulners_api_key(self, config_service: ConfigService):
+        result = config_service.get_all()
+        assert result.success is True
+        vulners_key = result.data["analysis"]["cve"]["vulners_api_key"]
+        assert vulners_key is None or vulners_key == "***"
+
+    def test_preserves_non_sensitive(self, config_file: Path):
+        service = ConfigService(config_path=config_file)
+        result = service.get_all()
+        assert result.success is True
+        assert result.data["http"]["timeout"]["connect"] == 15
+        assert result.data["scraping"]["extract_links"] is False
+
+
+class TestGetSectionSanitization:
+    """Tests that get_section masks sensitive fields in sections."""
+
+    def test_masks_api_section(self, config_service: ConfigService):
+        result = config_service.get_section("api")
+        assert result.success is True
+        api_keys = result.data["auth"]["api_keys"]
+        assert isinstance(api_keys, list)
+        assert all(v == "***" for v in api_keys)
+
+    def test_masks_analysis_section(self, config_service: ConfigService):
+        result = config_service.get_section("analysis")
+        assert result.success is True
+        cve = result.data["cve"]
+        assert cve["nvd_api_key"] is None or cve["nvd_api_key"] == "***"
+        assert cve["vulners_api_key"] is None or cve["vulners_api_key"] == "***"
+
+    def test_preserves_non_sensitive_section(self, config_service: ConfigService):
+        result = config_service.get_section("http")
+        assert result.success is True
+        assert result.data["timeout"]["connect"] == 10.0
+
+
+class TestGetSanitization:
+    """Tests that get masks sensitive values."""
+
+    def test_masks_api_keys_value(self, config_service: ConfigService):
+        result = config_service.get("api.auth.api_keys")
+        assert result.success is True
+        # Default is an empty list
+        assert result.data.value == []
+
+    def test_masks_nvd_key_value(self, config_service: ConfigService):
+        result = config_service.get("analysis.cve.nvd_api_key")
+        assert result.success is True
+        # Default is None
+        assert result.data.value is None
+
+    def test_non_sensitive_value_unmasked(self, config_service: ConfigService):
+        result = config_service.get("http.timeout.connect")
+        assert result.success is True
+        assert result.data.value == 10.0
+
+
+class TestLoadSanitization:
+    """Tests that load masks sensitive fields."""
+
+    def test_load_masks_sensitive(self, config_file: Path):
+        service = ConfigService()
+        result = service.load(config_file)
+        assert result.success is True
+        assert result.data is not None
+        # The loaded config should not contain raw sensitive values
+        # (the test config file has no API keys set, so values should be None)
+        http_section = result.data.get("http", {})
+        assert http_section.get("timeout", {}).get("connect") == 15
+
+
+class TestExportPreservesValues:
+    """Tests that export_config preserves real values (no masking)."""
+
+    def test_export_preserves_real_values(
+        self, config_service: ConfigService, tmp_path: Path
+    ):
+        export_path = tmp_path / "export.yaml"
+        result = config_service.export_config(export_path, format="yaml")
+        assert result.success is True
+        assert export_path.exists()
+
+        import yaml
+
+        with open(export_path, encoding="utf-8") as f:
+            exported = yaml.safe_load(f)
+
+        # Exported config should contain the raw model_dump values
+        # api.auth.api_keys should be a list (not masked)
+        assert "api" in exported
+        assert "auth" in exported["api"]
+        assert "api_keys" in exported["api"]["auth"]
+        assert isinstance(exported["api"]["auth"]["api_keys"], list)

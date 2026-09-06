@@ -22,6 +22,28 @@ from ciberwebscan.services.base import (
 
 logger = logging.getLogger(__name__)
 
+# =============================================================================
+# Sensitive Field Protection
+# =============================================================================
+
+# Dot-notation paths of fields that must never be returned in plaintext via API or CLI.
+_SENSITIVE_FIELDS: set[str] = {
+    "api.auth.api_keys",
+    "analysis.cve.nvd_api_key",
+    "analysis.cve.vulners_api_key",
+}
+
+# Substrings that indicate a sensitive leaf key even if not explicitly listed above.
+_SENSITIVE_SUBSTRINGS: tuple[str, ...] = ("_api_key", "_secret", "_token", "_password")
+
+
+def is_sensitive_key(key: str) -> bool:
+    """Return True if *key* is a dot-notation path to a sensitive config field."""
+    if key in _SENSITIVE_FIELDS:
+        return True
+    leaf = key.rsplit(".", maxsplit=1)[-1] if "." in key else key
+    return any(sub in leaf for sub in _SENSITIVE_SUBSTRINGS)
+
 
 @dataclass
 class ConfigValue:
@@ -94,6 +116,8 @@ class ConfigService(BaseService):
         """
         Get a specific configuration value.
 
+        Sensitive values (API keys, secrets) are masked with ``'***'``.
+
         Args:
             key: Configuration key (dot-notation supported).
 
@@ -103,14 +127,14 @@ class ConfigService(BaseService):
         result = ServiceResult[ConfigValue](success=False)
 
         try:
-            value = self._get_nested_value(self.config, key)
+            raw_value = self._get_nested_value(self.config, key)
             default = self._get_default_value(key)
             source = self._get_value_source(key)
 
             result.data = ConfigValue(
                 key=key,
-                value=value,
-                default=default,
+                value=self._sanitize_value(key, raw_value),
+                default=self._sanitize_value(key, default),
                 source=source,
             )
             result.success = True
@@ -128,6 +152,8 @@ class ConfigService(BaseService):
         """
         Get all configuration values.
 
+        Sensitive fields (API keys, secrets) are masked with ``'***'``.
+
         Returns:
             ServiceResult containing all config as dict.
         """
@@ -135,7 +161,7 @@ class ConfigService(BaseService):
 
         try:
             config_dict = self.config.model_dump()
-            result.data = config_dict
+            result.data = self._sanitize_config_dict(config_dict)
             result.success = True
 
         except Exception as e:
@@ -147,6 +173,8 @@ class ConfigService(BaseService):
     def get_section(self, section: str) -> ServiceResult[dict[str, Any]]:
         """
         Get a configuration section.
+
+        Sensitive fields (API keys, secrets) are masked with ``'***'``.
 
         Args:
             section: Section name (e.g., 'scraping', 'analysis').
@@ -162,10 +190,11 @@ class ConfigService(BaseService):
                 raise KeyError(f"Section not found: {section}")
 
             if hasattr(section_obj, "model_dump"):
-                result.data = section_obj.model_dump()
+                section_data = section_obj.model_dump()
             else:
-                result.data = dict(section_obj)
+                section_data = dict(section_obj)
 
+            result.data = self._sanitize_config_dict(section_data, prefix=section)
             result.success = True
 
         except KeyError as e:
@@ -206,7 +235,11 @@ class ConfigService(BaseService):
             )
             result.success = True
 
-            self.logger.info(f"Configuration updated: {key} = {value}")
+            self.logger.info(
+                "Configuration updated: %s = %s",
+                key,
+                "***" if is_sensitive_key(key) else value,
+            )
 
         except KeyError:
             result.error = f"Configuration key not found: {key}"
@@ -301,11 +334,13 @@ class ConfigService(BaseService):
         """
         Load configuration from file.
 
+        Sensitive fields (API keys, secrets) are masked with ``'***'``.
+
         Args:
             path: File path to load.
 
         Returns:
-            ServiceResult containing loaded config.
+            ServiceResult containing loaded config with sensitive values masked.
         """
         result = ServiceResult[dict[str, Any]](success=False)
 
@@ -315,7 +350,8 @@ class ConfigService(BaseService):
                 raise FileNotFoundError(f"Config file not found: {load_path}")
 
             self._loader = ConfigLoader(config_path=load_path)
-            result.data = self.config.model_dump()
+            config_dict = self.config.model_dump()
+            result.data = self._sanitize_config_dict(config_dict)
             result.success = True
             self.logger.info(f"Configuration loaded from: {load_path}")
 
@@ -485,3 +521,41 @@ class ConfigService(BaseService):
                 keys.append(full_key)
 
         return keys
+
+    # -------------------------------------------------------------------------
+    # Sensitive-field sanitization
+    # -------------------------------------------------------------------------
+
+    @staticmethod
+    def _sanitize_config_dict(
+        config_dict: dict[str, Any],
+        prefix: str = "",
+    ) -> dict[str, Any]:
+        """Return a copy of *config_dict* with sensitive values replaced by ``'***'``."""
+        sanitized: dict[str, Any] = {}
+        for key, value in config_dict.items():
+            full_path = f"{prefix}.{key}" if prefix else key
+
+            if full_path in _SENSITIVE_FIELDS:
+                if isinstance(value, list):
+                    sanitized[key] = ["***"] * len(value)
+                elif value is not None:
+                    sanitized[key] = "***"
+                else:
+                    sanitized[key] = None
+            elif isinstance(value, dict):
+                sanitized[key] = ConfigService._sanitize_config_dict(value, full_path)
+            else:
+                sanitized[key] = value
+        return sanitized
+
+    @staticmethod
+    def _sanitize_value(key: str, value: Any) -> Any:
+        """Return ``'***'`` for sensitive values, otherwise the original value."""
+        if is_sensitive_key(key):
+            if isinstance(value, list):
+                return ["***"] * len(value)
+            if value is not None:
+                return "***"
+            return None
+        return value
