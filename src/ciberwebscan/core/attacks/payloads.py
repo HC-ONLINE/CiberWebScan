@@ -8,6 +8,11 @@ import json
 import logging
 from pathlib import Path
 
+from ciberwebscan.utils.path_security import (
+    PathTraversalError,
+    resolve_and_validate_path,
+)
+
 from .base import AttackIntensity
 
 logger = logging.getLogger(__name__)
@@ -21,7 +26,16 @@ class PayloadLoader:
             # Use default payloads file in same directory
             self.payloads_file = Path(__file__).parent / "attack_payloads.json"
         else:
-            self.payloads_file = Path(payloads_file)
+            # Validate path to prevent traversal attacks
+            allowed_base = Path.cwd()
+            try:
+                self.payloads_file = resolve_and_validate_path(
+                    payloads_file, allowed_base
+                )
+            except PathTraversalError as e:
+                logger.warning(f"Path traversal attempt blocked for payloads file: {e}")
+                # Fall back to default payloads
+                self.payloads_file = Path(__file__).parent / "attack_payloads.json"
 
         self._payloads: dict[str, list[str]] = {}
         self._load_payloads()
@@ -136,16 +150,25 @@ class PayloadLoader:
     def load_custom_payloads_from_file(
         self, file_path: Path | str, attack_type: str
     ) -> None:
-        """Load custom payloads from a text file (one per line)."""
+        """Load custom payloads from a text file (one per line).
+
+        The file path is validated against the current working directory
+        to prevent path traversal attacks.
+        """
         try:
-            with open(file_path, encoding="utf-8") as f:
+            allowed_base = Path.cwd()
+            validated_path = resolve_and_validate_path(file_path, allowed_base)
+
+            with open(validated_path, encoding="utf-8") as f:
                 payloads = [line.strip() for line in f if line.strip()]
 
             self.add_custom_payloads(attack_type, payloads)
             logger.info(
-                f"Loaded {len(payloads)} custom {attack_type} payloads from {file_path}"
+                f"Loaded {len(payloads)} custom {attack_type} payloads from {validated_path}"
             )
 
+        except PathTraversalError as e:
+            logger.warning(f"Path traversal attempt blocked for custom payloads: {e}")
         except FileNotFoundError:
             logger.error(f"Custom payloads file not found: {file_path}")
         except Exception as e:

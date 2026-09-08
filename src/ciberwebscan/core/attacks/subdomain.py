@@ -12,12 +12,17 @@ import logging
 import random
 import socket
 import uuid
+from pathlib import Path
 from urllib.parse import urlparse
 
 from ciberwebscan.export.models import (
     ConfidenceLevel,
     Severity,
     VulnerabilityFinding,
+)
+from ciberwebscan.utils.path_security import (
+    PathTraversalError,
+    resolve_and_validate_path,
 )
 
 from .base import AttackContext, AttackEngine, AttackIntensity
@@ -124,13 +129,19 @@ class SubdomainEnumerator(AttackEngine):
     ) -> list[str]:
         """Load custom subdomain wordlist from a file (one per line)."""
         try:
-            with open(custom_wordlist, encoding="utf-8") as f:
+            # Validate path to prevent traversal attacks
+            allowed_base = Path.cwd()
+            validated_path = resolve_and_validate_path(custom_wordlist, allowed_base)
+
+            with open(validated_path, encoding="utf-8") as f:
                 words = [line.strip() for line in f if line.strip()]
             if words:
                 self.logger.info(
-                    f"Loaded {len(words)} custom subdomains from {custom_wordlist}"
+                    f"Loaded {len(words)} custom subdomains from {validated_path}"
                 )
                 return words
+        except PathTraversalError as e:
+            self.logger.warning(f"Path traversal attempt blocked for wordlist: {e}")
         except OSError as e:
             self.logger.warning(f"Could not load custom wordlist: {e}")
         return default
