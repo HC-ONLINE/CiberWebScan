@@ -116,14 +116,20 @@ class TestResolveAndValidatePath:
     )
     def test_symlink_outside_base(self, tmp_path: Path) -> None:
         """Symlinks that resolve outside base should be rejected."""
-        outside = tmp_path / "outside"
-        outside.mkdir()
-        target = outside / "secret.yaml"
-        target.write_text("secret: true")
-        link = tmp_path / "link.yaml"
-        link.symlink_to(target)
-        with pytest.raises(PathTraversalError):
-            resolve_and_validate_path("link.yaml", tmp_path)
+        # Create target OUTSIDE the base directory
+        outside = tmp_path.parent / "symlink_outside_target"
+        outside.mkdir(exist_ok=True)
+        try:
+            target = outside / "secret.yaml"
+            target.write_text("secret: true")
+            link = tmp_path / "link.yaml"
+            link.symlink_to(target)
+            with pytest.raises(PathTraversalError):
+                resolve_and_validate_path("link.yaml", tmp_path)
+        finally:
+            import shutil
+
+            shutil.rmtree(outside, ignore_errors=True)
 
 
 class TestValidateExportPath:
