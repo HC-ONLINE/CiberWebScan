@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.18.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.17.0...v2.18.0) (2026-09-08)
+
+
+### Features
+
+* add path security utilities to prevent path traversal attacks ([4591056](https://github.com/HC-ONLINE/CiberWebScan/commit/459105621353cc842a1331a137d12ed8a4f276ac))
+* add path validation mocks in unit tests to prevent path traversal attacks ([37b73db](https://github.com/HC-ONLINE/CiberWebScan/commit/37b73dbd32f88d7306e90873b1e151087709508c))
+* enhance path validation to prevent path traversal attacks in services ([30237de](https://github.com/HC-ONLINE/CiberWebScan/commit/30237de7af6fff515d627e5e5be18ff41e8e6fa2))
+* implement path validation to prevent path traversal attacks in payload loading ([514088c](https://github.com/HC-ONLINE/CiberWebScan/commit/514088c069b7edbfa3b9ecf7650dac8cd28b17c3))
+
 ## [2.17.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.16.0...v2.17.0) (2026-09-06)
 
 
