@@ -17,6 +17,10 @@ from ciberwebscan.api.models.responses import DownloadInfo, DownloadTokenRespons
 from ciberwebscan.config.loader import get_config
 from ciberwebscan.services.base import BaseService, ServiceResult
 from ciberwebscan.utils.async_runner import run_async
+from ciberwebscan.utils.path_security import (
+    PathTraversalError,
+    resolve_and_validate_path,
+)
 
 
 class _DownloadRegistry:
@@ -108,7 +112,7 @@ class DownloadService(BaseService):
         Generate a download token for a file.
 
         Args:
-            file_path: Path to file to download
+            file_path: Path to file to download. Must be within allowed directories.
             user_id: ID of user requesting download
             file_format: Format of the exported file (json/jsonl/csv)
 
@@ -117,14 +121,31 @@ class DownloadService(BaseService):
         """
         try:
             config = get_config()
-            file_path = Path(file_path)
 
-            # Validate file exists
-            if not file_path.exists():
+            # Validate path to prevent traversal attacks
+            output_base = Path(config.export.output_dir)
+            if not output_base.is_absolute():
+                # Relative output_dir resolves under ~/.ciberwebscan/exports/
+                # to avoid CWD-dependent sandbox boundaries
+                output_base = Path.home() / ".ciberwebscan" / "exports"
+
+            try:
+                validated_path = resolve_and_validate_path(file_path, output_base)
+            except PathTraversalError as e:
+                self.logger.warning(f"Path traversal attempt blocked in download: {e}")
                 return ServiceResult(
                     success=False,
-                    error=f"File not found: {file_path}",
+                    error="Access denied: invalid file path",
                 )
+
+            # Validate file exists
+            if not validated_path.exists():
+                return ServiceResult(
+                    success=False,
+                    error=f"File not found: {validated_path}",
+                )
+
+            file_path = validated_path
 
             # Read file data
             file_data = file_path.read_bytes()
