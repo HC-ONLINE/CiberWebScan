@@ -29,6 +29,24 @@ def attack_service() -> AttackService:
     return service
 
 
+@pytest.fixture(autouse=True)
+def mock_export_path_validation(tmp_path):
+    """Mock path validation for export operations in tests."""
+    from pathlib import Path
+
+    def _mock_resolve(user_path, base, **kwargs):
+        p = Path(user_path)
+        if p.is_absolute():
+            return p
+        return (tmp_path / p).resolve()
+
+    with patch(
+        "ciberwebscan.services.base.resolve_and_validate_path",
+        side_effect=_mock_resolve,
+    ):
+        yield
+
+
 @pytest.fixture
 def basic_attack_options() -> AttackOptions:
     """Basic attack options with consent."""

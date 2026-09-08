@@ -8,6 +8,7 @@ import asyncio
 import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -27,11 +28,11 @@ def service() -> DownloadService:
 
 
 @pytest.fixture
-def test_file() -> Path:
-    """Create a temporary test file."""
-    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as f:
-        f.write('{"test": "data"}')
-        return Path(f.name)
+def test_file(tmp_path: Path) -> Path:
+    """Create a temporary test file within the allowed directory."""
+    test_file = tmp_path / "test_export.json"
+    test_file.write_text('{"test": "data"}')
+    return test_file
 
 
 @pytest.fixture(autouse=True)
@@ -40,6 +41,18 @@ def clear_registry():
     asyncio.run(_registry.cleanup_expired())
     yield
     asyncio.run(_registry.cleanup_expired())
+
+
+@pytest.fixture(autouse=True)
+def mock_export_dir(tmp_path: Path):
+    """Mock the export directory validation to use tmp_path."""
+    with patch(
+        "ciberwebscan.services.download_service.resolve_and_validate_path",
+        side_effect=lambda p, base, **kw: (
+            Path(p) if Path(p).is_absolute() else (base / p).resolve()
+        ),
+    ):
+        yield
 
 
 # =============================================================================

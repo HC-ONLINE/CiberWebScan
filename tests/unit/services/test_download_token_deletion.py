@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-import os
-import tempfile
+from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -15,14 +15,11 @@ class TestTokenDeletion:
     """Test token deletion after successful download."""
 
     @pytest.fixture
-    def temp_file(self):
-        """Create a temporary file for testing."""
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".json") as f:
-            f.write(b'{"test": "data"}')
-            temp_path = f.name
-        yield temp_path
-        if os.path.exists(temp_path):
-            os.unlink(temp_path)
+    def temp_file(self, tmp_path: Path):
+        """Create a temporary file for testing within allowed directory."""
+        temp_path = tmp_path / "test_download.json"
+        temp_path.write_bytes(b'{"test": "data"}')
+        return temp_path
 
     @pytest.fixture
     def download_service(self):
@@ -35,6 +32,17 @@ class TestTokenDeletion:
         asyncio.run(_registry.cleanup_expired())
         yield
         asyncio.run(_registry.cleanup_expired())
+
+    @pytest.fixture(autouse=True)
+    def mock_export_dir(self):
+        """Mock the export directory validation."""
+        with patch(
+            "ciberwebscan.services.download_service.resolve_and_validate_path",
+            side_effect=lambda p, base, **kw: (
+                Path(p) if Path(p).is_absolute() else (base / p).resolve()
+            ),
+        ):
+            yield
 
     def test_delete_token_removes_token(self, download_service, temp_file):
         """Test that delete_token removes token from registry."""
