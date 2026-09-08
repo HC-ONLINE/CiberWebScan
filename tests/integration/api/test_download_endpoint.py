@@ -4,8 +4,8 @@ Integration tests for download endpoint.
 
 from __future__ import annotations
 
-import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -26,11 +26,21 @@ def client() -> TestClient:
 
 
 @pytest.fixture
-def test_file() -> Path:
+def test_file(tmp_path: Path) -> Path:
     """Create a temporary test file for downloading."""
-    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as f:
-        f.write('{"test": "data", "result": "sample"}')
-        return Path(f.name)
+    test_file = tmp_path / "test_data.json"
+    test_file.write_text('{"test": "data", "result": "sample"}')
+    return test_file
+
+
+@pytest.fixture
+def mock_download_config(tmp_path: Path):
+    """Mock get_config to use tmp_path as export dir."""
+    with patch("ciberwebscan.services.download_service.get_config") as mock_cfg:
+        mock_cfg.return_value.export.output_dir = str(tmp_path)
+        mock_cfg.return_value.download.max_file_size_mb = 10
+        mock_cfg.return_value.download.retention_seconds = 3600
+        yield mock_cfg
 
 
 # =============================================================================
@@ -48,7 +58,9 @@ class TestDownloadEndpoint:
         # Should NOT be 404 (route not found) - should be 401 (auth required)
         assert response.status_code != 404, "Endpoint not registered"
 
-    def test_download_requires_auth(self, client: TestClient, test_file: Path):
+    def test_download_requires_auth(
+        self, client: TestClient, test_file: Path, mock_download_config
+    ):
         """Endpoint requires authentication."""
         service = DownloadService()
         result = service.generate_download_token(
@@ -60,7 +72,9 @@ class TestDownloadEndpoint:
         response = client.get(f"/api/download/{token}")
         assert response.status_code in [401, 403], f"Got {response.status_code}"
 
-    def test_download_endpoint_with_api_key(self, client: TestClient, test_file: Path):
+    def test_download_endpoint_with_api_key(
+        self, client: TestClient, test_file: Path, mock_download_config
+    ):
         """Endpoint can be called with API key auth."""
         from ciberwebscan.config.loader import get_config
 

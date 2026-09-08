@@ -36,6 +36,24 @@ def service() -> ConcreteService:
     return ConcreteService()
 
 
+@pytest.fixture(autouse=True)
+def mock_export_path_validation(tmp_path: Path):
+    """Mock path validation for export operations in tests."""
+    from unittest.mock import patch
+
+    def _mock_resolve(user_path, base, **kwargs):
+        p = Path(user_path)
+        if p.is_absolute():
+            return p
+        return (tmp_path / p).resolve()
+
+    with patch(
+        "ciberwebscan.services.base.resolve_and_validate_path",
+        side_effect=_mock_resolve,
+    ):
+        yield
+
+
 # =============================================================================
 # ServiceResult Tests
 # =============================================================================
@@ -290,7 +308,12 @@ class TestServiceExport:
             patch("ciberwebscan.services.base.CSVExporter") as mock_csv,
         ):
             mock_cfg.return_value = Mock(
-                export=Mock(pretty=True, include_raw_html=True, buffer_size=256)
+                export=Mock(
+                    output_dir=str(tmp_path),
+                    pretty=True,
+                    include_raw_html=True,
+                    buffer_size=256,
+                )
             )
             mock_exp = Mock()
             mock_exp.__enter__ = Mock(return_value=mock_exp)
@@ -321,7 +344,12 @@ class TestServiceExport:
             patch("ciberwebscan.services.base.CSVExporter") as mock_csv,
         ):
             mock_cfg.return_value = Mock(
-                export=Mock(pretty=False, include_raw_html=False, buffer_size=512)
+                export=Mock(
+                    output_dir=str(tmp_path),
+                    pretty=False,
+                    include_raw_html=False,
+                    buffer_size=512,
+                )
             )
             mock_exp = Mock()
             mock_exp.__enter__ = Mock(return_value=mock_exp)
@@ -347,7 +375,12 @@ class TestServiceExport:
             patch("ciberwebscan.services.base.JSONExporter") as mock_json,
         ):
             mock_cfg.return_value = Mock(
-                export=Mock(pretty=True, include_raw_html=False, buffer_size=100)
+                export=Mock(
+                    output_dir=str(tmp_path),
+                    pretty=True,
+                    include_raw_html=False,
+                    buffer_size=100,
+                )
             )
             mock_exp = Mock()
             mock_exp.__enter__ = Mock(return_value=mock_exp)

@@ -77,7 +77,7 @@ def test_server():
         server_process.wait()
 
 
-def run_cli_command(args: list[str]) -> dict[str, Any]:
+def run_cli_command(args: list[str], output_dir: str | None = None) -> dict[str, Any]:
     """
     Run CLI command and return result.
     Sets environment variables to disable all attack types by default,
@@ -104,6 +104,11 @@ def run_cli_command(args: list[str]) -> dict[str, Any]:
     # each 500 with the default exponential backoff would blow the budget.
     env["CIBERWEBSCAN_HTTP_RETRY_MAX_ATTEMPTS"] = "1"
     env["CIBERWEBSCAN_HTTP_RATE_LIMIT_ADAPTIVE"] = "false"
+
+    # Point export output_dir to the test's temp directory so path validation
+    # allows writes to tmp_path instead of ~/.ciberwebscan/exports/
+    if output_dir:
+        env["CIBERWEBSCAN_EXPORT_OUTPUT_DIR"] = output_dir
 
     result = subprocess.run(
         cmd,
@@ -168,7 +173,8 @@ class TestXSSAttack:
                 "5",
                 "-o",
                 str(output_file),
-            ]
+            ],
+            output_dir=str(tmp_path),
         )
 
         # Should succeed
@@ -389,7 +395,8 @@ class TestExportFormats:
                 str(output_file),
                 "-f",
                 format,
-            ]
+            ],
+            output_dir=str(tmp_path),
         )
 
         assert result["returncode"] == 0
@@ -564,7 +571,8 @@ class TestRealVulnerabilityDetection:
                 "10",
                 "-o",
                 str(output_file),
-            ]
+            ],
+            output_dir=str(tmp_path),
         )
 
         assert result["returncode"] == 0
@@ -590,7 +598,8 @@ class TestRealVulnerabilityDetection:
                 "10",
                 "-o",
                 str(output_file),
-            ]
+            ],
+            output_dir=str(tmp_path),
         )
 
         assert result["returncode"] == 0

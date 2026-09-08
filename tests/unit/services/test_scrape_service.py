@@ -27,6 +27,18 @@ def scrape_service() -> ScrapeService:
     return ScrapeService()
 
 
+@pytest.fixture(autouse=True)
+def mock_export_path_validation():
+    """Mock path validation for export operations in tests."""
+    with patch(
+        "ciberwebscan.services.base.resolve_and_validate_path",
+        side_effect=lambda p, base, **kw: (
+            Path(p) if Path(p).is_absolute() else (base / p).resolve()
+        ),
+    ):
+        yield
+
+
 @pytest.fixture
 def mock_scrape_result() -> ScrapeResult:
     """Create a mock scrape result."""

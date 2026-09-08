@@ -19,6 +19,11 @@ from ciberwebscan.services.base import (
     BaseService,
     ServiceResult,
 )
+from ciberwebscan.utils.path_security import (
+    PathTraversalError,
+    get_config_base_dir,
+    validate_export_path_only,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -297,7 +302,8 @@ class ConfigService(BaseService):
         Save current configuration to file.
 
         Args:
-            path: File path. Uses default if not provided.
+            path: File path. Uses default if not provided. Must be within the
+                configuration directory if specified.
 
         Returns:
             ServiceResult containing saved file path.
@@ -305,8 +311,14 @@ class ConfigService(BaseService):
         result = ServiceResult[Path](success=False)
 
         try:
-            save_path = Path(path) if path else self.config_path
-            if save_path is None:
+            if path is not None:
+                allowed_base = get_config_base_dir()
+                save_path = validate_export_path_only(
+                    path, allowed_base, allowed_extensions=[".yaml", ".yml", ".json"]
+                )
+            elif self.config_path is not None:
+                save_path = self.config_path
+            else:
                 save_path = Path.home() / ".ciberwebscan" / "config.yaml"
 
             save_path.parent.mkdir(parents=True, exist_ok=True)
@@ -324,6 +336,10 @@ class ConfigService(BaseService):
             result.data = save_path
             result.success = True
 
+        except PathTraversalError as e:
+            result.error = "Invalid configuration path"
+            result.error_code = "PATH_TRAVERSAL_BLOCKED"
+            self.logger.warning(f"Path traversal attempt blocked: {e}")
         except Exception as e:
             result.error = str(e)
             result.error_code = "CONFIG_SAVE_ERROR"
@@ -337,7 +353,7 @@ class ConfigService(BaseService):
         Sensitive fields (API keys, secrets) are masked with ``'***'``.
 
         Args:
-            path: File path to load.
+            path: File path to load. Must be within the configuration directory.
 
         Returns:
             ServiceResult containing loaded config with sensitive values masked.
@@ -345,7 +361,11 @@ class ConfigService(BaseService):
         result = ServiceResult[dict[str, Any]](success=False)
 
         try:
-            load_path = Path(path)
+            allowed_base = get_config_base_dir()
+            load_path = validate_export_path_only(
+                path, allowed_base, allowed_extensions=[".yaml", ".yml", ".json"]
+            )
+
             if not load_path.exists():
                 raise FileNotFoundError(f"Config file not found: {load_path}")
 
@@ -355,6 +375,10 @@ class ConfigService(BaseService):
             result.success = True
             self.logger.info(f"Configuration loaded from: {load_path}")
 
+        except PathTraversalError as e:
+            result.error = "Invalid configuration path"
+            result.error_code = "PATH_TRAVERSAL_BLOCKED"
+            self.logger.warning(f"Path traversal attempt blocked: {e}")
         except FileNotFoundError as e:
             result.error = str(e)
             result.error_code = "CONFIG_FILE_NOT_FOUND"
@@ -373,7 +397,7 @@ class ConfigService(BaseService):
         Export configuration to file.
 
         Args:
-            path: Output file path.
+            path: Output file path. Must be within the configuration directory.
             format: Export format ('yaml', 'json').
 
         Returns:
@@ -382,7 +406,10 @@ class ConfigService(BaseService):
         result = ServiceResult[Path](success=False)
 
         try:
-            export_path = Path(path)
+            allowed_base = get_config_base_dir()
+            export_path = validate_export_path_only(
+                path, allowed_base, allowed_extensions=[".yaml", ".yml", ".json"]
+            )
             config_dict = self.config.model_dump()
 
             if format == "json":
@@ -390,6 +417,7 @@ class ConfigService(BaseService):
                     config_dict,
                     str(export_path),
                     "json",
+                    validate_path=False,
                 )
             else:
                 # YAML export
@@ -406,6 +434,10 @@ class ConfigService(BaseService):
             result.export_path = final_path
             result.export_format = format
 
+        except PathTraversalError as e:
+            result.error = "Invalid configuration path"
+            result.error_code = "PATH_TRAVERSAL_BLOCKED"
+            self.logger.warning(f"Path traversal attempt blocked: {e}")
         except Exception as e:
             result.error = str(e)
             result.error_code = "CONFIG_EXPORT_ERROR"

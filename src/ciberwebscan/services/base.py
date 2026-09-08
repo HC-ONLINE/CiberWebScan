@@ -19,6 +19,9 @@ from ciberwebscan.export import (
     JSONLExporter,
 )
 from ciberwebscan.export.json import dumps as _json_dumps
+from ciberwebscan.utils.path_security import (
+    resolve_and_validate_path,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -127,12 +130,15 @@ class BaseService:
         data: Any,
         output_path: Path | str,
         format: str = "json",
+        *,
+        validate_path: bool = True,
     ) -> tuple[bool, Path | None]:
         """
         Export result data to file.
 
         Uses ``config.export.output_dir`` as the base directory for relative
-        paths. Absolute paths are used as-is.
+        paths. Absolute paths are validated against a secure base directory
+        to prevent path traversal attacks.
 
         When ``config.export.streaming`` is ``True`` (default) items are
         written one by one via the ``write_item`` streaming API. When
@@ -145,16 +151,32 @@ class BaseService:
             output_path: Path for the output file. Relative paths are
                 resolved under ``config.export.output_dir``.
             format: Export format ('json', 'jsonl', 'csv').
+            validate_path: When True (default), validates output_path against
+                the export sandbox. Set to False when the caller has already
+                validated the path (e.g. config export validates against
+                a different base directory).
 
         Returns:
             Tuple of (success, actual_path).
+
+        Raises:
+            PathTraversalError: If the path attempts to escape allowed directories.
         """
         config = get_config()
 
-        path = Path(output_path)
-        # Resolve relative paths under the configured output directory
-        if not path.is_absolute():
-            path = Path(config.export.output_dir) / path
+        if validate_path:
+            # Determine the base directory for path resolution
+            output_base = Path(config.export.output_dir)
+            if not output_base.is_absolute():
+                # Relative output_dir resolves under ~/.ciberwebscan/exports/
+                # to avoid CWD-dependent sandbox boundaries
+                output_base = Path.home() / ".ciberwebscan" / "exports"
+
+            # Validate and resolve the path to prevent traversal
+            path = resolve_and_validate_path(output_path, output_base)
+        else:
+            # Caller already validated — just resolve to a Path object
+            path = Path(output_path)
 
         # Create parent directories if they don't exist
         path.parent.mkdir(parents=True, exist_ok=True)
