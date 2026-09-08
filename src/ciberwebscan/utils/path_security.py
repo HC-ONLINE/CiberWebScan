@@ -93,18 +93,20 @@ def _is_within_directory(path: Path, directory: Path) -> bool:
     """
     Check if a resolved path is within the specified directory.
 
-    Uses os.path.commonpath for reliable cross-platform comparison.
+    Uses string prefix comparison with OS separator to reliably handle
+    edge cases where ``os.path.commonpath`` may return incorrect results
+    (e.g. symlinks on some platforms).
     """
     try:
         # Resolve both to absolute paths
         path_abs = path.resolve()
         dir_abs = directory.resolve()
 
-        # Use commonpath to find the common ancestor
-        common = Path(os.path.commonpath([str(path_abs), str(dir_abs)]))
-
-        # The path is within the directory if the common ancestor is the directory itself
-        return common == dir_abs
+        # String prefix comparison with trailing separator to avoid
+        # /tmp/secret matching /tmp/secrets
+        path_str = str(path_abs) + os.sep
+        dir_str = str(dir_abs) + os.sep
+        return path_str.startswith(dir_str)
     except (ValueError, OSError):
         # On Windows, commonpath raises ValueError if paths are on different drives
         return False

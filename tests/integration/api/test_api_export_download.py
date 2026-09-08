@@ -6,7 +6,6 @@ Covers: test_export_tokens.py, download_results.py, test_e2e_deletion.py.
 
 from __future__ import annotations
 
-import tempfile
 from pathlib import Path
 
 import httpx
@@ -101,19 +100,17 @@ class TestDownloadEndpoint:
     """Tests for GET /api/download/{token}."""
 
     def test_download_with_valid_token(
-        self, api_client: httpx.Client, auth_headers: dict
+        self, api_client: httpx.Client, auth_headers: dict, tmp_path: Path
     ):
-        from ciberwebscan.config.loader import get_config
+        from unittest.mock import patch
 
-        config = get_config()
-        if not config.api.auth.api_keys:
-            pytest.skip("No API keys configured")
+        test_file = tmp_path / "download_data.json"
+        test_file.write_text('{"test": "download_data"}')
 
-        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as f:
-            f.write('{"test": "download_data"}')
-            test_file = Path(f.name)
-
-        try:
+        with patch("ciberwebscan.services.download_service.get_config") as mock_cfg:
+            mock_cfg.return_value.export.output_dir = str(tmp_path)
+            mock_cfg.return_value.download.max_file_size_mb = 10
+            mock_cfg.return_value.download.retention_seconds = 3600
             service = DownloadService()
             result = service.generate_download_token(
                 file_path=test_file,
@@ -125,8 +122,6 @@ class TestDownloadEndpoint:
             response = api_client.get(f"/api/download/{token}", headers=auth_headers)
             assert response.status_code == 200
             assert len(response.content) > 0
-        finally:
-            test_file.unlink(missing_ok=True)
 
     def test_download_with_invalid_token(
         self, api_client: httpx.Client, auth_headers: dict
@@ -137,13 +132,17 @@ class TestDownloadEndpoint:
         assert response.status_code in [404, 400]
 
     def test_downloaded_file_has_valid_json(
-        self, api_client: httpx.Client, auth_headers: dict
+        self, api_client: httpx.Client, auth_headers: dict, tmp_path: Path
     ):
-        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as f:
-            f.write('{"result": "integration_test", "items": [1, 2, 3]}')
-            test_file = Path(f.name)
+        from unittest.mock import patch
 
-        try:
+        test_file = tmp_path / "valid.json"
+        test_file.write_text('{"result": "integration_test", "items": [1, 2, 3]}')
+
+        with patch("ciberwebscan.services.download_service.get_config") as mock_cfg:
+            mock_cfg.return_value.export.output_dir = str(tmp_path)
+            mock_cfg.return_value.download.max_file_size_mb = 10
+            mock_cfg.return_value.download.retention_seconds = 3600
             service = DownloadService()
             result = service.generate_download_token(
                 file_path=test_file,
@@ -160,18 +159,19 @@ class TestDownloadEndpoint:
             assert content["result"] == "integration_test"
             assert isinstance(content["items"], list)
             assert len(content["items"]) == 3
-        finally:
-            test_file.unlink(missing_ok=True)
 
     def test_downloaded_csv_has_valid_content(
-        self, api_client: httpx.Client, auth_headers: dict
+        self, api_client: httpx.Client, auth_headers: dict, tmp_path: Path
     ):
-        csv_data = "name,value\ntest_a,100\ntest_b,200\n"
-        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".csv") as f:
-            f.write(csv_data)
-            test_file = Path(f.name)
+        from unittest.mock import patch
 
-        try:
+        test_file = tmp_path / "data.csv"
+        test_file.write_text("name,value\ntest_a,100\ntest_b,200\n")
+
+        with patch("ciberwebscan.services.download_service.get_config") as mock_cfg:
+            mock_cfg.return_value.export.output_dir = str(tmp_path)
+            mock_cfg.return_value.download.max_file_size_mb = 10
+            mock_cfg.return_value.download.retention_seconds = 3600
             service = DownloadService()
             result = service.generate_download_token(
                 file_path=test_file,
@@ -189,18 +189,19 @@ class TestDownloadEndpoint:
             assert lines[0] == "name,value"
             assert "test_a" in lines[1]
             assert "test_b" in lines[2]
-        finally:
-            test_file.unlink(missing_ok=True)
 
     def test_downloaded_html_has_valid_content(
-        self, api_client: httpx.Client, auth_headers: dict
+        self, api_client: httpx.Client, auth_headers: dict, tmp_path: Path
     ):
-        html_data = "<html><body><h1>Report</h1><p>Data</p></body></html>"
-        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".html") as f:
-            f.write(html_data)
-            test_file = Path(f.name)
+        from unittest.mock import patch
 
-        try:
+        test_file = tmp_path / "report.html"
+        test_file.write_text("<html><body><h1>Report</h1><p>Data</p></body></html>")
+
+        with patch("ciberwebscan.services.download_service.get_config") as mock_cfg:
+            mock_cfg.return_value.export.output_dir = str(tmp_path)
+            mock_cfg.return_value.download.max_file_size_mb = 10
+            mock_cfg.return_value.download.retention_seconds = 3600
             service = DownloadService()
             result = service.generate_download_token(
                 file_path=test_file,
@@ -215,19 +216,21 @@ class TestDownloadEndpoint:
             text = response.text
             assert "<html>" in text
             assert "<h1>Report</h1>" in text
-        finally:
-            test_file.unlink(missing_ok=True)
 
 
 class TestTokenLifecycle:
     """End-to-end token lifecycle test."""
 
-    def test_token_generate_validate_delete(self):
-        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as f:
-            f.write('{"test": "lifecycle"}')
-            test_file = Path(f.name)
+    def test_token_generate_validate_delete(self, tmp_path: Path):
+        test_file = tmp_path / "lifecycle.json"
+        test_file.write_text('{"test": "lifecycle"}')
 
-        try:
+        from unittest.mock import patch
+
+        with patch("ciberwebscan.services.download_service.get_config") as mock_cfg:
+            mock_cfg.return_value.export.output_dir = str(tmp_path)
+            mock_cfg.return_value.download.max_file_size_mb = 10
+            mock_cfg.return_value.download.retention_seconds = 3600
             service = DownloadService()
 
             generate_result = service.generate_download_token(
@@ -250,5 +253,3 @@ class TestTokenLifecycle:
                 token=token, user_id="test_user"
             )
             assert not validate_after.success
-        finally:
-            test_file.unlink(missing_ok=True)
