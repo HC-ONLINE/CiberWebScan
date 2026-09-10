@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.18.1](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.18.0...v2.18.1) (2026-09-10)
+
+
+### Bug Fixes
+
+* HTTPClient resource lifecycle management ([3c92fde](https://github.com/HC-ONLINE/CiberWebScan/commit/3c92fdeee2dd3a16b83ff1e9e40dbca32eb0fa4a))
+
 ## [2.18.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.17.0...v2.18.0) (2026-09-08)
 
 
