@@ -407,6 +407,16 @@ class NVDClient:
             logger.error("Error fetching CVE %s from NVD: %s", cve_id, e)
             return None
 
+    def close(self) -> None:
+        """Close the underlying HTTP client and release resources."""
+        self._http_client.close()
+
+    def __enter__(self) -> NVDClient:
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        self.close()
+
     def clear_cache(self) -> None:
         """Clear any cached data."""
         # For future cache implementation
@@ -431,11 +441,11 @@ def lookup_cves_nvd(
     Returns:
         CVESearchResult with matching entries.
     """
-    client = NVDClient()
-    query = CVESearchQuery(
-        vendor=vendor,
-        product=product,
-        version=version,
-        limit=max_results,
-    )
-    return client.search(query)
+    with NVDClient() as client:
+        query = CVESearchQuery(
+            vendor=vendor,
+            product=product,
+            version=version,
+            limit=max_results,
+        )
+        return client.search(query)

@@ -69,6 +69,18 @@ class CVEAggregator:
             [s.value for s in self.sources],
         )
 
+    def close(self) -> None:
+        """Close all underlying CVE clients and release resources."""
+        self.nvd_client.close()
+        self.circl_client.close()
+        self.vulners_client.close()
+
+    def __enter__(self) -> CVEAggregator:
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        self.close()
+
     def search(
         self,
         product: str,
@@ -310,32 +322,32 @@ def lookup_cves(
             source_map[s.lower()] for s in sources if s.lower() in source_map
         ]
 
-    aggregator = CVEAggregator()
-    result = aggregator.search(
-        product=product,
-        vendor=vendor,
-        version=version,
-        limit=max_results,
-        sources=source_list,
-    )
+    with CVEAggregator() as aggregator:
+        result = aggregator.search(
+            product=product,
+            vendor=vendor,
+            version=version,
+            limit=max_results,
+            sources=source_list,
+        )
 
-    # Convert to dict format
-    output = []
-    for entry in result.entries:
-        cve_dict = {
-            "id": entry.id,
-            "source": entry.source.value,
-            "severity": entry.severity.value,
-            "cvss_score": entry.score,
-            "cvss_version": entry.cvss.version if entry.cvss else None,
-            "description": entry.description,
-            "published_date": entry.published_date.isoformat()
-            if entry.published_date
-            else None,
-            "references": [ref.url for ref in entry.references],
-            "cwe_ids": entry.cwe_ids,
-            "has_exploit": entry.has_exploit,
-        }
-        output.append(cve_dict)
+        # Convert to dict format
+        output = []
+        for entry in result.entries:
+            cve_dict = {
+                "id": entry.id,
+                "source": entry.source.value,
+                "severity": entry.severity.value,
+                "cvss_score": entry.score,
+                "cvss_version": entry.cvss.version if entry.cvss else None,
+                "description": entry.description,
+                "published_date": entry.published_date.isoformat()
+                if entry.published_date
+                else None,
+                "references": [ref.url for ref in entry.references],
+                "cwe_ids": entry.cwe_ids,
+                "has_exploit": entry.has_exploit,
+            }
+            output.append(cve_dict)
 
-    return output
+        return output

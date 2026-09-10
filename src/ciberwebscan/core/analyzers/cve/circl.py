@@ -432,6 +432,16 @@ class CIRCLClient:
             logger.error("Error fetching CVE %s from CIRCL: %s", cve_id, e)
             return None
 
+    def close(self) -> None:
+        """Close the underlying HTTP client and release resources."""
+        self._http_client.close()
+
+    def __enter__(self) -> CIRCLClient:
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        self.close()
+
 
 def lookup_cves_circl(
     vendor: str,
@@ -451,12 +461,12 @@ def lookup_cves_circl(
     Returns:
         List of matching CVEEntry objects.
     """
-    client = CIRCLClient()
-    query = CVESearchQuery(
-        vendor=vendor,
-        product=product,
-        version=version,
-        limit=max_results,
-    )
-    result = client.search(query)
-    return result.entries
+    with CIRCLClient() as client:
+        query = CVESearchQuery(
+            vendor=vendor,
+            product=product,
+            version=version,
+            limit=max_results,
+        )
+        result = client.search(query)
+        return result.entries
