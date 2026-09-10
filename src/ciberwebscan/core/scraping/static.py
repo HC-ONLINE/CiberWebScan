@@ -197,6 +197,19 @@ class StaticScraper:
         self._last_proxy: str | None = None
         self._proxy_client: HTTPClient | None = None
 
+    def close(self) -> None:
+        """Close the HTTP clients and release resources."""
+        if self._proxy_client is not None:
+            self._proxy_client.close()
+            self._proxy_client = None
+            self._last_proxy = None
+
+    def __enter__(self) -> StaticScraper:
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        self.close()
+
     def scrape(
         self,
         url: str,
@@ -483,6 +496,8 @@ class StaticScraper:
         from ciberwebscan.core.client.http_client import HTTPClient as _HTTPClient
 
         logger.debug("Switching proxy to %s", proxy)
+        if self._proxy_client is not None:
+            self._proxy_client.close()
         self._proxy_client = _HTTPClient(proxy=proxy)
         self._last_proxy = proxy
         return self._proxy_client
@@ -564,21 +579,27 @@ def scrape_static(
         ... )
     """
     # Create client if not provided
+    should_close = False
     if http_client is None:
         from ciberwebscan.core.client.http_client import HTTPClient
 
         http_client = HTTPClient()
+        should_close = True
 
-    scraper = StaticScraper(http_client)
+    try:
+        scraper = StaticScraper(http_client)
 
-    config = ScrapeConfig(
-        selector=selector,
-        schema=schema,
-        attributes=attributes,
-        max_pages=max_pages,
-        pagination_selector=pagination_selector,
-        check_robots=check_robots,
-        cookies=cookies,
-    )
+        config = ScrapeConfig(
+            selector=selector,
+            schema=schema,
+            attributes=attributes,
+            max_pages=max_pages,
+            pagination_selector=pagination_selector,
+            check_robots=check_robots,
+            cookies=cookies,
+        )
 
-    return scraper.scrape_pages(url, config)
+        return scraper.scrape_pages(url, config)
+    finally:
+        if should_close:
+            http_client.close()

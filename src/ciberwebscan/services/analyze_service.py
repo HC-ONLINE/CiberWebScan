@@ -234,6 +234,18 @@ class AnalyzeService(BaseService):
         }
         return source_map.get(api, [CVESource.NVD, CVESource.CIRCL])
 
+    def close(self) -> None:
+        """Close the CVE aggregator and release resources."""
+        if self._cve_aggregator is not None:
+            self._cve_aggregator.close()
+            self._cve_aggregator = None
+
+    def __enter__(self) -> AnalyzeService:
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        self.close()
+
     def analyze(self, options: AnalyzeOptions) -> ServiceResult[AnalysisReport]:
         """
         Perform a security analysis.

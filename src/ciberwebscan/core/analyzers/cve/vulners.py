@@ -352,6 +352,16 @@ class VulnersClient:
             logger.error("Error fetching CVE %s from Vulners: %s", cve_id, e)
             return None
 
+    def close(self) -> None:
+        """Close the underlying HTTP client and release resources."""
+        self._http_client.close()
+
+    def __enter__(self) -> VulnersClient:
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        self.close()
+
     def _parse_software_response(self, data: dict) -> list[CVEEntry]:
         """Parse Vulners software search response."""
         entries: list[CVEEntry] = []
@@ -409,21 +419,20 @@ def get_exploit_info(
     Returns:
         Dictionary with exploit information.
     """
-    client = VulnersClient(api_key=api_key)
+    with VulnersClient(api_key=api_key) as client:
+        if not client.enabled:
+            return {
+                "cve_id": cve_id,
+                "has_exploits": False,
+                "exploits": [],
+                "error": "API key not configured",
+            }
 
-    if not client.enabled:
+        exploits = client.get_exploits(cve_id)
+
         return {
             "cve_id": cve_id,
-            "has_exploits": False,
-            "exploits": [],
-            "error": "API key not configured",
+            "has_exploits": len(exploits) > 0,
+            "exploits": exploits,
+            "count": len(exploits),
         }
-
-    exploits = client.get_exploits(cve_id)
-
-    return {
-        "cve_id": cve_id,
-        "has_exploits": len(exploits) > 0,
-        "exploits": exploits,
-        "count": len(exploits),
-    }

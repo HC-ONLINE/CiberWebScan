@@ -104,6 +104,7 @@ class ScrapeService(BaseService):
         self.config = config or self.app_config.scraping
         self._static_scraper: StaticScraper | None = None
         self._dynamic_scraper: Any = None  # Optional DynamicScraper
+        self._ad_hoc_scrapers: list[StaticScraper] = []
 
         # Initialize user agent provider from config
         from ciberwebscan.core.client.user_agent import UserAgentProvider
@@ -214,11 +215,13 @@ class ScrapeService(BaseService):
                 verify=verify_ssl,
                 cookies=cookies,
             )
-            return StaticScraper(
+            scraper = StaticScraper(
                 client,
                 proxy_rotator=self._proxy_rotator,
                 user_agent_provider=self._user_agent_provider,
             )
+            self._ad_hoc_scrapers.append(scraper)
+            return scraper
         else:
             return self.static_scraper
 
@@ -533,14 +536,20 @@ class ScrapeService(BaseService):
         """Clean up resources properly handling async/sync contexts."""
         import contextlib
 
-        # 1. Close StaticScraper's HTTPClient
+        # 1. Close ad-hoc scrapers created for different proxy configs
+        for scraper in self._ad_hoc_scrapers:
+            with contextlib.suppress(Exception):
+                scraper.close()
+        self._ad_hoc_scrapers.clear()
+
+        # 2. Close StaticScraper's HTTPClient
         if self._static_scraper:
             with contextlib.suppress(Exception):
                 if hasattr(self._static_scraper, "_client"):
                     self._static_scraper._client.close()
             self._static_scraper = None
 
-        # 2. Close DynamicScraper's Playwright browser (async)
+        # 3. Close DynamicScraper's Playwright browser (async)
         if self._dynamic_scraper:
             try:
                 coro = self._dynamic_scraper._close_browser()
