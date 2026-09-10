@@ -7,7 +7,7 @@ Never run real attacks without explicit permission.
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
@@ -242,7 +242,7 @@ class TestAttackService:
         mock_attacker = Mock()
         mock_attacker.execute = AsyncMock(return_value=[])
         mock_xss_attacker_class.return_value = mock_attacker
-        mock_http_client_class.return_value = Mock()
+        mock_http_client_class.return_value = MagicMock()
 
         service = AttackService()
         options = AttackOptions(url="https://example.com", user_consent=True, xss=True)
@@ -309,7 +309,7 @@ class TestAttackService:
         mock_xss_attacker_class.return_value = mock_attacker
 
         # Mock HTTP client
-        mock_client = Mock()
+        mock_client = MagicMock()
         mock_http_client_class.return_value = mock_client
 
         # Execute attack
@@ -352,7 +352,7 @@ class TestAttackService:
         mock_sqli_attacker_class.return_value = mock_attacker
 
         # Mock HTTP client
-        mock_client = Mock()
+        mock_client = MagicMock()
         mock_http_client_class.return_value = mock_client
 
         # Execute attack
@@ -401,7 +401,7 @@ class TestAttackService:
         mock_sqli_class.return_value = mock_sqli
 
         # Mock HTTP client
-        mock_client = Mock()
+        mock_client = MagicMock()
         mock_http_client_class.return_value = mock_client
 
         # Execute attack with multiple types
@@ -450,7 +450,7 @@ class TestAttackService:
         mock_subdomain_class.return_value = mock_enumerator
 
         # Mock HTTP client
-        mock_client = Mock()
+        mock_client = MagicMock()
         mock_http_client_class.return_value = mock_client
 
         # Execute attack
@@ -482,7 +482,7 @@ class TestAttackService:
         mock_xss_class.return_value = mock_xss
 
         # Mock HTTP client
-        mock_client = Mock()
+        mock_client = MagicMock()
         mock_http_client_class.return_value = mock_client
 
         # Execute with export
@@ -539,7 +539,7 @@ class TestAttackServiceErrorHandling:
         mock_xss_class.return_value = mock_xss
 
         # Mock HTTP client
-        mock_client = Mock()
+        mock_client = MagicMock()
         mock_http_client_class.return_value = mock_client
 
         # Execute attack - should handle error gracefully
@@ -581,7 +581,7 @@ class TestAttackServiceErrorHandling:
         mock_xss_class.return_value = mock_attacker
 
         # Mock HTTP client
-        mock_client = Mock()
+        mock_client = MagicMock()
         mock_http_client_class.return_value = mock_client
 
         # Create options with config (xss=None means use config default)
@@ -774,7 +774,7 @@ class TestAttackServiceProxyRotation:
         mock_attacker = Mock()
         mock_attacker.execute = AsyncMock(return_value=[])
         mock_xss_class.return_value = mock_attacker
-        mock_http_client_class.return_value = Mock()
+        mock_http_client_class.return_value = MagicMock()
 
         service = AttackService()
         options = AttackOptions(url="https://example.com", user_consent=True, xss=True)
@@ -821,7 +821,7 @@ class TestAttackConfigGating:
     ):
         """attack.enabled=True allows execution."""
         mock_xss_class.return_value = Mock(execute=AsyncMock(return_value=[]))
-        mock_http_class.return_value = Mock()
+        mock_http_class.return_value = MagicMock()
 
         service = AttackService()
         service.app_config.attack.enabled = True
@@ -866,7 +866,7 @@ class TestAttackConfigGating:
     ):
         """Target host in whitelist is permitted."""
         mock_xss_class.return_value = Mock(execute=AsyncMock(return_value=[]))
-        mock_http_class.return_value = Mock()
+        mock_http_class.return_value = MagicMock()
 
         service = AttackService()
         service.app_config.attack.enabled = True
@@ -889,7 +889,7 @@ class TestAttackConfigGating:
     ):
         """Empty whitelist imposes no restriction."""
         mock_xss_class.return_value = Mock(execute=AsyncMock(return_value=[]))
-        mock_http_class.return_value = Mock()
+        mock_http_class.return_value = MagicMock()
 
         service = AttackService()
         service.app_config.attack.enabled = True
@@ -949,3 +949,157 @@ class TestAttackConfigGating:
         )
 
         assert options.user_consent is True
+
+
+# =============================================================================
+# HTTPClient Lifecycle Tests
+# =============================================================================
+
+
+class TestAttackServiceHTTPClientLifecycle:
+    """Tests verifying HTTPClient is properly closed via context manager."""
+
+    @patch("ciberwebscan.services.attack_service.HTTPClient")
+    @patch("ciberwebscan.services.attack_service.XSSAttacker")
+    def test_http_client_closed_after_successful_attack(
+        self,
+        mock_xss_class: Mock,
+        mock_http_client_class: Mock,
+    ):
+        """HTTPClient.close() is called exactly once after successful execution."""
+        mock_xss = Mock()
+        mock_xss.execute = AsyncMock(return_value=[])
+        mock_xss_class.return_value = mock_xss
+
+        mock_client = MagicMock()
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(side_effect=lambda *a: mock_client.close())
+        mock_http_client_class.return_value = mock_client
+
+        service = AttackService()
+        service.app_config.attack.enabled = True
+        service.app_config.attack.whitelist = []
+
+        options = AttackOptions(
+            url="https://example.com",
+            user_consent=True,
+            xss=True,
+        )
+        result = service.attack(options)
+
+        assert result.success is True
+        mock_client.__enter__.assert_called_once()
+        mock_client.__exit__.assert_called_once()
+        mock_client.close.assert_called_once()
+
+    @patch("ciberwebscan.services.attack_service.HTTPClient")
+    @patch("ciberwebscan.services.attack_service.XSSAttacker")
+    def test_http_client_closed_on_attack_exception(
+        self,
+        mock_xss_class: Mock,
+        mock_http_client_class: Mock,
+    ):
+        """HTTPClient.close() is called even when attack execution raises."""
+        mock_xss = Mock()
+        mock_xss.execute = AsyncMock(side_effect=Exception("Attack failed"))
+        mock_xss_class.return_value = mock_xss
+
+        mock_client = MagicMock()
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(side_effect=lambda *a: mock_client.close())
+        mock_http_client_class.return_value = mock_client
+
+        service = AttackService()
+        service.app_config.attack.enabled = True
+        service.app_config.attack.whitelist = []
+
+        options = AttackOptions(
+            url="https://example.com",
+            user_consent=True,
+            xss=True,
+        )
+        result = service.attack(options)
+
+        # Should succeed (error is caught internally by _execute_xss_attack)
+        assert result.success is True
+        mock_client.__enter__.assert_called_once()
+        mock_client.__exit__.assert_called_once()
+        mock_client.close.assert_called_once()
+
+    @patch("ciberwebscan.services.attack_service.HTTPClient")
+    @patch("ciberwebscan.services.attack_service.XSSAttacker")
+    def test_http_client_closed_multiple_invocations(
+        self,
+        mock_xss_class: Mock,
+        mock_http_client_class: Mock,
+    ):
+        """Each attack() invocation creates and closes its own HTTPClient."""
+        mock_xss = Mock()
+        mock_xss.execute = AsyncMock(return_value=[])
+        mock_xss_class.return_value = mock_xss
+
+        service = AttackService()
+        service.app_config.attack.enabled = True
+        service.app_config.attack.whitelist = []
+
+        clients = []
+        for _ in range(5):
+            mock_client = MagicMock()
+            mock_client.__enter__ = Mock(return_value=mock_client)
+            mock_client.__exit__ = Mock(
+                side_effect=lambda *a, mc=mock_client: mc.close()
+            )
+            mock_http_client_class.return_value = mock_client
+            clients.append(mock_client)
+
+            options = AttackOptions(
+                url="https://example.com",
+                user_consent=True,
+                xss=True,
+            )
+            result = service.attack(options)
+            assert result.success is True
+
+        for c in clients:
+            c.__enter__.assert_called_once()
+            c.__exit__.assert_called_once()
+            c.close.assert_called_once()
+
+    @patch("ciberwebscan.services.attack_service.HTTPClient")
+    @patch("ciberwebscan.services.attack_service.XSSAttacker")
+    def test_attack_context_uses_client_while_active(
+        self,
+        mock_xss_class: Mock,
+        mock_http_client_class: Mock,
+    ):
+        """AttackContext receives the HTTPClient while the context manager is active."""
+        captured_context = []
+
+        mock_xss = Mock()
+
+        async def capture_execute(context):
+            captured_context.append(context)
+            return []
+
+        mock_xss.execute = capture_execute
+        mock_xss_class.return_value = mock_xss
+
+        mock_client = MagicMock()
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_http_client_class.return_value = mock_client
+
+        service = AttackService()
+        service.app_config.attack.enabled = True
+        service.app_config.attack.whitelist = []
+
+        options = AttackOptions(
+            url="https://example.com",
+            user_consent=True,
+            xss=True,
+        )
+        service.attack(options)
+
+        assert len(captured_context) == 1
+        ctx = captured_context[0]
+        assert ctx.http_client is mock_client

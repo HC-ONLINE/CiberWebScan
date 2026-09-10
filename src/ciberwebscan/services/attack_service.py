@@ -352,7 +352,7 @@ class AttackService(BaseService):
             )
 
             # Create HTTP client
-            http_client = HTTPClient(
+            with HTTPClient(
                 timeout=timeout,
                 max_attempts=http_config.retry.max_attempts,
                 backoff_factor=http_config.retry.backoff_factor,
@@ -367,97 +367,100 @@ class AttackService(BaseService):
                 default_headers=default_headers or None,
                 cookies=options.cookies or None,
                 proxy=self._resolve_proxy(options.proxy),
-            )
+            ) as http_client:
+                # Create attack context
+                context = AttackContext(config=attack_config, http_client=http_client)
 
-            # Create attack context
-            context = AttackContext(config=attack_config, http_client=http_client)
+                # Execute attacks
+                all_vulnerabilities: list[VulnerabilityFinding] = []
 
-            # Execute attacks
-            all_vulnerabilities: list[VulnerabilityFinding] = []
+                if options.xss:
+                    self.logger.info("Running XSS attack simulation...")
+                    xss_vulns = self._execute_xss_attack(context)
+                    all_vulnerabilities.extend(xss_vulns)
+                    self.logger.info(
+                        f"XSS: Found {len(xss_vulns)} potential vulnerabilities"
+                    )
 
-            if options.xss:
-                self.logger.info("Running XSS attack simulation...")
-                xss_vulns = self._execute_xss_attack(context)
-                all_vulnerabilities.extend(xss_vulns)
-                self.logger.info(
-                    f"XSS: Found {len(xss_vulns)} potential vulnerabilities"
+                if options.sqli:
+                    self.logger.info("Running SQL Injection attack simulation...")
+                    sqli_vulns = self._execute_sqli_attack(context)
+                    all_vulnerabilities.extend(sqli_vulns)
+                    self.logger.info(
+                        f"SQLi: Found {len(sqli_vulns)} potential vulnerabilities"
+                    )
+
+                if options.traversal:
+                    self.logger.info("Running Path Traversal attack simulation...")
+                    traversal_vulns = self._execute_traversal_attack(context)
+                    all_vulnerabilities.extend(traversal_vulns)
+                    self.logger.info(
+                        f"Path Traversal: Found {len(traversal_vulns)} potential vulnerabilities"
+                    )
+
+                if options.enumeration:
+                    self.logger.info("Running Directory Enumeration...")
+                    enum_vulns = self._execute_enumeration_attack(
+                        context, options.custom_wordlist
+                    )
+                    all_vulnerabilities.extend(enum_vulns)
+                    self.logger.info(
+                        f"Enumeration: Found {len(enum_vulns)} interesting resources"
+                    )
+
+                if options.csrf:
+                    self.logger.info("Running CSRF analysis...")
+                    csrf_vulns = self._execute_csrf_attack(context)
+                    all_vulnerabilities.extend(csrf_vulns)
+                    self.logger.info(
+                        f"CSRF: Found {len(csrf_vulns)} potential vulnerabilities"
+                    )
+
+                if options.subdomain:
+                    self.logger.info("Running Subdomain Enumeration...")
+                    subdomain_vulns = self._execute_subdomain_attack(
+                        context, options.custom_wordlist
+                    )
+                    all_vulnerabilities.extend(subdomain_vulns)
+                    self.logger.info(
+                        f"Subdomain Enumeration: Found {len(subdomain_vulns)} active subdomains"
+                    )
+
+                if options.command_injection:
+                    self.logger.info("Running Command Injection attack simulation...")
+                    cmdi_vulns = self._execute_command_injection_attack(context)
+                    all_vulnerabilities.extend(cmdi_vulns)
+                    self.logger.info(
+                        f"Command Injection: Found {len(cmdi_vulns)} potential vulnerabilities"
+                    )
+
+                # Create attack result
+                attack_result = AttackResult(
+                    target_url=url,
+                    vulnerabilities=all_vulnerabilities,
+                    total_payloads_tested=context.total_requests,
+                    total_findings=len(all_vulnerabilities),
+                    xss_findings=sum(1 for v in all_vulnerabilities if v.type == "xss"),
+                    sqli_findings=sum(
+                        1 for v in all_vulnerabilities if v.type == "sqli"
+                    ),
+                    traversal_findings=sum(
+                        1 for v in all_vulnerabilities if v.type == "traversal"
+                    ),
+                    enumeration_findings=sum(
+                        1 for v in all_vulnerabilities if v.type == "enumeration"
+                    ),
+                    csrf_findings=sum(
+                        1 for v in all_vulnerabilities if v.type == "csrf"
+                    ),
+                    subdomain_findings=sum(
+                        1 for v in all_vulnerabilities if v.type == "subdomain"
+                    ),
+                    command_injection_findings=sum(
+                        1 for v in all_vulnerabilities if v.type == "command_injection"
+                    ),
+                    duration_seconds=context.elapsed_time(),
                 )
-
-            if options.sqli:
-                self.logger.info("Running SQL Injection attack simulation...")
-                sqli_vulns = self._execute_sqli_attack(context)
-                all_vulnerabilities.extend(sqli_vulns)
-                self.logger.info(
-                    f"SQLi: Found {len(sqli_vulns)} potential vulnerabilities"
-                )
-
-            if options.traversal:
-                self.logger.info("Running Path Traversal attack simulation...")
-                traversal_vulns = self._execute_traversal_attack(context)
-                all_vulnerabilities.extend(traversal_vulns)
-                self.logger.info(
-                    f"Path Traversal: Found {len(traversal_vulns)} potential vulnerabilities"
-                )
-
-            if options.enumeration:
-                self.logger.info("Running Directory Enumeration...")
-                enum_vulns = self._execute_enumeration_attack(
-                    context, options.custom_wordlist
-                )
-                all_vulnerabilities.extend(enum_vulns)
-                self.logger.info(
-                    f"Enumeration: Found {len(enum_vulns)} interesting resources"
-                )
-
-            if options.csrf:
-                self.logger.info("Running CSRF analysis...")
-                csrf_vulns = self._execute_csrf_attack(context)
-                all_vulnerabilities.extend(csrf_vulns)
-                self.logger.info(
-                    f"CSRF: Found {len(csrf_vulns)} potential vulnerabilities"
-                )
-
-            if options.subdomain:
-                self.logger.info("Running Subdomain Enumeration...")
-                subdomain_vulns = self._execute_subdomain_attack(
-                    context, options.custom_wordlist
-                )
-                all_vulnerabilities.extend(subdomain_vulns)
-                self.logger.info(
-                    f"Subdomain Enumeration: Found {len(subdomain_vulns)} active subdomains"
-                )
-
-            if options.command_injection:
-                self.logger.info("Running Command Injection attack simulation...")
-                cmdi_vulns = self._execute_command_injection_attack(context)
-                all_vulnerabilities.extend(cmdi_vulns)
-                self.logger.info(
-                    f"Command Injection: Found {len(cmdi_vulns)} potential vulnerabilities"
-                )
-
-            # Create attack result
-            attack_result = AttackResult(
-                target_url=url,
-                vulnerabilities=all_vulnerabilities,
-                total_payloads_tested=context.total_requests,
-                total_findings=len(all_vulnerabilities),
-                xss_findings=sum(1 for v in all_vulnerabilities if v.type == "xss"),
-                sqli_findings=sum(1 for v in all_vulnerabilities if v.type == "sqli"),
-                traversal_findings=sum(
-                    1 for v in all_vulnerabilities if v.type == "traversal"
-                ),
-                enumeration_findings=sum(
-                    1 for v in all_vulnerabilities if v.type == "enumeration"
-                ),
-                csrf_findings=sum(1 for v in all_vulnerabilities if v.type == "csrf"),
-                subdomain_findings=sum(
-                    1 for v in all_vulnerabilities if v.type == "subdomain"
-                ),
-                command_injection_findings=sum(
-                    1 for v in all_vulnerabilities if v.type == "command_injection"
-                ),
-                duration_seconds=context.elapsed_time(),
-            )
 
             # Export if requested
             if options.export:
@@ -468,7 +471,7 @@ class AttackService(BaseService):
 
             self.logger.info(
                 f"Attack simulation completed: {len(all_vulnerabilities)} findings "
-                f"({context.total_requests} requests in {context.elapsed_time():.2f}s)"
+                f"({context.total_requests} requests in {attack_result.duration_seconds:.2f}s)"
             )
 
         except ValidationError:
