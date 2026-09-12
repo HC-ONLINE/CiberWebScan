@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.18.2](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.18.1...v2.18.2) (2026-09-12)
+
+
+### Bug Fixes
+
+* **api:** prevent event loop blocking in sync routes ([6abfc65](https://github.com/HC-ONLINE/CiberWebScan/commit/6abfc65530b3c3fbd582c9cb141b90e672d5b570))
+* **api:** prevent event loop blocking in sync routes ([cdfd5e9](https://github.com/HC-ONLINE/CiberWebScan/commit/cdfd5e9387df78fbb8de839ee86e20e21043b755))
+
 ## [2.18.1](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.18.0...v2.18.1) (2026-09-10)
 
 
