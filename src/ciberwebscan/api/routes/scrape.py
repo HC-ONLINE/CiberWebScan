@@ -29,7 +29,7 @@ router = APIRouter()
 
 
 @router.post("/scrape", response_model=APIResponse[ScrapeResult | list[dict[str, Any]]])
-async def scrape_url(
+def scrape_url(
     request: ScrapeRequest,
     http_request: Request,
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],
@@ -104,7 +104,7 @@ async def scrape_url(
 
 
 @router.post("/scrape/batch", response_model=APIResponse[ScrapeBatchResultResponse])
-async def scrape_batch(
+def scrape_batch(
     request: ScrapeBatchRequest,
     http_request: Request,
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],

@@ -24,7 +24,7 @@ router = APIRouter()
 
 
 @router.post("/analyze", response_model=APIResponse[AnalysisReport])
-async def analyze_url(
+def analyze_url(
     request: AnalyzeRequest,
     http_request: Request,
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],

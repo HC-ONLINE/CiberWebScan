@@ -35,7 +35,7 @@ router = APIRouter()
         500: {"model": ErrorResponse, "description": "Internal server error"},
     },
 )
-async def quick_scan(request: QuickScanRequest) -> QuickScanResponse:
+def quick_scan(request: QuickScanRequest) -> QuickScanResponse:
     """
     Execute a quick scan combining analysis, attacks, and scraping.
 
