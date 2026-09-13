@@ -13,6 +13,7 @@ pytest.importorskip("fastapi")
 pytest.importorskip("uvicorn")
 
 
+@pytest.mark.network
 class TestAttackEndpoint:
     """Tests for POST /api/attack."""
 

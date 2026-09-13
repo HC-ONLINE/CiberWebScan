@@ -13,6 +13,7 @@ pytest.importorskip("fastapi")
 pytest.importorskip("uvicorn")
 
 
+@pytest.mark.network
 class TestAuthMe:
     """Tests for GET /api/auth/me."""
 

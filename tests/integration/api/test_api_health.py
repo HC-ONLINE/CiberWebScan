@@ -13,6 +13,7 @@ pytest.importorskip("fastapi")
 pytest.importorskip("uvicorn")
 
 
+@pytest.mark.network
 class TestHealthEndpoints:
     """Tests for GET /health and GET /health/ready."""
 

@@ -8,11 +8,15 @@ from __future__ import annotations
 
 import threading
 
+import pytest
+
 from ciberwebscan.core.client.http_client import HTTPClient
 
 HTTPBIN_URL = "https://httpbin.org"
 
 
+@pytest.mark.network
+@pytest.mark.external
 class TestHTTPClientContextManager:
     """Test HTTPClient context manager with real HTTP requests."""
 
@@ -43,6 +47,8 @@ class TestHTTPClientContextManager:
             assert client._client.is_closed
 
 
+@pytest.mark.network
+@pytest.mark.external
 class TestHTTPClientExplicitClose:
     """Test HTTPClient explicit close() with real HTTP requests."""
 
@@ -75,6 +81,8 @@ class TestHTTPClientExplicitClose:
             assert c._client.is_closed
 
 
+@pytest.mark.network
+@pytest.mark.external
 class TestHTTPClientExceptionSafety:
     """Test that HTTPClient cleans up on exceptions."""
 
@@ -101,6 +109,8 @@ class TestHTTPClientExceptionSafety:
         assert client._client.is_closed
 
 
+@pytest.mark.network
+@pytest.mark.external
 class TestHTTPClientConcurrent:
     """Test HTTPClient lifecycle with concurrent requests."""
 

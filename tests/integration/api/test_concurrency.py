@@ -115,6 +115,7 @@ def concurrency_server():
             p.stop()
 
 
+@pytest.mark.network
 @pytest.mark.asyncio
 async def test_scrape_does_not_block_event_loop(concurrency_server: str):
     """Verify /api/scrape blocking op does not block /health."""
@@ -144,6 +145,7 @@ async def test_scrape_does_not_block_event_loop(concurrency_server: str):
     )
 
 
+@pytest.mark.network
 @pytest.mark.asyncio
 async def test_analyze_does_not_block_event_loop(concurrency_server: str):
     """Verify /api/analyze blocking op does not block /health."""
@@ -173,6 +175,7 @@ async def test_analyze_does_not_block_event_loop(concurrency_server: str):
     )
 
 
+@pytest.mark.network
 @pytest.mark.asyncio
 async def test_quick_scan_does_not_block_event_loop(concurrency_server: str):
     """Verify /api/quick/scan blocking op does not block /health."""
@@ -202,6 +205,7 @@ async def test_quick_scan_does_not_block_event_loop(concurrency_server: str):
     )
 
 
+@pytest.mark.network
 @pytest.mark.asyncio
 async def test_multiple_endpoints_concurrent(concurrency_server: str):
     """Verify multiple different endpoints can run concurrently without blocking each other."""

@@ -17,6 +17,7 @@ pytest.importorskip("fastapi")
 pytest.importorskip("uvicorn")
 
 
+@pytest.mark.network
 class TestExportWithDownloadToken:
     """Tests that export parameter generates download tokens."""
 

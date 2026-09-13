@@ -13,6 +13,7 @@ pytest.importorskip("fastapi")
 pytest.importorskip("uvicorn")
 
 
+@pytest.mark.network
 class TestCorruptInput:
     """Tests for malformed request handling."""
 
@@ -29,6 +30,8 @@ class TestCorruptInput:
         assert response.status_code == 422
 
 
+@pytest.mark.network
+@pytest.mark.slow
 class TestRateLimiting:
     """Tests for rate limiting middleware."""
 
