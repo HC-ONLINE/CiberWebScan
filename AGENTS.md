@@ -373,17 +373,16 @@ Key rules:
 # Correct: hits external service
 @pytest.mark.network
 @pytest.mark.external
-class TestHTTPClientIntegration:
-    ...
+class TestHTTPClientIntegration: ...
+
 
 # Correct: hits localhost test server
 @pytest.mark.network
-class TestAnalyzeEndpoint:
-    ...
+class TestAnalyzeEndpoint: ...
+
 
 # Correct: in-process TestClient, no real network
-class TestHealthEndpoints:
-    ...
+class TestHealthEndpoints: ...
 ```
 
 ### HTTPClient Mocking
