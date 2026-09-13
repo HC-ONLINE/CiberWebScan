@@ -43,6 +43,7 @@ class TestLoggingIntegration:
         env = os.environ.copy()
         env["CIBERWEBSCAN_LOGGING_FILE"] = str(log_file)
         env["CIBERWEBSCAN_LOGGING_FORMAT"] = _LOG_FORMAT
+        env["CIBERWEBSCAN_LOGGING_LEVEL"] = "DEBUG"
 
         subprocess.run(
             [sys.executable, "-m", "ciberwebscan", "config", "show"],
