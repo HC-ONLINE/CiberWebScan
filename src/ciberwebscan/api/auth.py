@@ -100,7 +100,7 @@ def _mask_key_for_logging(key: str) -> str:
     """
     auth_config = get_auth_config()
     server_secret = auth_config.server_secret.encode()
-    # lgtm[py/weak-sensitive-data-hashing] - HMAC-SHA256 for log IDs, not passwords
+    # codeql[py/weak-sensitive-data-hashing]
     return hmac.new(server_secret, key.encode(), hashlib.sha256).hexdigest()[:12]
 
 
