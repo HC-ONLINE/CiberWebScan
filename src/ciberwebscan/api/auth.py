@@ -93,9 +93,14 @@ def _mask_key_for_logging(key: str) -> str:
     This allows correlating log entries for the same key without exposing
     the actual key material, and is not vulnerable to pre-image attacks
     without knowledge of the server secret.
+
+    Note: HMAC-SHA256 is appropriate here because this is a log identifier,
+    not password storage. SHA-2 is explicitly recommended by OWASP for
+    non-password cryptographic operations.
     """
     auth_config = get_auth_config()
     server_secret = auth_config.server_secret.encode()
+    # lgtm[py/weak-sensitive-data-hashing] - HMAC-SHA256 for log IDs, not passwords
     return hmac.new(server_secret, key.encode(), hashlib.sha256).hexdigest()[:12]
 
 
