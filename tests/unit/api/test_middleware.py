@@ -280,6 +280,9 @@ class TestRateLimitingMiddlewareWindowRotation:
         add_rate_limiting_middleware(app, requests_per_minute=2)
         client = TestClient(app)
 
+        # Prime the middleware stack (built lazily on first request)
+        client.get("/test")
+
         # Find the middleware instance
         middleware_instance = None
         current = app.middleware_stack
@@ -289,12 +292,13 @@ class TestRateLimitingMiddlewareWindowRotation:
                 break
             current = current.app
 
-        if middleware_instance is None:
-            pytest.skip("Could not access middleware instance")
+        assert middleware_instance is not None, "Could not access middleware instance"
 
-        # Exhaust limit
-        client.get("/test")
-        client.get("/test")
+        # Exhaust remaining limit (1 more, total=2 in this window)
+        response = client.get("/test")
+        assert response.status_code == 200
+
+        # Should be blocked now (2 >= 2)
         response = client.get("/test")
         assert response.status_code == 429
 
