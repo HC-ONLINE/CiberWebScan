@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.20.2](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.20.1...v2.20.2) (2026-09-13)
+
+
+### Bug Fixes
+
+* **ssl:** enforce minimum TLS version to 1.2 for secure connections ([43644fe](https://github.com/HC-ONLINE/CiberWebScan/commit/43644fe6353f243767395c61cfb2c8b741e81a29))
+* **ssl:** enforce minimum TLS version to 1.2 for secure connections ([f278f63](https://github.com/HC-ONLINE/CiberWebScan/commit/f278f63ca9fe68d61e9d8dafa0542d00aa7e604b))
+
 ## [2.20.1](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.20.0...v2.20.1) (2026-09-13)
 
 
