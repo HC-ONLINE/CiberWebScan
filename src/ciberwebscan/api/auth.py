@@ -7,6 +7,7 @@ Provides API Key authentication.
 from __future__ import annotations
 
 import hashlib
+import hmac
 import logging
 import secrets
 from typing import Annotated
@@ -29,18 +30,27 @@ class AuthConfig(BaseModel):
 
     api_key_enabled: bool = True
     api_keys: list[str] = []
+    server_secret: str = ""
 
 
 def get_auth_config() -> AuthConfig:
     """
     Load authentication configuration from global config.
+
+    Auto-generates a server secret if one is not configured.
     """
     config = get_config()
     auth_cfg = config.api.auth
 
+    # Auto-generate server secret if not provided
+    server_secret = auth_cfg.server_secret
+    if not server_secret:
+        server_secret = secrets.token_urlsafe(32)
+
     return AuthConfig(
         api_key_enabled=bool(auth_cfg.api_keys),
         api_keys=auth_cfg.api_keys,
+        server_secret=server_secret,
     )
 
 
@@ -79,10 +89,14 @@ def _mask_key_for_logging(key: str) -> str:
     """
     Create a safe, non-reversible identifier for logging purposes.
 
-    Uses SHA-256 hash truncated to 8 hex characters. This allows correlating
-    log entries for the same key without exposing the actual key material.
+    Uses HMAC-SHA256 with a server-side secret to produce a keyed hash.
+    This allows correlating log entries for the same key without exposing
+    the actual key material, and is not vulnerable to pre-image attacks
+    without knowledge of the server secret.
     """
-    return hashlib.sha256(key.encode()).hexdigest()[:8]
+    auth_config = get_auth_config()
+    server_secret = auth_config.server_secret.encode()
+    return hmac.new(server_secret, key.encode(), hashlib.sha256).hexdigest()[:12]
 
 
 async def verify_api_key(
