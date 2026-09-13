@@ -298,10 +298,12 @@ class SSLAnalyzer:
         """
         try:
             # Create SSL context that doesn't verify certificates
-            # to analyze problematic certificates
+            # to analyze problematic certificates.
+            # Force TLS 1.2+ minimum to satisfy security scanners (CodeQL #12).
             context = ssl.create_default_context()
             context.check_hostname = False
             context.verify_mode = ssl.CERT_NONE
+            context.minimum_version = ssl.TLSVersion.TLSv1_2
 
             # Connect and get certificate
             with (
@@ -412,7 +414,10 @@ class SSLAnalyzer:
             supported_protocols: list[str] = []
             cipher_suites: list[str] = []
 
-            # List of protocols to test
+            # List of protocols to test.
+            # Intentionally tests insecure protocols (SSLv3, TLSv1, TLSv1.1) to detect
+            # if the target server supports them — this is core security scanner functionality.
+            # codeql[py/insecure-protocol]
             protocols_to_test: list[tuple[str, int] | None] = [
                 (
                     ("SSLv3", ssl.PROTOCOL_SSLv3)
