@@ -239,12 +239,14 @@ class TestProtectedRoutes:
     @pytest.fixture
     def protected_app(self) -> FastAPI:
         """Create app with protected routes."""
-        from ciberwebscan.api.routes import analyze, scrape
+        from ciberwebscan.api.routes import analyze, attack, quick, scrape
 
         app = FastAPI()
         app.include_router(auth_router, prefix="/auth")
         app.include_router(scrape.router, prefix="/api")
         app.include_router(analyze.router, prefix="/api")
+        app.include_router(attack.router, prefix="/api")
+        app.include_router(quick.router, prefix="/api/quick")
         return app
 
     @pytest.fixture
@@ -286,6 +288,54 @@ class TestProtectedRoutes:
         )
 
         assert response.status_code == 401
+
+    def test_quick_scan_requires_auth(
+        self, protected_client: TestClient, auth_config_patch
+    ):
+        """Test /api/quick/scan requires authentication."""
+        response = protected_client.post(
+            "/api/quick/scan",
+            json={"url": "https://example.com", "preset": "low"},
+        )
+
+        assert response.status_code == 401
+
+    def test_quick_scan_with_api_key(
+        self, protected_client: TestClient, auth_config_patch, test_api_key
+    ):
+        """Test /api/quick/scan works with API key."""
+        response = protected_client.post(
+            "/api/quick/scan",
+            json={"url": "https://example.com", "preset": "low"},
+            headers={"X-API-Key": test_api_key},
+        )
+
+        # May return 500 if service fails, but auth should pass
+        assert response.status_code != 401
+
+    def test_attack_requires_auth(
+        self, protected_client: TestClient, auth_config_patch
+    ):
+        """Test /api/attack requires authentication."""
+        response = protected_client.post(
+            "/api/attack",
+            json={"url": "https://example.com", "xss": True, "user_consent": True},
+        )
+
+        assert response.status_code == 401
+
+    def test_attack_with_api_key(
+        self, protected_client: TestClient, auth_config_patch, test_api_key
+    ):
+        """Test /api/attack works with API key."""
+        response = protected_client.post(
+            "/api/attack",
+            json={"url": "https://example.com", "xss": True, "user_consent": True},
+            headers={"X-API-Key": test_api_key},
+        )
+
+        # May return 500 if service fails, but auth should pass
+        assert response.status_code != 401
 
 
 # =============================================================================

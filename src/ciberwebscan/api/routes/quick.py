@@ -7,11 +7,15 @@ Provides endpoints for combined analysis + attacks + scraping using presets.
 from __future__ import annotations
 
 import logging
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
+from ciberwebscan.api.auth import AuthenticatedUser, get_current_user
+from ciberwebscan.api.helpers.download_helper import enrich_response_with_token
 from ciberwebscan.api.models.requests import QuickScanRequest
 from ciberwebscan.api.models.responses import ErrorResponse, QuickScanResponse
+from ciberwebscan.services.download_service import DownloadService
 from ciberwebscan.services.quick_service import QuickOptions, QuickService
 
 logger = logging.getLogger(__name__)
@@ -31,11 +35,19 @@ router = APIRouter()
         "Scraping is enabled when `selector` or `dynamic` is provided."
     ),
     responses={
+        401: {
+            "model": ErrorResponse,
+            "description": "Unauthorized (missing/invalid API key)",
+        },
         400: {"model": ErrorResponse, "description": "Validation error"},
         500: {"model": ErrorResponse, "description": "Internal server error"},
     },
 )
-def quick_scan(request: QuickScanRequest) -> QuickScanResponse:
+def quick_scan(
+    request: QuickScanRequest,
+    http_request: Request,
+    user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+) -> QuickScanResponse:
     """
     Execute a quick scan combining analysis, attacks, and scraping.
 
@@ -72,7 +84,7 @@ def quick_scan(request: QuickScanRequest) -> QuickScanResponse:
             consent=request.user_consent,
             selector=request.selector,
             dynamic=request.dynamic,
-            output=None,  # No file export via API
+            output=request.export,
             export_format=request.output_format,
             json_output=False,
             quiet=True,
@@ -93,12 +105,20 @@ def quick_scan(request: QuickScanRequest) -> QuickScanResponse:
                 },
             )
 
+        # Enrich response with download token
+        download_service = DownloadService()
+        data, download_token, download_url = enrich_response_with_token(
+            result, user.identifier, download_service, http_request
+        )
+
         return QuickScanResponse(
             success=True,
-            data=result.data,
+            data=data,
             preset=preset,
             duration_seconds=result.duration_seconds,
             warnings=result.warnings,
+            download_token=download_token,
+            download_url=download_url,
         )
 
     except HTTPException:
