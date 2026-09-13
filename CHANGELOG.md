@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.20.1](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.20.0...v2.20.1) (2026-09-13)
+
+
+### Bug Fixes
+
+* **ssl:** resolve CodeQL [#12](https://github.com/HC-ONLINE/CiberWebScan/issues/12) insecure protocol alert ([e6ff95a](https://github.com/HC-ONLINE/CiberWebScan/commit/e6ff95a4f297cae7718b3bc6aa8cd5636155166e))
+* **ssl:** resolve CodeQL [#12](https://github.com/HC-ONLINE/CiberWebScan/issues/12) insecure protocol alert ([fbeda97](https://github.com/HC-ONLINE/CiberWebScan/commit/fbeda9702049cde2ed69e04ade65c1cd9a89023f))
+
 ## [2.20.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.19.2...v2.20.0) (2026-09-13)
 
 
