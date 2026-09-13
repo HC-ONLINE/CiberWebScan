@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.19.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.18.2...v2.19.0) (2026-09-13)
+
+
+### Features
+
+* **api:** add export parameter to analyze request for optional output file path ([c25f77e](https://github.com/HC-ONLINE/CiberWebScan/commit/c25f77ee6adee55545e99b729b168295bed5cedc))
+* **api:** add export path to QuickScanRequest and update quick scan endpoint ([7830b60](https://github.com/HC-ONLINE/CiberWebScan/commit/7830b60661123f9a873aceab17deead10407d1bd))
+
 ## [2.18.2](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.18.1...v2.18.2) (2026-09-12)
 
 
