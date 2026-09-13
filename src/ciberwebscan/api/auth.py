@@ -6,6 +6,8 @@ Provides API Key authentication.
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import logging
 import secrets
 from typing import Annotated
@@ -28,18 +30,27 @@ class AuthConfig(BaseModel):
 
     api_key_enabled: bool = True
     api_keys: list[str] = []
+    server_secret: str = ""
 
 
 def get_auth_config() -> AuthConfig:
     """
     Load authentication configuration from global config.
+
+    Auto-generates a server secret if one is not configured.
     """
     config = get_config()
     auth_cfg = config.api.auth
 
+    # Auto-generate server secret if not provided
+    server_secret = auth_cfg.server_secret
+    if not server_secret:
+        server_secret = secrets.token_urlsafe(32)
+
     return AuthConfig(
         api_key_enabled=bool(auth_cfg.api_keys),
         api_keys=auth_cfg.api_keys,
+        server_secret=server_secret,
     )
 
 
@@ -74,6 +85,25 @@ def _secure_compare_key(provided_key: str, stored_keys: list[str]) -> str | None
     return None
 
 
+def _mask_key_for_logging(key: str) -> str:
+    """
+    Create a safe, non-reversible identifier for logging purposes.
+
+    Uses HMAC-SHA256 with a server-side secret to produce a keyed hash.
+    This allows correlating log entries for the same key without exposing
+    the actual key material, and is not vulnerable to pre-image attacks
+    without knowledge of the server secret.
+
+    Note: HMAC-SHA256 is appropriate here because this is a log identifier,
+    not password storage. SHA-2 is explicitly recommended by OWASP for
+    non-password cryptographic operations.
+    """
+    auth_config = get_auth_config()
+    server_secret = auth_config.server_secret.encode()
+    # lgtm[py/weak-sensitive-data-hashing] - HMAC-SHA256 for log IDs, not passwords
+    return hmac.new(server_secret, key.encode(), hashlib.sha256).hexdigest()[:12]
+
+
 async def verify_api_key(
     request: Request,
     api_key: Annotated[str | None, Security(api_key_header)] = None,
@@ -104,28 +134,30 @@ async def verify_api_key(
     key_id = _secure_compare_key(api_key, config.api_keys)
 
     if key_id:
+        masked_key = _mask_key_for_logging(key_id)
         logger.info(
-            f"API key authenticated: {key_id}...",
+            "API key authenticated successfully",
             extra={
                 "event": "auth_success",
-                "key_id": key_id,
+                "key_id": masked_key,
                 "client_ip": client_ip,
             },
         )
         return AuthenticatedUser(
-            identifier=f"apikey:{key_id}",
+            identifier=f"apikey:{masked_key}",
             auth_method="api_key",
             scopes=["full_access"],
         )
 
     # Log failed attempt
+    masked_key = _mask_key_for_logging(api_key)
     logger.warning(
-        f"Invalid API key attempt from {client_ip}",
+        "Invalid API key attempt",
         extra={
             "event": "auth_failed",
             "reason": "invalid_key",
             "client_ip": client_ip,
-            "key_prefix": api_key[:4] + "..." if len(api_key) > 4 else "***",
+            "key_id": masked_key,
         },
     )
     return None

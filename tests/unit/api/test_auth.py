@@ -35,6 +35,7 @@ def _create_mock_config(api_keys: list[str] | None = None) -> MagicMock:
     """Create a mock config object with api.auth settings."""
     mock_config = MagicMock()
     mock_config.api.auth.api_keys = api_keys or []
+    mock_config.api.auth.server_secret = "test-server-secret-for-hmac"
     return mock_config
 
 
