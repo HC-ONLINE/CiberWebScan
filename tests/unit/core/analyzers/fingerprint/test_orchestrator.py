@@ -10,6 +10,17 @@ from ciberwebscan.core.analyzers.fingerprint.orchestrator import (
     TechnologyFingerprinter,
     fingerprint_technologies,
 )
+from ciberwebscan.core.analyzers.fingerprint.signature_loader import (
+    clear_signatures_cache,
+)
+
+
+@pytest.fixture(autouse=True)
+def _clear_cache() -> None:
+    """Clear the global signatures cache before each test."""
+    clear_signatures_cache()
+    yield
+    clear_signatures_cache()
 
 
 @pytest.fixture
