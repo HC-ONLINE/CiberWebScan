@@ -130,6 +130,8 @@ def run_cli_command(args: list[str], output_dir: str | None = None) -> dict[str,
 # =============================================================================
 
 
+@pytest.mark.network
+@pytest.mark.slow
 class TestConsentValidation:
     """Test user consent validation."""
 
@@ -154,6 +156,8 @@ class TestConsentValidation:
 # =============================================================================
 
 
+@pytest.mark.network
+@pytest.mark.slow
 class TestXSSAttack:
     """Test XSS attack detection."""
 
@@ -231,6 +235,8 @@ class TestXSSAttack:
 # =============================================================================
 
 
+@pytest.mark.network
+@pytest.mark.slow
 class TestSQLiAttack:
     """Test SQL injection detection."""
 
@@ -273,6 +279,8 @@ class TestSQLiAttack:
 # =============================================================================
 
 
+@pytest.mark.network
+@pytest.mark.slow
 class TestMultipleAttacks:
     """Test running multiple attack types."""
 
@@ -330,6 +338,8 @@ class TestMultipleAttacks:
 # =============================================================================
 
 
+@pytest.mark.network
+@pytest.mark.slow
 class TestAttackIntensity:
     """Test different attack intensity levels."""
 
@@ -375,6 +385,8 @@ class TestAttackIntensity:
 # =============================================================================
 
 
+@pytest.mark.network
+@pytest.mark.slow
 class TestExportFormats:
     """Test different export formats."""
 
@@ -409,6 +421,8 @@ class TestExportFormats:
 # =============================================================================
 
 
+@pytest.mark.network
+@pytest.mark.slow
 class TestNetworkOptions:
     """Test network configuration options."""
 
@@ -469,6 +483,8 @@ class TestNetworkOptions:
 # =============================================================================
 
 
+@pytest.mark.network
+@pytest.mark.slow
 class TestOutputOptions:
     """Test different output options."""
 
@@ -512,6 +528,8 @@ class TestOutputOptions:
 # =============================================================================
 
 
+@pytest.mark.network
+@pytest.mark.slow
 class TestErrorHandling:
     """Test error handling in CLI."""
 
@@ -552,6 +570,8 @@ class TestErrorHandling:
 # =============================================================================
 
 
+@pytest.mark.network
+@pytest.mark.slow
 class TestRealVulnerabilityDetection:
     """Test actual vulnerability detection against test server."""
 
