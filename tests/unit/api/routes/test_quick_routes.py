@@ -51,6 +51,7 @@ def _make_service_result(data=None, success: bool = True, error: str | None = No
     result.error_code = None if success else "QUICK_SCAN_ERROR"
     result.duration_seconds = 1.5
     result.warnings = []
+    result.export_path = None
     return result
 
 
@@ -150,6 +151,30 @@ class TestQuickScanEndpointSuccess:
         assert options.timeout == 60.0
         assert options.selector == ".content"
         assert options.headers == {"X-Test": "1"}
+
+    def test_post_quick_scan_forwards_export_path(self, client, mock_analysis_report):
+        """Quick scan forwards export path to QuickService."""
+        with patch("ciberwebscan.api.routes.quick.QuickService") as mock_service_class:
+            mock_service = MagicMock()
+            mock_service_class.return_value = mock_service
+            mock_service.quick_scan.return_value = _make_service_result(
+                data=mock_analysis_report
+            )
+
+            response = client.post(
+                "/api/quick/scan",
+                json={
+                    "url": "https://example.com",
+                    "preset": "low",
+                    "export": "quick_export.json",
+                    "output_format": "json",
+                },
+            )
+
+        assert response.status_code == 200
+        options = mock_service.quick_scan.call_args[0][0]
+        assert options.output == "quick_export.json"
+        assert options.export_format == "json"
 
 
 # =============================================================================

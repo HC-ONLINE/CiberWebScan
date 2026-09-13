@@ -437,6 +437,10 @@ class QuickScanRequest(BaseModel):
         default=False,
         description="Use browser-based scraping (Playwright) - preset high only",
     )
+    export: str | None = Field(
+        default=None,
+        description="Optional output file path for exported results",
+    )
     output_format: Literal["json", "csv", "jsonl"] = Field(
         default="json",
         description="Export format for results",

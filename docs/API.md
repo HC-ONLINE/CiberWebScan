@@ -457,6 +457,7 @@ Perform a combined scan using presets: analysis + attacks + scraping in a single
   "cookies": {},
   "proxy": null,
   "user_agent": null,
+  "export": null,
   "output_format": "json"
 }
 ```
@@ -475,6 +476,7 @@ Perform a combined scan using presets: analysis + attacks + scraping in a single
 | `cookies`       | object  | {}       | Cookies                                               |
 | `proxy`         | string  | null     | HTTP/HTTPS proxy URL                                  |
 | `user_agent`    | string  | null     | Custom User-Agent                                     |
+| `export`        | string  | null     | Optional output file path (enables download token)    |
 | `output_format` | string  | json     | Export format: json, jsonl, csv, html                 |
 
 **Response:**
