@@ -13,7 +13,7 @@ CiberWebScan is a hybrid web security scanner combining passive reconnaissance, 
 
 CiberWebScan uses a **layered architecture** with clear separation of concerns:
 
-```
+```text
 CLI (Typer) / API (FastAPI)
         ↓
     Services (BaseService, ServiceResult[T])
@@ -183,7 +183,7 @@ ciberwebscan completion install --shell zsh
 
 All `/api/*` routes require an API key via header:
 
-```
+```text
 X-API-Key: <your-api-key>
 ```
 
@@ -346,8 +346,45 @@ pre-commit run pytest --hook-stage pre-push  # Run tests on push
 - **Integration**: `tests/integration/api/` and `tests/integration/cli/`
 - **Naming**: Files `test_*.py`, classes `Test*`, functions `test_*`
 - **Async**: `asyncio_mode = "auto"` — no need for explicit `@pytest.mark.asyncio`
-- **Markers**: `@pytest.mark.slow`, `@pytest.mark.integration`, `@pytest.mark.unit`
+- **Markers**: `@pytest.mark.slow`, `@pytest.mark.integration`, `@pytest.mark.unit`, `@pytest.mark.network`, `@pytest.mark.external`
 - **Coverage**: HTML, terminal, and XML reports; source is `src/ciberwebscan`
+
+### Test Markers
+
+All markers are registered in `pyproject.toml` with `--strict-markers`. Never use unregistered markers.
+
+| Marker        | Meaning                                                            | Example                                   |
+| ------------- | ------------------------------------------------------------------ | ----------------------------------------- |
+| `slow`        | Takes >5s or uses heavy resources (real servers, rate-limit waits) | Rate limiter test, CLI tests with uvicorn |
+| `integration` | Requires multiple components wired together                        | API route + service + real HTTP           |
+| `unit`        | Tests a single function/class in isolation with mocks              | Service with mocked dependencies          |
+| `network`     | Establishes a real HTTP/TCP connection during execution            | httpx to localhost:5556, httpbin.org      |
+| `external`    | Depends on a service outside the local test environment            | httpbin.org                               |
+
+Key rules:
+
+- `external` ⊂ `network`: every `external` test must also be `network`
+- Not every `network` test is `external` (localhost servers are `network` only)
+- Prefer `network` over `external` when the test hits a local test server (uvicorn on localhost)
+- Tests using `TestClient` (in-process, no real socket) do NOT need `network`
+- Tests using mocks only do NOT need `network`
+
+```python
+# Correct: hits external service
+@pytest.mark.network
+@pytest.mark.external
+class TestHTTPClientIntegration:
+    ...
+
+# Correct: hits localhost test server
+@pytest.mark.network
+class TestAnalyzeEndpoint:
+    ...
+
+# Correct: in-process TestClient, no real network
+class TestHealthEndpoints:
+    ...
+```
 
 ### HTTPClient Mocking
 
