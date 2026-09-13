@@ -104,9 +104,11 @@ addopts = [
 ]
 asyncio_mode = "auto"
 markers = [
-    "slow: slow running tests",
-    "integration: integration tests",
-    "unit: unit tests",
+    "slow: tests that take >5s to complete",
+    "integration: integration tests (directory-based, not marker-based)",
+    "unit: unit tests (directory-based, not marker-based)",
+    "network: tests that make real HTTP requests (not mocked)",
+    "external: tests that depend on external services (not localhost)",
 ]
 
 [tool.coverage.run]
