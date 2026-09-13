@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.19.2](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.19.1...v2.19.2) (2026-09-13)
+
+
+### Documentation
+
+* enhance AGENTS.md with additional test markers and usage guidelines ([9c76cf2](https://github.com/HC-ONLINE/CiberWebScan/commit/9c76cf26ff41c90482cfff57947337688906da3a))
+* simplify class definitions in integration tests for clarity ([4015007](https://github.com/HC-ONLINE/CiberWebScan/commit/4015007e3de0c621868688fabbe0acf216c42b83))
+
 ## [2.19.1](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.19.0...v2.19.1) (2026-09-13)
 
 
