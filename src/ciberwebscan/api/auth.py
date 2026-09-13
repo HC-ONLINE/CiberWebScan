@@ -6,6 +6,7 @@ Provides API Key authentication.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import secrets
 from typing import Annotated
@@ -74,6 +75,16 @@ def _secure_compare_key(provided_key: str, stored_keys: list[str]) -> str | None
     return None
 
 
+def _mask_key_for_logging(key: str) -> str:
+    """
+    Create a safe, non-reversible identifier for logging purposes.
+
+    Uses SHA-256 hash truncated to 8 hex characters. This allows correlating
+    log entries for the same key without exposing the actual key material.
+    """
+    return hashlib.sha256(key.encode()).hexdigest()[:8]
+
+
 async def verify_api_key(
     request: Request,
     api_key: Annotated[str | None, Security(api_key_header)] = None,
@@ -104,28 +115,30 @@ async def verify_api_key(
     key_id = _secure_compare_key(api_key, config.api_keys)
 
     if key_id:
+        masked_key = _mask_key_for_logging(key_id)
         logger.info(
-            f"API key authenticated: {key_id}...",
+            "API key authenticated successfully",
             extra={
                 "event": "auth_success",
-                "key_id": key_id,
+                "key_id": masked_key,
                 "client_ip": client_ip,
             },
         )
         return AuthenticatedUser(
-            identifier=f"apikey:{key_id}",
+            identifier=f"apikey:{masked_key}",
             auth_method="api_key",
             scopes=["full_access"],
         )
 
     # Log failed attempt
+    masked_key = _mask_key_for_logging(api_key)
     logger.warning(
-        f"Invalid API key attempt from {client_ip}",
+        "Invalid API key attempt",
         extra={
             "event": "auth_failed",
             "reason": "invalid_key",
             "client_ip": client_ip,
-            "key_prefix": api_key[:4] + "..." if len(api_key) > 4 else "***",
+            "key_id": masked_key,
         },
     )
     return None
