@@ -35,7 +35,7 @@ dependencies = [
     "httpx[http2]==0.28.1",
     "playwright==1.61.0",
     "lxml==6.1.1",
-    "pyOpenSSL==26.3.0",
+    "pyOpenSSL==26.4.0",
     "cryptography==50.0.0",
     "python-dotenv==1.2.2",
     "typer==0.27.0",
