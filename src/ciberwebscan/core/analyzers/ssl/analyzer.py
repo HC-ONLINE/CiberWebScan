@@ -464,11 +464,12 @@ class SSLAnalyzer:
                 except Exception:
                     continue
 
-            # Get additional info with default connection
+            # Get additional info with default connection using TLS 1.2+.
             preferred_cipher: str | None = None
             supports_sni = False
             try:
                 context = ssl.create_default_context()
+                context.minimum_version = ssl.TLSVersion.TLSv1_2
                 with (
                     socket.create_connection(
                         (hostname, port), timeout=self.timeout
