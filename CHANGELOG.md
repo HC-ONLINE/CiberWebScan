@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.19.1](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.19.0...v2.19.1) (2026-09-13)
+
+
+### Bug Fixes
+
+* **deps:** bump pyopenssl to 26.4.0 for cryptography 50 compatibility ([f5e889f](https://github.com/HC-ONLINE/CiberWebScan/commit/f5e889fbf277ec89993eb9417d5d6bf6596185f7))
+
 ## [2.19.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.18.2...v2.19.0) (2026-09-13)
 
 
