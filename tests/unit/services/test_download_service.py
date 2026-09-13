@@ -89,6 +89,7 @@ class TestGenerateDownloadToken:
         assert result.success is False
         assert "not found" in result.error.lower()
 
+    @pytest.mark.slow
     def test_generate_token_file_too_large(self, service: DownloadService):
         """TEST 5: Reject file exceeding max size."""
         config = get_config()

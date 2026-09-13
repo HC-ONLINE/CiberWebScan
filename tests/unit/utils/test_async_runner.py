@@ -61,6 +61,7 @@ class TestRunAsync:
         with pytest.raises(ValueError, match="test error"):
             run_async(_async_raises())
 
+    @pytest.mark.slow
     @pytest.mark.asyncio
     async def test_timeout_raises(self):
         """Timeout is respected when called from async context."""

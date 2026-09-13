@@ -238,28 +238,6 @@ def reset_attack_context():
     # Any cleanup if needed
 
 
-# Pytest configuration
-def pytest_configure(config):
-    """Configure pytest with custom settings."""
-    config.addinivalue_line(
-        "markers", "slow: marks tests as slow (may take longer to run)"
-    )
-    config.addinivalue_line("markers", "integration: marks tests as integration tests")
-    config.addinivalue_line(
-        "markers", "network: marks tests that require network access"
-    )
-
-
-def pytest_collection_modifyitems(config, items):
-    """Modify test items during collection."""
-    for item in items:
-        # Add 'unit' marker to all tests by default
-        if not any(
-            mark.name in ["integration", "network"] for mark in item.iter_markers()
-        ):
-            item.add_marker(pytest.mark.unit)
-
-
 # Mock data for common test scenarios
 SAMPLE_PAYLOADS = {
     "xss": [

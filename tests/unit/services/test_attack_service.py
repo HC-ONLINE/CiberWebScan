@@ -509,6 +509,7 @@ class TestAttackService:
 class TestAttackServiceErrorHandling:
     """Test error handling in AttackService."""
 
+    @pytest.mark.slow
     def test_invalid_url(self, attack_service: AttackService):
         """Test handling of invalid URL."""
         options = AttackOptions(
@@ -554,6 +555,7 @@ class TestAttackServiceErrorHandling:
         assert result.success is True
         assert result.data.total_findings == 0
 
+    @pytest.mark.slow
     @patch("ciberwebscan.services.attack_service.HTTPClient")
     @patch("ciberwebscan.services.attack_service.XSSAttacker")
     def test_attack_with_config_defaults(

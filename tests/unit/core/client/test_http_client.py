@@ -562,6 +562,8 @@ class TestCalculateBackoff:
         client.close()
 
 
+@pytest.mark.network
+@pytest.mark.external
 class TestHTTPClientIntegration:
     """Integration tests for HTTPClient (require network)."""
 
