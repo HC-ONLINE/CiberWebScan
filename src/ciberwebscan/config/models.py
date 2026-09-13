@@ -323,6 +323,11 @@ class APIAuthConfig(BaseModel):
         default=[],
         description="List of valid API keys (can be comma-separated string)",
     )
+    # Server secret for HMAC-based log obfuscation
+    server_secret: str = Field(
+        default="",
+        description="Secret key for HMAC log obfuscation (auto-generated if empty)",
+    )
 
     @field_validator("api_keys", mode="before")
     @classmethod
