@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.20.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.19.2...v2.20.0) (2026-09-13)
+
+
+### Features
+
+* **auth:** add server secret for HMAC key masking and auto-generate if missing ([71d93fe](https://github.com/HC-ONLINE/CiberWebScan/commit/71d93fe8ac71c2ca35b354bbaa933393b6dcc74e))
+* **auth:** add server secret for HMAC log obfuscation ([9a87eb1](https://github.com/HC-ONLINE/CiberWebScan/commit/9a87eb11e305a2caed292fa0a84025b434fe92db))
+* **auth:** enhance logging key masking with HMAC-SHA256 and add security note ([4c74cbc](https://github.com/HC-ONLINE/CiberWebScan/commit/4c74cbcefd31861a8ac8ad6fa4d0b508e8ddc16e))
+* **auth:** mask API keys in logs to enhance security ([5017224](https://github.com/HC-ONLINE/CiberWebScan/commit/50172242eb7d9c3a77efd50822720182a620da30))
+* **auth:** mask API keys in logs to enhance security ([75553c9](https://github.com/HC-ONLINE/CiberWebScan/commit/75553c90bfbe3ada6aa433be09527fad94dde45a))
+
+
+### Bug Fixes
+
+* **auth:** update comment for HMAC-SHA256 to use CodeQL annotation ([e025165](https://github.com/HC-ONLINE/CiberWebScan/commit/e02516573a595c061b79faa0a9c151af7c25b947))
+* **auth:** update comment for HMAC-SHA256 to use CodeQL annotation ([13eaa5e](https://github.com/HC-ONLINE/CiberWebScan/commit/13eaa5e7a0c7a90ded058c9766c6569b76c03d1e))
+
 ## [2.19.2](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.19.1...v2.19.2) (2026-09-13)
 
 
