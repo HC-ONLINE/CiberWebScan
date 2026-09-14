@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.21.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.20.2...v2.21.0) (2026-09-14)
+
+
+### Features
+
+* **attacks:** add allow_local option for internal penetration testing ([a29ea21](https://github.com/HC-ONLINE/CiberWebScan/commit/a29ea21cb35737d316052fcf4afee9144ab33678))
+* **config:** add allow_local option for attack profiles in configuration files ([b8c2a30](https://github.com/HC-ONLINE/CiberWebScan/commit/b8c2a30b9b0ec4377625f49e2b83cccd52fa7e49))
+* **ssrf:** implement SSRF protection for local and private addresses ([6bc99b9](https://github.com/HC-ONLINE/CiberWebScan/commit/6bc99b92a43cdd6e89da50478f7f93d9e0da0807))
+* **tests:** enable local attack configuration in CLI test environment ([ea26699](https://github.com/HC-ONLINE/CiberWebScan/commit/ea26699ed69516619a986b6497f54b9b1042d8d3))
+
 ## [2.20.2](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.20.1...v2.20.2) (2026-09-13)
 
 
