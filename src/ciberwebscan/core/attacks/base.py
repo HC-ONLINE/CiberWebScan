@@ -63,6 +63,7 @@ class AttackConfig:
     # User consent and safety
     user_consent: bool = False
     skip_dangerous_payloads: bool = True
+    allow_local: bool = False
 
     # Output
     verbose: bool = False

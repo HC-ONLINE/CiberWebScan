@@ -62,6 +62,7 @@ analysis:
 attack:
   enabled: true
   user_consent: true
+  allow_local: false
   xss: true
   sqli: true
   traversal: false

@@ -258,6 +258,11 @@ class AttackConfig(BaseModel):
         default=["127.0.0.1", "localhost"],
         description="Allowed targets for attack simulation",
     )
+    allow_local: bool = Field(
+        default=False,
+        description="Allow scanning localhost, private IPs, and link-local addresses. "
+        "Set to true for authorized internal penetration testing.",
+    )
     xss: bool = True
     sqli: bool = True
     traversal: bool = True
