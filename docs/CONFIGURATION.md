@@ -67,6 +67,7 @@ Examples that work out of the box:
 - `CIBERWEBSCAN_HTTP_RETRY_MAX_ATTEMPTS` → `http.retry.max_attempts`
 - `CIBERWEBSCAN_HTTP_RATE_LIMIT_REQUESTS_PER_SECOND` → `http.rate_limit.requests_per_second`
 - `CIBERWEBSCAN_ATTACK_COMMAND_INJECTION` → `attack.command_injection`
+- `CIBERWEBSCAN_ATTACK_ALLOW_LOCAL` → `attack.allow_local`
 - `CIBERWEBSCAN_ATTACK_USER_CONSENT` → `attack.user_consent`
 - `CIBERWEBSCAN_USER_AGENT_MODE` / `CIBERWEBSCAN_USER_AGENT_AGENTS` → `user_agent.*`
 - `CIBERWEBSCAN_EXPORT_INCLUDE_SCREENSHOTS` → `export.include_screenshots`
@@ -401,6 +402,7 @@ Configure attack simulation settings.
     "enabled": false,
     "user_consent": false,
     "whitelist": ["127.0.0.1", "localhost"],
+    "allow_local": false,
     "xss": true,
     "sqli": true,
     "traversal": true,
@@ -415,19 +417,20 @@ Configure attack simulation settings.
 
 ### Default values (quick reference)
 
-| Key                        |                     Default | Description                                |
-| -------------------------- | --------------------------: | ------------------------------------------ |
-| `attack.enabled`           |                     `false` | Attack simulation disabled by default      |
-| `attack.user_consent`      |                     `false` | User consent required to run attacks       |
-| `attack.whitelist`         | `["127.0.0.1","localhost"]` | Default allowed targets for attack testing |
-| `attack.xss`               |                      `true` | Run XSS checks by default                  |
-| `attack.sqli`              |                      `true` | Run SQLi checks by default                 |
-| `attack.traversal`         |                      `true` | Run path traversal checks by default       |
-| `attack.enumeration`       |                      `true` | Run enumeration by default                 |
-| `attack.csrf`              |                      `true` | Run CSRF checks by default                 |
-| `attack.subdomain`         |                      `true` | Enumerate subdomains by default            |
-| `attack.command_injection` |                      `true` | Run OS command injection checks by default |
-| `attack.max_payloads`      |                        `50` | Default max payloads per target            |
+| Key                        |                     Default | Description                                                     |
+| -------------------------- | --------------------------: | --------------------------------------------------------------- |
+| `attack.enabled`           |                     `false` | Attack simulation disabled by default                           |
+| `attack.user_consent`      |                     `false` | User consent required to run attacks                            |
+| `attack.whitelist`         | `["127.0.0.1","localhost"]` | Default allowed targets for attack testing                      |
+| `attack.allow_local`       |                     `false` | Allow scanning localhost, private IPs, and link-local addresses |
+| `attack.xss`               |                      `true` | Run XSS checks by default                                       |
+| `attack.sqli`              |                      `true` | Run SQLi checks by default                                      |
+| `attack.traversal`         |                      `true` | Run path traversal checks by default                            |
+| `attack.enumeration`       |                      `true` | Run enumeration by default                                      |
+| `attack.csrf`              |                      `true` | Run CSRF checks by default                                      |
+| `attack.subdomain`         |                      `true` | Enumerate subdomains by default                                 |
+| `attack.command_injection` |                      `true` | Run OS command injection checks by default                      |
+| `attack.max_payloads`      |                        `50` | Default max payloads per target                                 |
 
 ### Export
 
@@ -746,6 +749,7 @@ analysis:
 
 attack:
   enabled: true
+  allow_local: false
   xss: true
   sqli: true
   traversal: false
