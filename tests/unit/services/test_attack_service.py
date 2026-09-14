@@ -511,19 +511,21 @@ class TestAttackServiceErrorHandling:
 
     @pytest.mark.slow
     def test_invalid_url(self, attack_service: AttackService):
-        """Test handling of invalid URL."""
+        """Test handling of invalid URL — SSRF protection blocks it."""
         options = AttackOptions(
             url="not-a-valid-url",
             user_consent=True,
             xss=True,
         )
 
-        # Current implementation normalizes single-label hosts and proceeds
-        # rather than raising a ValidationError. Ensure the service returns
-        # a ServiceResult object and handles the input without raising.
-        result = attack_service.attack(options)
-        assert result is not None
-        assert hasattr(result, "success")
+        # SSRF protection rejects invalid URLs via is_safe_url() check.
+        with pytest.raises(ValidationError) as exc_info:
+            attack_service.attack(options)
+
+        assert (
+            "blocked" in str(exc_info.value).lower()
+            or "private" in str(exc_info.value).lower()
+        )
 
     @patch("ciberwebscan.services.attack_service.HTTPClient")
     @patch("ciberwebscan.services.attack_service.XSSAttacker")
@@ -1105,3 +1107,318 @@ class TestAttackServiceHTTPClientLifecycle:
         assert len(captured_context) == 1
         ctx = captured_context[0]
         assert ctx.http_client is mock_client
+
+
+# =============================================================================
+# SSRF Protection Tests
+# =============================================================================
+
+
+@pytest.fixture
+def attack_service_ssrf() -> AttackService:
+    """Create attack service with SSRF protection enabled (allow_local=False)."""
+    service = AttackService()
+    service.app_config.attack.enabled = True
+    service.app_config.attack.whitelist = []
+    service.app_config.attack.allow_local = False
+    return service
+
+
+@pytest.fixture
+def attack_service_allow_local() -> AttackService:
+    """Create attack service with allow_local=True for authorized internal testing."""
+    service = AttackService()
+    service.app_config.attack.enabled = True
+    service.app_config.attack.whitelist = []
+    service.app_config.attack.allow_local = True
+    return service
+
+
+class TestSSRFProtection:
+    """SSRF defense-in-depth tests for AttackService."""
+
+    # ------------------------------------------------------------------
+    # Localhost / loopback blocking
+    # ------------------------------------------------------------------
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "http://localhost/test",
+            "http://localhost:8080/test",
+            "http://127.0.0.1/test",
+            "http://127.0.0.1:9090/test",
+            "http://127.1/test",
+            "http://[::1]/test",
+            "http://0.0.0.0/test",
+        ],
+    )
+    def test_localhost_blocked_by_default(self, attack_service_ssrf, url):
+        """Localhost and loopback addresses are blocked when allow_local=False."""
+        options = AttackOptions(
+            url=url,
+            user_consent=True,
+            xss=True,
+        )
+        with pytest.raises(ValidationError) as exc_info:
+            attack_service_ssrf.attack(options)
+        assert (
+            "ssrf" in str(exc_info.value).lower()
+            or "private" in str(exc_info.value).lower()
+        )
+
+    # ------------------------------------------------------------------
+    # RFC1918 private IP blocking
+    # ------------------------------------------------------------------
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "http://10.0.0.1/test",
+            "http://10.1.2.3/test",
+            "http://172.16.0.1/test",
+            "http://172.31.255.255/test",
+            "http://192.168.1.1/test",
+            "http://192.168.0.1/test",
+        ],
+    )
+    def test_private_ip_blocked_by_default(self, attack_service_ssrf, url):
+        """RFC1918 private IPs are blocked when allow_local=False."""
+        options = AttackOptions(
+            url=url,
+            user_consent=True,
+            xss=True,
+        )
+        with pytest.raises(ValidationError) as exc_info:
+            attack_service_ssrf.attack(options)
+        assert (
+            "ssrf" in str(exc_info.value).lower()
+            or "private" in str(exc_info.value).lower()
+        )
+
+    # ------------------------------------------------------------------
+    # Link-local / metadata blocking
+    # ------------------------------------------------------------------
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "http://169.254.169.254/latest/meta-data/",
+            "http://169.254.169.254/test",
+            "http://169.254.0.1/test",
+        ],
+    )
+    def test_link_local_blocked_by_default(self, attack_service_ssrf, url):
+        """Link-local and metadata IPs are blocked when allow_local=False."""
+        options = AttackOptions(
+            url=url,
+            user_consent=True,
+            xss=True,
+        )
+        with pytest.raises(ValidationError) as exc_info:
+            attack_service_ssrf.attack(options)
+        assert (
+            "ssrf" in str(exc_info.value).lower()
+            or "private" in str(exc_info.value).lower()
+        )
+
+    # ------------------------------------------------------------------
+    # allow_local=True opt-in
+    # ------------------------------------------------------------------
+
+    @patch("ciberwebscan.services.attack_service.HTTPClient")
+    @patch("ciberwebscan.services.attack_service.XSSAttacker")
+    def test_allow_local_permits_localhost(
+        self,
+        mock_xss_class,
+        mock_http_class,
+        attack_service_allow_local,
+    ):
+        """allow_local=True permits localhost for authorized internal testing."""
+        mock_xss_class.return_value = Mock(execute=AsyncMock(return_value=[]))
+        mock_http_class.return_value = MagicMock()
+
+        options = AttackOptions(
+            url="http://127.0.0.1/test",
+            user_consent=True,
+            xss=True,
+        )
+        result = attack_service_allow_local.attack(options)
+        assert result.success is True
+
+    @patch("ciberwebscan.services.attack_service.HTTPClient")
+    @patch("ciberwebscan.services.attack_service.XSSAttacker")
+    def test_allow_local_permits_private_ip(
+        self,
+        mock_xss_class,
+        mock_http_class,
+        attack_service_allow_local,
+    ):
+        """allow_local=True permits RFC1918 IPs for authorized internal testing."""
+        mock_xss_class.return_value = Mock(execute=AsyncMock(return_value=[]))
+        mock_http_class.return_value = MagicMock()
+
+        options = AttackOptions(
+            url="http://192.168.1.50/test",
+            user_consent=True,
+            xss=True,
+        )
+        result = attack_service_allow_local.attack(options)
+        assert result.success is True
+
+    # ------------------------------------------------------------------
+    # Public URL still works
+    # ------------------------------------------------------------------
+
+    @patch("ciberwebscan.services.attack_service.HTTPClient")
+    @patch("ciberwebscan.services.attack_service.XSSAttacker")
+    def test_public_url_always_allowed(
+        self,
+        mock_xss_class,
+        mock_http_class,
+        attack_service_ssrf,
+    ):
+        """Public URLs are always allowed regardless of allow_local setting."""
+        mock_xss_class.return_value = Mock(execute=AsyncMock(return_value=[]))
+        mock_http_class.return_value = MagicMock()
+
+        options = AttackOptions(
+            url="https://example.com",
+            user_consent=True,
+            xss=True,
+        )
+        result = attack_service_ssrf.attack(options)
+        assert result.success is True
+
+    # ------------------------------------------------------------------
+    # follow_redirects is configurable via http config
+    # ------------------------------------------------------------------
+
+    @patch("ciberwebscan.services.attack_service.HTTPClient")
+    @patch("ciberwebscan.services.attack_service.XSSAttacker")
+    def test_follow_redirects_from_config_default(
+        self,
+        mock_xss_class,
+        mock_http_class,
+        attack_service_ssrf,
+    ):
+        """HTTPClient receives follow_redirects from http config (default True)."""
+        mock_xss_class.return_value = Mock(execute=AsyncMock(return_value=[]))
+        mock_http_class.return_value = MagicMock()
+
+        options = AttackOptions(
+            url="https://example.com",
+            user_consent=True,
+            xss=True,
+        )
+        attack_service_ssrf.attack(options)
+
+        call_kwargs = mock_http_class.call_args
+        assert (
+            call_kwargs[1].get("follow_redirects") is True
+            or call_kwargs.kwargs.get("follow_redirects") is True
+        )
+
+    @patch("ciberwebscan.services.attack_service.HTTPClient")
+    @patch("ciberwebscan.services.attack_service.XSSAttacker")
+    def test_follow_redirects_false_when_configured(
+        self,
+        mock_xss_class,
+        mock_http_class,
+        attack_service_ssrf,
+    ):
+        """HTTPClient receives follow_redirects=False when http config sets it."""
+        mock_xss_class.return_value = Mock(execute=AsyncMock(return_value=[]))
+        mock_http_class.return_value = MagicMock()
+        attack_service_ssrf.app_config.http.follow_redirects = False
+
+        options = AttackOptions(
+            url="https://example.com",
+            user_consent=True,
+            xss=True,
+        )
+        attack_service_ssrf.attack(options)
+
+        call_kwargs = mock_http_class.call_args
+        assert (
+            call_kwargs[1].get("follow_redirects") is False
+            or call_kwargs.kwargs.get("follow_redirects") is False
+        )
+
+    # ------------------------------------------------------------------
+    # allow_local propagated to AttackConfig dataclass
+    # ------------------------------------------------------------------
+
+    @patch("ciberwebscan.services.attack_service.HTTPClient")
+    @patch("ciberwebscan.services.attack_service.XSSAttacker")
+    def test_allow_local_propagated_to_attack_config(
+        self,
+        mock_xss_class,
+        mock_http_class,
+        attack_service_allow_local,
+    ):
+        """allow_local is propagated to the AttackConfig dataclass used by modules."""
+        captured_context = []
+
+        async def capture_execute(context):
+            captured_context.append(context)
+            return []
+
+        mock_xss_class.return_value = Mock(execute=capture_execute)
+        mock_http_class.return_value = MagicMock()
+
+        options = AttackOptions(
+            url="https://example.com",
+            user_consent=True,
+            xss=True,
+        )
+        attack_service_allow_local.attack(options)
+
+        assert len(captured_context) == 1
+        assert captured_context[0].config.allow_local is True
+
+    @patch("ciberwebscan.services.attack_service.HTTPClient")
+    @patch("ciberwebscan.services.attack_service.XSSAttacker")
+    def test_allow_local_false_propagated_to_attack_config(
+        self,
+        mock_xss_class,
+        mock_http_class,
+        attack_service_ssrf,
+    ):
+        """allow_local=False is propagated to the AttackConfig dataclass."""
+        captured_context = []
+
+        async def capture_execute(context):
+            captured_context.append(context)
+            return []
+
+        mock_xss_class.return_value = Mock(execute=capture_execute)
+        mock_http_class.return_value = MagicMock()
+
+        options = AttackOptions(
+            url="https://example.com",
+            user_consent=True,
+            xss=True,
+        )
+        attack_service_ssrf.attack(options)
+
+        assert len(captured_context) == 1
+        assert captured_context[0].config.allow_local is False
+
+    # ------------------------------------------------------------------
+    # Config model default
+    # ------------------------------------------------------------------
+
+    def test_attack_config_default_allow_local_false(self):
+        """AttackConfig model defaults allow_local to False."""
+        from ciberwebscan.config.models import AttackConfig as PydanticAttackConfig
+
+        cfg = PydanticAttackConfig()
+        assert cfg.allow_local is False
+
+    def test_attack_config_allow_local_settable(self):
+        """AttackConfig model allows setting allow_local=True."""
+        from ciberwebscan.config.models import AttackConfig as PydanticAttackConfig
+
+        cfg = PydanticAttackConfig(allow_local=True)
+        assert cfg.allow_local is True
