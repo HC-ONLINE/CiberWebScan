@@ -13,6 +13,8 @@ import pytest
 
 from ciberwebscan.config.loader import ConfigLoader
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.fixture
 def loader(tmp_path: Path) -> ConfigLoader:

@@ -20,6 +20,8 @@ from ciberwebscan.export.models import (
     VulnerabilityFinding,
 )
 
+pytestmark = pytest.mark.unit
+
 
 # Mock implementation of abstract AttackEngine
 class MockAttackEngine(AttackEngine):

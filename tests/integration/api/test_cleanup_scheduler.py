@@ -15,6 +15,8 @@ from ciberwebscan.services.cleanup_scheduler import (
 )
 from ciberwebscan.services.download_service import DownloadService
 
+pytestmark = pytest.mark.integration
+
 # =============================================================================
 # Fixtures
 # =============================================================================

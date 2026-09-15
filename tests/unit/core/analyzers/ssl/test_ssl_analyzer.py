@@ -5,6 +5,8 @@ from __future__ import annotations
 import datetime
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from ciberwebscan.core.analyzers.ssl import (
     SSLAnalysisResult,
     SSLAnalyzer,
@@ -13,6 +15,8 @@ from ciberwebscan.core.analyzers.ssl import (
     SSLSecurityAssessment,
     analyze_ssl_security,
 )
+
+pytestmark = pytest.mark.unit
 
 
 class TestSSLCertificateInfo:

@@ -12,6 +12,8 @@ import pytest
 from ciberwebscan.export.models import AnalysisReport
 from ciberwebscan.services.quick_service import PRESETS, QuickOptions, QuickService
 
+pytestmark = pytest.mark.unit
+
 # =============================================================================
 # Fixtures
 # =============================================================================

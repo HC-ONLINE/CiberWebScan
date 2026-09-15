@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
+import pytest
+
 from ciberwebscan.cli.output import (
     format_duration,
     format_size,
@@ -17,6 +19,8 @@ from ciberwebscan.cli.output import (
     print_success,
     print_warning,
 )
+
+pytestmark = pytest.mark.unit
 
 
 class TestPrintFunctions:

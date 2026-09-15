@@ -12,6 +12,8 @@ from ciberwebscan.core.attacks.base import AttackConfig, AttackContext, AttackIn
 from ciberwebscan.core.attacks.subdomain import SubdomainEnumerator
 from ciberwebscan.export.models import Severity, VulnerabilityFinding
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.fixture
 def enumerator():

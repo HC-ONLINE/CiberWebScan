@@ -20,6 +20,8 @@ from ciberwebscan.core.analyzers.cve.models import (
     CVSSData,
 )
 
+pytestmark = pytest.mark.unit
+
 
 class TestCVESource:
     """Tests for CVESource enum."""

@@ -16,6 +16,8 @@ import pytest
 
 from ciberwebscan.core.client.http_client import HTTPClient
 
+pytestmark = pytest.mark.unit
+
 # === CVE Client Lifecycle Tests ===
 
 

@@ -13,6 +13,8 @@ from fastapi.testclient import TestClient
 
 from ciberwebscan.api.app import create_app
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.fixture
 def client():

@@ -16,6 +16,8 @@ from ciberwebscan.core.attacks.command_injection import CommandInjectionAttacker
 from ciberwebscan.core.client import HTTPClient
 from ciberwebscan.export.models import ConfidenceLevel, Severity
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.fixture
 def cmdi_attacker():

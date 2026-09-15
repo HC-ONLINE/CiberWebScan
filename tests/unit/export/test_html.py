@@ -23,6 +23,8 @@ from ciberwebscan.export.html import (
     severity_upper,
 )
 
+pytestmark = pytest.mark.unit
+
 # =============================================================================
 # Test Fixtures
 # =============================================================================

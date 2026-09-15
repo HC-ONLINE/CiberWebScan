@@ -15,6 +15,8 @@ from ciberwebscan.services.config_service import (
     is_sensitive_key,
 )
 
+pytestmark = pytest.mark.unit
+
 # =============================================================================
 # Fixtures
 # =============================================================================

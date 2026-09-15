@@ -13,6 +13,8 @@ from fastapi.testclient import TestClient
 from ciberwebscan.api.app import create_app
 from ciberwebscan.services.download_service import DownloadService
 
+pytestmark = pytest.mark.integration
+
 # =============================================================================
 # Fixtures
 # =============================================================================

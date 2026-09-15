@@ -10,6 +10,8 @@ import pytest
 
 from ciberwebscan.core.client import HTTPClient, RateLimiter
 
+pytestmark = pytest.mark.unit
+
 
 class TestRateLimiter:
     """Tests for RateLimiter class."""
@@ -567,7 +569,6 @@ class TestCalculateBackoff:
 class TestHTTPClientIntegration:
     """Integration tests for HTTPClient (require network)."""
 
-    @pytest.mark.integration
     def test_real_get_request(self):
         """Test real GET request to httpbin."""
         with HTTPClient(timeout=10.0) as client:
@@ -575,7 +576,6 @@ class TestHTTPClientIntegration:
         assert response.status_code == 200
         assert "headers" in response.json()
 
-    @pytest.mark.integration
     def test_real_post_request(self):
         """Test real POST request to httpbin."""
         with HTTPClient(timeout=10.0) as client:

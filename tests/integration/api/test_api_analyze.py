@@ -9,6 +9,8 @@ from __future__ import annotations
 import httpx
 import pytest
 
+pytestmark = pytest.mark.integration
+
 pytest.importorskip("fastapi")
 pytest.importorskip("uvicorn")
 

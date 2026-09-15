@@ -12,6 +12,8 @@ from pydantic import ValidationError
 from ciberwebscan.config.models import LoggingConfig
 from ciberwebscan.utils.logging import setup_logging
 
+pytestmark = pytest.mark.unit
+
 
 class TestSetupLogging:
     """Test setup_logging function."""

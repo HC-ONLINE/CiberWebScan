@@ -12,6 +12,8 @@ from ciberwebscan.core.client import (
     sanitize_proxy_for_display,
 )
 
+pytestmark = pytest.mark.unit
+
 
 class TestParseProxy:
     """Tests for parse_proxy function."""

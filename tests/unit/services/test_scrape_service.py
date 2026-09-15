@@ -16,6 +16,8 @@ from ciberwebscan.services.scrape_service import (
     ScrapeService,
 )
 
+pytestmark = pytest.mark.unit
+
 # =============================================================================
 # Fixtures
 # =============================================================================

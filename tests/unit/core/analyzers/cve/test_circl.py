@@ -6,11 +6,15 @@ Tests the CIRCL API client with mocked HTTP responses.
 
 from unittest.mock import Mock, patch
 
+import pytest
+
 from ciberwebscan.core.analyzers.cve.circl import CIRCLClient, lookup_cves_circl
 from ciberwebscan.core.analyzers.cve.models import (
     CVESearchQuery,
     CVESource,
 )
+
+pytestmark = pytest.mark.unit
 
 
 class TestCIRCLClient:

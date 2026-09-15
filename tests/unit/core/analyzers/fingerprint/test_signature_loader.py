@@ -12,6 +12,8 @@ from ciberwebscan.core.analyzers.fingerprint.signature_loader import (
     load_technology_signatures,
 )
 
+pytestmark = pytest.mark.unit
+
 
 class TestGetDefaultSignaturesPath:
     """Tests for get_default_signatures_path function."""

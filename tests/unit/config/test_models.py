@@ -13,6 +13,8 @@ from ciberwebscan.config.models import (
     RetryConfig,
 )
 
+pytestmark = pytest.mark.unit
+
 
 class TestRetryConfig:
     """Tests for RetryConfig validation."""

@@ -16,6 +16,8 @@ from ciberwebscan.api.models.responses import DownloadTokenResponse
 from ciberwebscan.config.loader import get_config
 from ciberwebscan.services.download_service import DownloadService, _registry
 
+pytestmark = pytest.mark.unit
+
 # =============================================================================
 # Fixtures
 # =============================================================================

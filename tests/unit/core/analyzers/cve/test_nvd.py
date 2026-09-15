@@ -6,6 +6,8 @@ Tests the NVD API client with mocked HTTP responses.
 
 from unittest.mock import Mock, patch
 
+import pytest
+
 from ciberwebscan.core.analyzers.cve.models import (
     CVESearchQuery,
     CVESource,
@@ -15,6 +17,8 @@ from ciberwebscan.core.analyzers.cve.nvd import (
     NVDClient,
     lookup_cves_nvd,
 )
+
+pytestmark = pytest.mark.unit
 
 
 class TestNVDClient:

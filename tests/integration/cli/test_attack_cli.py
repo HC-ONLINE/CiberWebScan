@@ -16,6 +16,8 @@ from typing import Any
 import httpx
 import pytest
 
+pytestmark = pytest.mark.integration
+
 # the integration suite relies on the small FastAPI test server and
 # uvicorn to run it. python-multipart is also needed by the server for
 # form handling. we do not want these packages to be pulled in for

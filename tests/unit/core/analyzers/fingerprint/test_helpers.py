@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from ciberwebscan.core.analyzers.fingerprint.helpers import (
     append_tech_with_version,
     append_tech_with_version_debug,
@@ -9,6 +11,8 @@ from ciberwebscan.core.analyzers.fingerprint.helpers import (
     get_timestamp,
     normalize_technology_name,
 )
+
+pytestmark = pytest.mark.unit
 
 
 class TestGetTimestamp:

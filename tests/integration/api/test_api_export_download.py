@@ -13,6 +13,8 @@ import pytest
 
 from ciberwebscan.services.download_service import DownloadService
 
+pytestmark = pytest.mark.integration
+
 pytest.importorskip("fastapi")
 pytest.importorskip("uvicorn")
 

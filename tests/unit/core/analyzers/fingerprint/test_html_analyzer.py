@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import pytest
+
 from ciberwebscan.core.analyzers.fingerprint.html_analyzer import analyze_html_content
+
+pytestmark = pytest.mark.unit
 
 
 class TestAnalyzeHtmlContent:

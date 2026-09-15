@@ -19,6 +19,8 @@ from ciberwebscan.core.scraping.static import (
     scrape_static,
 )
 
+pytestmark = pytest.mark.unit
+
 
 class TestScrapeConfig:
     """Tests for ScrapeConfig dataclass."""

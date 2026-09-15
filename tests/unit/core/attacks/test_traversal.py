@@ -14,6 +14,8 @@ from ciberwebscan.export.models import (
     ConfidenceLevel,
 )
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.fixture
 def traversal_attacker():

@@ -14,6 +14,8 @@ from ciberwebscan.core.analyzers.fingerprint.signature_loader import (
     clear_signatures_cache,
 )
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.fixture(autouse=True)
 def _clear_cache() -> None:

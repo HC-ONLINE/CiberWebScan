@@ -11,6 +11,8 @@ from ciberwebscan.core.client import (
     get_default_user_agents,
 )
 
+pytestmark = pytest.mark.unit
+
 
 class TestUserAgentRotator:
     """Tests for UserAgentRotator class."""

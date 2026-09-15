@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
 from typer.testing import CliRunner
 
 from ciberwebscan.cli.app import app
@@ -18,6 +19,8 @@ from ciberwebscan.cli.commands.completion import (
     _remove_completion_file,
     _write_completion_file,
 )
+
+pytestmark = pytest.mark.unit
 
 runner = CliRunner()
 

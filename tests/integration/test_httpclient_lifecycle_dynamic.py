@@ -12,6 +12,8 @@ import pytest
 
 from ciberwebscan.core.client.http_client import HTTPClient
 
+pytestmark = pytest.mark.integration
+
 HTTPBIN_URL = "https://httpbin.org"
 
 

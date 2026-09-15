@@ -16,6 +16,8 @@ from ciberwebscan.services.base import (
     ValidationError,
 )
 
+pytestmark = pytest.mark.unit
+
 # =============================================================================
 # Fixtures
 # =============================================================================
