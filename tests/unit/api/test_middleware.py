@@ -272,6 +272,34 @@ class TestRateLimitingMiddleware:
         assert any("Rate limit exceeded" in record.message for record in caplog.records)
 
 
+class TestRateLimitingEnforced:
+    """Test that rate limiting enforces the limit correctly with TestClient.
+
+    Uses a low limit (5 req/min) so the test completes in ~0.01s,
+    making window-boundary crossing impossible.
+    """
+
+    def test_rate_limit_enforced(self, app: FastAPI):
+        """Verify 429 is returned after exceeding the limit."""
+        add_rate_limiting_middleware(app, requests_per_minute=5)
+        client = TestClient(app)
+
+        success_count = 0
+        limited_count = 0
+
+        for _ in range(10):
+            response = client.get("/test")
+            if response.status_code == 200:
+                success_count += 1
+            elif response.status_code == 429:
+                limited_count += 1
+                break
+
+        assert limited_count > 0, (
+            f"Rate limit not triggered after {success_count} requests"
+        )
+
+
 class TestRateLimitingMiddlewareWindowRotation:
     """Tests for rate limiting window rotation behavior."""
 

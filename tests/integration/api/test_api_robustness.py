@@ -1,7 +1,8 @@
 """
 Integration tests for API robustness.
 
-Covers: test_api_robustness.py (corrupt JSON + rate limiting).
+Covers: test_api_robustness.py (corrupt JSON handling).
+Rate limiting tests are in tests/unit/api/test_middleware.py.
 """
 
 from __future__ import annotations
@@ -28,28 +29,3 @@ class TestCorruptInput:
             timeout=10,
         )
         assert response.status_code == 422
-
-
-@pytest.mark.network
-@pytest.mark.slow
-class TestRateLimiting:
-    """Tests for rate limiting middleware."""
-
-    def test_rate_limit_enforced(self, api_server: str):
-        success_count = 0
-        limited_count = 0
-
-        for _ in range(65):
-            try:
-                response = httpx.get(f"{api_server}/health", timeout=2)
-                if response.status_code == 200:
-                    success_count += 1
-                elif response.status_code == 429:
-                    limited_count += 1
-                    break
-            except httpx.RequestError:
-                break
-
-        assert limited_count > 0, (
-            f"Rate limit not triggered after {success_count} requests"
-        )
