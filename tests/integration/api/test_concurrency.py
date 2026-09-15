@@ -18,6 +18,8 @@ import httpx
 import pytest
 import uvicorn
 
+pytestmark = pytest.mark.integration
+
 pytest.importorskip("fastapi")
 pytest.importorskip("uvicorn")
 pytest.importorskip("python_multipart")

@@ -5,9 +5,12 @@ from __future__ import annotations
 import re
 from unittest.mock import MagicMock, patch
 
+import pytest
 from typer.testing import CliRunner
 
 from ciberwebscan.cli.app import app
+
+pytestmark = pytest.mark.unit
 
 runner = CliRunner()
 

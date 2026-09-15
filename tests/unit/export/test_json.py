@@ -22,6 +22,8 @@ from ciberwebscan.export.json import (
     export_to_json,
 )
 
+pytestmark = pytest.mark.unit
+
 # =============================================================================
 # Test Fixtures
 # =============================================================================

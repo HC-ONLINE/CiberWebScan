@@ -7,6 +7,8 @@ Tests the aggregation logic that combines results from multiple CVE sources.
 from datetime import datetime
 from unittest.mock import MagicMock, Mock, patch
 
+import pytest
+
 from ciberwebscan.core.analyzers.cve.aggregator import CVEAggregator, lookup_cves
 from ciberwebscan.core.analyzers.cve.models import (
     CVEEntry,
@@ -15,6 +17,8 @@ from ciberwebscan.core.analyzers.cve.models import (
     CVESource,
     CVSSData,
 )
+
+pytestmark = pytest.mark.unit
 
 
 class TestCVEAggregator:

@@ -10,6 +10,8 @@ import pytest
 
 from ciberwebscan.services.download_service import DownloadService, _registry
 
+pytestmark = pytest.mark.unit
+
 
 class TestTokenDeletion:
     """Test token deletion after successful download."""

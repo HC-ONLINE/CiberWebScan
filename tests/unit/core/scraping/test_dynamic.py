@@ -23,6 +23,8 @@ from ciberwebscan.core.scraping.dynamic import (
     scrape_dynamic_sync,
 )
 
+pytestmark = pytest.mark.unit
+
 
 class TestBrowserType:
     """Tests for BrowserType enum."""

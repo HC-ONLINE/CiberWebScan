@@ -20,6 +20,8 @@ from ciberwebscan.api.middleware import (
 )
 from ciberwebscan.config.models import APIConfig
 
+pytestmark = pytest.mark.unit
+
 # =============================================================================
 # Fixtures
 # =============================================================================

@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import pytest
+
 from ciberwebscan.core.analyzers.fingerprint.result_combiner import (
     calculate_summary,
     combine_and_score_results,
 )
+
+pytestmark = pytest.mark.unit
 
 
 class TestCombineAndScoreResults:

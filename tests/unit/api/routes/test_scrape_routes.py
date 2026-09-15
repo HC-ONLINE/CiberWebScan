@@ -12,6 +12,8 @@ from fastapi.testclient import TestClient
 from ciberwebscan.api.app import create_app
 from ciberwebscan.export.models import ScrapeResult
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.fixture
 def client():

@@ -21,6 +21,8 @@ from ciberwebscan.utils.path_security import (
     validate_export_path,
 )
 
+pytestmark = pytest.mark.unit
+
 
 class TestResolveAndValidatePath:
     """Tests for the core path validation function."""

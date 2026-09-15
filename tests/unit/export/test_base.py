@@ -20,6 +20,8 @@ from ciberwebscan.export.base import (
     get_exporter,
 )
 
+pytestmark = pytest.mark.unit
+
 # =============================================================================
 # Test Fixtures
 # =============================================================================

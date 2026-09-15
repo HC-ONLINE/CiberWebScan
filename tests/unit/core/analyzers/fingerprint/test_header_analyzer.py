@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import pytest
+
 from ciberwebscan.core.analyzers.fingerprint.header_analyzer import analyze_headers
+
+pytestmark = pytest.mark.unit
 
 
 class TestAnalyzeHeaders:

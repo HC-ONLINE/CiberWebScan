@@ -6,8 +6,12 @@ Tests the Vulners API client with mocked HTTP responses.
 
 from unittest.mock import Mock, patch
 
+import pytest
+
 from ciberwebscan.core.analyzers.cve.models import CVESource
 from ciberwebscan.core.analyzers.cve.vulners import VulnersClient, get_exploit_info
+
+pytestmark = pytest.mark.unit
 
 
 class TestVulnersClient:

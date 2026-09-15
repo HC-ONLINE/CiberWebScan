@@ -14,6 +14,8 @@ from ciberwebscan.export.models import (
     Severity,
 )
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.fixture
 def csrf_attacker():

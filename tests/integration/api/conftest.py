@@ -6,6 +6,7 @@ Starts a real CiberWebScan API server for end-to-end testing.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 import time
@@ -16,6 +17,18 @@ import pytest
 pytest.importorskip("fastapi")
 pytest.importorskip("uvicorn")
 pytest.importorskip("python_multipart")
+
+# Ensure API key auth is configured before any config is loaded
+os.environ.setdefault(
+    "CIBERWEBSCAN_API_AUTH_API_KEYS", "test-api-key-cwscan-integration"
+)
+os.environ.setdefault("CIBERWEBSCAN_ATTACK_ENABLED", "true")
+os.environ.setdefault("CIBERWEBSCAN_ATTACK_ALLOW_LOCAL", "true")
+
+# Force config reload so env vars take effect
+from ciberwebscan.config.loader import reset_config
+
+reset_config()
 
 API_SERVER_PORT = 5556
 API_SERVER_URL = f"http://127.0.0.1:{API_SERVER_PORT}"

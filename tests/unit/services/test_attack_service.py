@@ -18,6 +18,8 @@ from ciberwebscan.services import (
     ValidationError,
 )
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.fixture
 def attack_service() -> AttackService:

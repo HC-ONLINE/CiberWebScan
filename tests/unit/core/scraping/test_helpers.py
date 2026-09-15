@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+import pytest
 from bs4 import BeautifulSoup
 
 from ciberwebscan.core.scraping.helpers import (
@@ -21,6 +22,8 @@ from ciberwebscan.core.scraping.helpers import (
     parse_set_cookie_headers,
     process_elements,
 )
+
+pytestmark = pytest.mark.unit
 
 
 class TestIsSafeUrl:

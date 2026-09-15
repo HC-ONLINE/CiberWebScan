@@ -20,6 +20,8 @@ from ciberwebscan.services.analyze_service import (
     AnalyzeService,
 )
 
+pytestmark = pytest.mark.unit
+
 # =============================================================================
 # Fixtures
 # =============================================================================

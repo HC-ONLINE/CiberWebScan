@@ -11,6 +11,8 @@ import pytest
 
 from ciberwebscan.utils.async_runner import run_async
 
+pytestmark = pytest.mark.unit
+
 
 async def _async_add(a: int, b: int) -> int:
     return a + b

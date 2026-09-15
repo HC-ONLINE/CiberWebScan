@@ -12,6 +12,8 @@ from fastapi.testclient import TestClient
 from ciberwebscan.api.app import create_app
 from ciberwebscan.services.base import ValidationError as ServiceValidationError
 
+pytestmark = pytest.mark.unit
+
 # =============================================================================
 # Fixtures
 # =============================================================================

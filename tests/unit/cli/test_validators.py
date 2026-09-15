@@ -15,6 +15,8 @@ from ciberwebscan.cli.validators import (
     validate_url,
 )
 
+pytestmark = pytest.mark.unit
+
 
 class TestValidateUrl:
     """Tests for URL validation."""

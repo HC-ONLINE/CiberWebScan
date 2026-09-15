@@ -20,6 +20,8 @@ from ciberwebscan.api.auth import (
 )
 from ciberwebscan.api.routes.auth import router as auth_router
 
+pytestmark = pytest.mark.unit
+
 # =============================================================================
 # Fixtures
 # =============================================================================

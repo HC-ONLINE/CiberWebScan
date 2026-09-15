@@ -20,6 +20,8 @@ from ciberwebscan.core.scraping.extractor import (
     extract_table,
 )
 
+pytestmark = pytest.mark.unit
+
 
 class TestFieldConfig:
     """Tests for FieldConfig dataclass."""

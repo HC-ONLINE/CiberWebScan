@@ -16,6 +16,8 @@ from fastapi.testclient import TestClient
 from ciberwebscan.api.models.responses import HealthCheckResponse
 from ciberwebscan.api.routes.health import router
 
+pytestmark = pytest.mark.unit
+
 # =============================================================================
 # Fixtures
 # =============================================================================

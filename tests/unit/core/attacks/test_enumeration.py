@@ -14,6 +14,8 @@ from ciberwebscan.export.models import (
     VulnerabilityFinding,
 )
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.fixture
 def enumerator():

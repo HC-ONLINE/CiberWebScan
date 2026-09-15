@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import pytest
+
 from ciberwebscan.core.analyzers.headers.security_headers import (
     _DEFAULT_REQUIRED_HEADERS,
     SecurityHeadersAnalyzer,
 )
+
+pytestmark = pytest.mark.unit
 
 
 class TestSecurityHeadersAnalyzerInit:
