@@ -37,7 +37,7 @@ class TestConfigEndpoints:
     def test_get_config_value(self, api_client: httpx.Client, auth_headers: dict):
         response = api_client.get(
             "/api/config/value",
-            params={"path": "scraping.timeout"},
+            params={"path": "http.timeout.connect"},
             headers=auth_headers,
         )
         assert response.status_code == 200
@@ -47,7 +47,7 @@ class TestConfigEndpoints:
         assert "value" in data.get("data", {})
 
     def test_update_config(self, api_client: httpx.Client, auth_headers: dict):
-        payload = {"path": "scraping.timeout", "value": 60, "save": False}
+        payload = {"path": "scraping.dynamic.enabled", "value": True, "save": False}
         response = api_client.put("/api/config", json=payload, headers=auth_headers)
         assert response.status_code == 200
 
@@ -63,7 +63,7 @@ class TestConfigEndpoints:
         assert "count" in data.get("data", {})
 
     def test_reset_config(self, api_client: httpx.Client, auth_headers: dict):
-        payload = {"path": "scraping.timeout", "save": False}
+        payload = {"path": "scraping.dynamic.enabled", "save": False}
         response = api_client.post(
             "/api/config/reset", json=payload, headers=auth_headers
         )
