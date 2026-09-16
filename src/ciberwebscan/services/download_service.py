@@ -2,12 +2,12 @@
 Download service for managing file downloads and streaming.
 
 Handles token generation, validation, expiration, and cleanup
-of download tokens. Uses in-memory storage with asyncio locks.
+of download tokens. Uses in-memory storage with thread-safe locks.
 """
 
 from __future__ import annotations
 
-import asyncio
+import threading
 import uuid
 from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone
@@ -29,7 +29,7 @@ class _DownloadRegistry:
     def __init__(self) -> None:
         self._tokens: dict[str, DownloadInfo] = {}
         self._file_data: dict[str, bytes] = {}
-        self._lock = asyncio.Lock()
+        self._lock = threading.Lock()
 
     async def store(
         self,
@@ -38,18 +38,18 @@ class _DownloadRegistry:
         file_data: bytes,
     ) -> None:
         """Store token with metadata and file data."""
-        async with self._lock:
+        with self._lock:
             self._tokens[token] = info
             self._file_data[token] = file_data
 
     async def get_info(self, token: str) -> DownloadInfo | None:
         """Retrieve token metadata."""
-        async with self._lock:
+        with self._lock:
             return self._tokens.get(token)
 
     async def get_file_data(self, token: str) -> bytes | None:
         """Retrieve file data."""
-        async with self._lock:
+        with self._lock:
             return self._file_data.get(token)
 
     async def update_attempts(self, token: str) -> bool:
@@ -57,7 +57,7 @@ class _DownloadRegistry:
         Decrement remaining attempts and return True if still valid.
         Returns False if max attempts exceeded.
         """
-        async with self._lock:
+        with self._lock:
             if token not in self._tokens:
                 return False
             info = self._tokens[token]
@@ -69,7 +69,7 @@ class _DownloadRegistry:
 
     async def delete(self, token: str) -> bool:
         """Delete token and associated file data."""
-        async with self._lock:
+        with self._lock:
             if token not in self._tokens:
                 return False
             del self._tokens[token]
@@ -78,7 +78,7 @@ class _DownloadRegistry:
 
     async def cleanup_expired(self) -> int:
         """Delete all expired tokens. Returns count of deleted tokens."""
-        async with self._lock:
+        with self._lock:
             now = datetime.now(timezone.utc)
             expired_tokens = [
                 token for token, info in self._tokens.items() if info.expires_at <= now
@@ -90,7 +90,7 @@ class _DownloadRegistry:
 
     async def get_expired_count(self) -> int:
         """Get count of expired tokens without deleting them."""
-        async with self._lock:
+        with self._lock:
             now = datetime.now(timezone.utc)
             return sum(1 for info in self._tokens.values() if info.expires_at <= now)
 
