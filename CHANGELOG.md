@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.21.1](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.21.0...v2.21.1) (2026-09-16)
+
+
+### Bug Fixes
+
+* **download:** replace asyncio lock with thread lock ([489a468](https://github.com/HC-ONLINE/CiberWebScan/commit/489a468271eeb8f518434d685bc2f0e554629415))
+* **download:** replace asyncio lock with thread lock ([5410abf](https://github.com/HC-ONLINE/CiberWebScan/commit/5410abfd9e53ab79056eb5e7042681869a6ef156))
+
 ## [2.21.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.20.2...v2.21.0) (2026-09-14)
 
 
