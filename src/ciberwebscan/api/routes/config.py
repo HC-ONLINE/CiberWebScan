@@ -426,7 +426,10 @@ async def load_config(
             )
 
         logger.info(f"Configuration loaded from {request.path}")
-        return APIResponse[dict[str, Any]](data=result.data)
+        return APIResponse[dict[str, Any]](
+            data=result.data,
+            warnings=result.warnings,
+        )
 
     except HTTPException:
         raise

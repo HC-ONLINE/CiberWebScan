@@ -28,6 +28,10 @@ class APIResponse(BaseModel, Generic[T]):
     success: bool = True
     data: T | None = None
     error: str | None = None
+    warnings: list[str] = Field(
+        default_factory=list,
+        description="Warnings encountered during the operation",
+    )
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     download_token: str | None = None
     download_url: str | None = None
