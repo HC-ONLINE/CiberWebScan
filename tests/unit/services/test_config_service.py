@@ -241,6 +241,35 @@ class TestConfigSaveLoad:
         assert result.success is False
         assert result.error_code == "CONFIG_FILE_NOT_FOUND"
 
+    def test_load_invalid_config_reports_warnings(
+        self, config_service: ConfigService, tmp_path: Path
+    ):
+        """Loading a config file with invalid values reports warnings."""
+        invalid_config = tmp_path / "invalid.yaml"
+        invalid_config.write_text(
+            "http:\n  timeout:\n    connect: not-a-number\n",
+            encoding="utf-8",
+        )
+        result = config_service.load(invalid_config)
+
+        assert result.success is True
+        assert len(result.warnings) > 0
+        assert "Invalid configuration" in result.warnings[0]
+
+    def test_load_invalid_config_falls_back_to_defaults(
+        self, config_service: ConfigService, tmp_path: Path
+    ):
+        """Loading invalid config falls back to defaults for the invalid values."""
+        invalid_config = tmp_path / "invalid.yaml"
+        invalid_config.write_text(
+            "http:\n  timeout:\n    connect: not-a-number\n",
+            encoding="utf-8",
+        )
+        result = config_service.load(invalid_config)
+
+        assert result.success is True
+        assert config_service.config.http.timeout.connect == 10.0  # default
+
 
 # =============================================================================
 # Export Tests
