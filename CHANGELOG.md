@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.22.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.21.1...v2.22.0) (2026-09-17)
+
+
+### Features
+
+* **config:** add warnings handling to API response and CLI config load ([ea5005e](https://github.com/HC-ONLINE/CiberWebScan/commit/ea5005e8b0d78a33e91e1152592e1aceeed7805d))
+
+
+### Bug Fixes
+
+* **config:** handle validation errors in ConfigLoader and report warnings in ConfigService ([e3a3422](https://github.com/HC-ONLINE/CiberWebScan/commit/e3a34226b7cf5661ec330ef53011b4b3ccc40360))
+
 ## [2.21.1](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.21.0...v2.21.1) (2026-09-16)
 
 
