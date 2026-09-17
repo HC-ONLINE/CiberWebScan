@@ -370,10 +370,25 @@ class ConfigService(BaseService):
                 raise FileNotFoundError(f"Config file not found: {load_path}")
 
             self._loader = ConfigLoader(config_path=load_path)
+
+            # Access config to trigger _load() which sets validation_error
             config_dict = self.config.model_dump()
+
+            if self._loader.validation_error is not None:
+                result.warnings.append(
+                    f"Invalid configuration values detected: "
+                    f"{self._loader.validation_error}. "
+                    f"Falling back to default configuration."
+                )
+                self.logger.warning(
+                    "Configuration loaded with validation errors from: %s",
+                    load_path,
+                )
+            else:
+                self.logger.info(f"Configuration loaded from: {load_path}")
+
             result.data = self._sanitize_config_dict(config_dict)
             result.success = True
-            self.logger.info(f"Configuration loaded from: {load_path}")
 
         except PathTraversalError as e:
             result.error = "Invalid configuration path"

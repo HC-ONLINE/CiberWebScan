@@ -84,6 +84,7 @@ class ConfigLoader:
         self.env_prefix = env_prefix
         self._config: Config | None = None
         self._raw: dict[str, Any] = {}
+        self.validation_error: PydanticValidationError | None = None
 
     @property
     def config(self) -> Config:
@@ -114,7 +115,9 @@ class ConfigLoader:
         # Parse into typed config
         try:
             self._config = Config(**self._raw)
+            self.validation_error = None
         except PydanticValidationError as e:
+            self.validation_error = e
             logger.error(f"Invalid configuration: {e}")
             logger.error(
                 "Falling back to default configuration. Fix the config file "
@@ -403,6 +406,7 @@ class ConfigLoader:
         """Reload configuration from sources."""
         self._config = None
         self._raw = {}
+        self.validation_error = None
         self._load()
 
 
