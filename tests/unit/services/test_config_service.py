@@ -304,6 +304,59 @@ class TestConfigExport:
         assert result.success is True
         assert result.exported is True
 
+    def test_export_json_outside_export_base_within_config_base(
+        self, config_service: ConfigService, tmp_path: Path, mock_config_base_dir
+    ):
+        """Path in config base succeeds even when outside the export sandbox.
+
+        This is the reason validate_path=False existed: config export validates
+        against get_config_base_dir(), not config.export.output_dir. The
+        allowed_base parameter must preserve that contract with mandatory
+        validation.
+        """
+        from unittest.mock import Mock, patch
+
+        export_base = tmp_path / "exports"
+        export_base.mkdir()
+        export_path = tmp_path / "config_export.json"
+
+        mock_cfg = Mock(
+            export=Mock(
+                output_dir=str(export_base),
+                pretty=True,
+                include_raw_html=False,
+                buffer_size=100,
+                streaming=True,
+            )
+        )
+
+        with patch("ciberwebscan.services.base.get_config", return_value=mock_cfg):
+            result = config_service.export_config(export_path, format="json")
+
+        assert result.success is True
+        assert export_path.exists()
+
+    def test_export_wrong_extension_rejected(
+        self, config_service: ConfigService, tmp_path: Path, mock_config_base_dir
+    ):
+        """Wrong extension is rejected by validate_export_path_only."""
+        result = config_service.export_config(tmp_path / "evil.exe", format="json")
+
+        assert not result.success
+        assert result.error_code == "CONFIG_EXPORT_ERROR"
+        assert "extension" in (result.error or "").lower()
+
+    def test_export_path_traversal_rejected(
+        self, config_service: ConfigService, tmp_path: Path, mock_config_base_dir
+    ):
+        """Config path traversal is rejected with PATH_TRAVERSAL_BLOCKED."""
+        result = config_service.export_config(
+            "../../etc/cron.d/backdoor", format="json"
+        )
+
+        assert not result.success
+        assert result.error_code == "PATH_TRAVERSAL_BLOCKED"
+
 
 # =============================================================================
 # List Keys Tests

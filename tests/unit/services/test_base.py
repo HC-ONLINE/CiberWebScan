@@ -540,3 +540,171 @@ class TestServiceExport:
         assert exported is True
         lines = path.read_text(encoding="utf-8").strip().splitlines()
         assert len(lines) == 2
+
+
+# =============================================================================
+# Export Path Validation (security boundary) Tests
+# =============================================================================
+
+
+class TestExportPathValidation:
+    """Security boundary: _export_result always validates against an allowed base."""
+
+    def _mock_config(self, tmp_path: Path):
+        from unittest.mock import Mock
+
+        return Mock(
+            export=Mock(
+                output_dir=str(tmp_path),
+                pretty=True,
+                include_raw_html=False,
+                buffer_size=100,
+                streaming=True,
+            )
+        )
+
+    def test_export_safe_relative_path_succeeds(
+        self, service: ConcreteService, tmp_path: Path
+    ):
+        """Safe relative path within base succeeds with real validation."""
+        from unittest.mock import patch
+
+        from ciberwebscan.utils.path_security import resolve_and_validate_path as real
+
+        with (
+            patch("ciberwebscan.services.base.resolve_and_validate_path", real),
+            patch(
+                "ciberwebscan.services.base.get_config",
+                return_value=self._mock_config(tmp_path),
+            ),
+        ):
+            exported, path = service._export_result({"a": 1}, "safe.json", "json")
+
+        assert exported is True
+        assert path == tmp_path / "safe.json"
+        assert path.exists()
+
+    def test_export_path_traversal_rejected(
+        self, service: ConcreteService, tmp_path: Path
+    ):
+        """Relative traversal outside base is rejected with PathTraversalError."""
+        from unittest.mock import patch
+
+        from ciberwebscan.utils.path_security import (
+            PathTraversalError,
+        )
+        from ciberwebscan.utils.path_security import (
+            resolve_and_validate_path as real,
+        )
+
+        with (
+            patch("ciberwebscan.services.base.resolve_and_validate_path", real),
+            patch(
+                "ciberwebscan.services.base.get_config",
+                return_value=self._mock_config(tmp_path),
+            ),
+            pytest.raises(PathTraversalError),
+        ):
+            service._export_result({"a": 1}, "../evil.json", "json")
+
+    def test_export_absolute_path_outside_base_rejected(
+        self, service: ConcreteService, tmp_path: Path
+    ):
+        """Absolute path outside the export base is rejected."""
+        from unittest.mock import Mock, patch
+
+        from ciberwebscan.utils.path_security import (
+            PathTraversalError,
+        )
+        from ciberwebscan.utils.path_security import (
+            resolve_and_validate_path as real,
+        )
+
+        export_base = tmp_path / "exports"
+        export_base.mkdir()
+        outside = tmp_path / "outside.json"
+
+        mock_cfg = Mock(
+            export=Mock(
+                output_dir=str(export_base),
+                pretty=True,
+                include_raw_html=False,
+                buffer_size=100,
+                streaming=True,
+            )
+        )
+
+        with (
+            patch("ciberwebscan.services.base.resolve_and_validate_path", real),
+            patch("ciberwebscan.services.base.get_config", return_value=mock_cfg),
+            pytest.raises(PathTraversalError),
+        ):
+            service._export_result({"a": 1}, str(outside), "json")
+
+    def test_export_result_has_no_validate_path_parameter(
+        self, service: ConcreteService
+    ):
+        """Regression: validate_path flag is gone; allowed_base is explicit."""
+        import inspect
+
+        sig = inspect.signature(service._export_result)
+        assert "validate_path" not in sig.parameters
+        assert "allowed_base" in sig.parameters
+
+    def test_export_result_rejects_validate_path_kwarg(
+        self, service: ConcreteService, tmp_path: Path
+    ):
+        """No bypass: passing validate_path=False now raises TypeError."""
+        with pytest.raises(TypeError):
+            service._export_result(  # type: ignore[call-arg]
+                {"a": 1}, "out.json", "json", validate_path=False
+            )
+
+    def test_export_result_always_calls_validation(
+        self, service: ConcreteService, tmp_path: Path
+    ):
+        """No bypass: resolve_and_validate_path is always invoked."""
+        from unittest.mock import patch
+
+        from ciberwebscan.utils.path_security import resolve_and_validate_path as real
+
+        with (
+            patch(
+                "ciberwebscan.services.base.get_config",
+                return_value=self._mock_config(tmp_path),
+            ),
+            patch(
+                "ciberwebscan.services.base.resolve_and_validate_path", wraps=real
+            ) as spy,
+        ):
+            service._export_result({"a": 1}, "out.json", "json")
+            spy.assert_called_once()
+
+    def test_export_result_uses_explicit_allowed_base(
+        self, service: ConcreteService, tmp_path: Path
+    ):
+        """When allowed_base is provided, validation uses that base."""
+        from unittest.mock import patch
+
+        from ciberwebscan.utils.path_security import resolve_and_validate_path as real
+
+        custom_base = tmp_path / "custom_base"
+        custom_base.mkdir()
+
+        with (
+            patch(
+                "ciberwebscan.services.base.get_config",
+                return_value=self._mock_config(tmp_path),
+            ),
+            patch(
+                "ciberwebscan.services.base.resolve_and_validate_path", wraps=real
+            ) as spy,
+        ):
+            exported, path = service._export_result(
+                {"a": 1}, "file.json", "json", allowed_base=custom_base
+            )
+
+            spy.assert_called_once()
+            assert spy.call_args[0][1] == custom_base
+            assert exported is True
+            assert path == custom_base / "file.json"

@@ -19,6 +19,10 @@ from ciberwebscan.export.base import (
     export_to_file,
     get_exporter,
 )
+from ciberwebscan.export.csv import CSVExporter
+from ciberwebscan.export.html import HTMLExporter
+from ciberwebscan.export.json import JSONExporter
+from ciberwebscan.export.jsonl import JSONLExporter
 
 pytestmark = pytest.mark.unit
 
@@ -309,3 +313,100 @@ class TestExportToFile:
             export_to_file(tmp_path / "test.xml", format="xml"),
         ):
             pass
+
+
+# =============================================================================
+# Public API Contract (no path sandboxing)
+# =============================================================================
+
+
+class TestExporterPathContract:
+    """Exporters are intentional low-level filesystem primitives.
+
+    They must accept arbitrary paths (relative, absolute, parent traversal)
+    without calling resolve_and_validate_path or raising PathTraversalError.
+    Path validation is the service-layer responsibility.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _no_path_validation_in_export(self):
+        """Fail loudly if export modules ever import path validation helpers."""
+        import ciberwebscan.export.base as export_base_mod
+        import ciberwebscan.export.csv as export_csv_mod
+        import ciberwebscan.export.html as export_html_mod
+        import ciberwebscan.export.json as export_json_mod
+        import ciberwebscan.export.jsonl as export_jsonl_mod
+
+        for mod in (
+            export_base_mod,
+            export_json_mod,
+            export_jsonl_mod,
+            export_csv_mod,
+            export_html_mod,
+        ):
+            assert not hasattr(mod, "resolve_and_validate_path"), (
+                f"{mod.__name__} must not import resolve_and_validate_path"
+            )
+            assert not hasattr(mod, "allowed_base"), (
+                f"{mod.__name__} must not define allowed_base"
+            )
+            assert not hasattr(mod, "validate_path"), (
+                f"{mod.__name__} must not define validate_path"
+            )
+
+    @pytest.mark.parametrize(
+        "exporter_cls",
+        [JSONExporter, JSONLExporter, CSVExporter, HTMLExporter],
+        ids=["json", "jsonl", "csv", "html"],
+    )
+    def test_exporter_accepts_arbitrary_absolute_path(
+        self, exporter_cls, tmp_path: Path
+    ):
+        """Absolute path outside any sandbox is accepted without validation."""
+        target = tmp_path / "elsewhere" / f"out{exporter_cls.extension}"
+        target.parent.mkdir(parents=True)
+
+        with exporter_cls(output_path=str(target)) as exporter:
+            exporter.write_item({"col": "value"})
+
+        assert target.exists()
+
+    @pytest.mark.parametrize(
+        "exporter_cls",
+        [JSONExporter, JSONLExporter, CSVExporter, HTMLExporter],
+        ids=["json", "jsonl", "csv", "html"],
+    )
+    def test_exporter_allows_parent_traversal(
+        self, exporter_cls, tmp_path: Path, monkeypatch
+    ):
+        """Parent-traversal path is written without PathTraversalError."""
+        work_dir = tmp_path / "work"
+        work_dir.mkdir()
+        monkeypatch.chdir(work_dir)
+
+        filename = f"escaped{exporter_cls.extension}"
+        with exporter_cls(output_path=f"../{filename}") as exporter:
+            exporter.write_item({"col": "value"})
+
+        assert (tmp_path / filename).exists()
+
+    def test_exporter_relative_path_resolves_against_cwd(
+        self, tmp_path: Path, monkeypatch
+    ):
+        """Relative output_path resolves against process CWD (no base sandbox)."""
+        monkeypatch.chdir(tmp_path)
+        with JSONExporter(output_path="output.json") as exporter:
+            exporter.write_item({"a": 1})
+
+        assert (tmp_path / "output.json").exists()
+
+    def test_stream_construction_skips_path_logic(self):
+        """Stream mode never touches the filesystem path validation path."""
+        stream = StringIO()
+        exporter = JSONExporter(stream=stream)
+        assert exporter.output_path is None
+
+        with exporter as exp:
+            exp.write_item({"a": 1})
+
+        assert "a" in stream.getvalue()
