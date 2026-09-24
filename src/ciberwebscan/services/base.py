@@ -131,14 +131,18 @@ class BaseService:
         output_path: Path | str,
         format: str = "json",
         *,
-        validate_path: bool = True,
+        allowed_base: Path | str | None = None,
     ) -> tuple[bool, Path | None]:
         """
         Export result data to file.
 
-        Uses ``config.export.output_dir`` as the base directory for relative
-        paths. Absolute paths are validated against a secure base directory
-        to prevent path traversal attacks.
+        Always validates ``output_path`` against an allowed base directory
+        before touching the filesystem. By default the base is derived from
+        ``config.export.output_dir`` (relative values fall back to
+        ``~/.ciberwebscan/exports``). Callers that validate against a
+        different base — e.g. config export, which is restricted to
+        ``get_config_base_dir()`` — must pass that base explicitly via
+        ``allowed_base`` so validation stays mandatory and transparent.
 
         When ``config.export.streaming`` is ``True`` (default) items are
         written one by one via the ``write_item`` streaming API. When
@@ -149,12 +153,11 @@ class BaseService:
         Args:
             data: Data to export (must be serializable).
             output_path: Path for the output file. Relative paths are
-                resolved under ``config.export.output_dir``.
+                resolved under the allowed base directory.
             format: Export format ('json', 'jsonl', 'csv').
-            validate_path: When True (default), validates output_path against
-                the export sandbox. Set to False when the caller has already
-                validated the path (e.g. config export validates against
-                a different base directory).
+            allowed_base: Directory the path must remain within. When None,
+                uses ``config.export.output_dir`` (with the home exports
+                fallback for relative values).
 
         Returns:
             Tuple of (success, actual_path).
@@ -164,19 +167,19 @@ class BaseService:
         """
         config = get_config()
 
-        if validate_path:
-            # Determine the base directory for path resolution
+        if allowed_base is None:
+            # Default export sandbox: config.export.output_dir
             output_base = Path(config.export.output_dir)
             if not output_base.is_absolute():
                 # Relative output_dir resolves under ~/.ciberwebscan/exports/
                 # to avoid CWD-dependent sandbox boundaries
                 output_base = Path.home() / ".ciberwebscan" / "exports"
-
-            # Validate and resolve the path to prevent traversal
-            path = resolve_and_validate_path(output_path, output_base)
         else:
-            # Caller already validated — just resolve to a Path object
-            path = Path(output_path)
+            # Caller-specified base (e.g. config directory for config export)
+            output_base = Path(allowed_base)
+
+        # Validate and resolve the path to prevent traversal
+        path = resolve_and_validate_path(output_path, output_base)
 
         # Create parent directories if they don't exist
         path.parent.mkdir(parents=True, exist_ok=True)
