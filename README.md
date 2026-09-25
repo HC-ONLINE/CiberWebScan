@@ -87,24 +87,20 @@ Enhance your methodology with systematic reconnaissance tools that uncover hidde
 git clone https://github.com/HC-ONLINE/CiberWebScan.git
 cd CiberWebScan
 
-# 2. create a virtual environment (optional but recommended)
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# 3. install the package and dependencies
+# 2. create .venv and install the package + dependencies (uv manages the virtualenv)
 
 # CLI only
-pip install -e .
+uv sync
 
 # CLI + API
-pip install -e "[api]"
+uv sync --extra api
 
 # Full Developer Setup
 # if you are running the developer tests you will also want the dev dependencies, which include testing frameworks and tools
-pip install -e "[api,dev]"
+uv sync --extra api --extra dev
 
 # verify that the tool is available
-ciberwebscan --help
+uv run ciberwebscan --help
 ```
 
 ### Basic Usage

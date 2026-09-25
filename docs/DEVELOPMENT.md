@@ -15,9 +15,7 @@ This guide covers development, testing, and contribution guidelines for CiberWeb
 ```bash
 git clone https://github.com/HC-ONLINE/CiberWebScan.git
 cd CiberWebScan
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -e ".[dev]"
+uv sync --extra api --extra dev
 ```
 
 ### Install Playwright Browsers
@@ -444,10 +442,10 @@ docs(config): clarify proxy rotation settings
 
 ### Common Issues
 
-1. **Import errors**: Ensure virtual environment is activated
+1. **Import errors**: Run commands with `uv run` so they use the project `.venv`
 2. **Test failures**: Check test dependencies
-3. **Type errors**: Run `pyright` for details
-4. **Linting errors**: Run `ruff check --fix`
+3. **Type errors**: Run `uv run pyright` for details
+4. **Linting errors**: Run `uv run ruff check --fix`
 
 ### Getting Help
 
