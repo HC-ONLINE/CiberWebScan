@@ -27,7 +27,7 @@ classifiers = [
 requires-python = ">=3.10"
 
 # core/CLI dependencies – these are pulled in when a user
-# runs ``pip install ciberwebscan``. the command-line interface
+# runs ``uv pip install ciberwebscan``. the command-line interface
 # and the underlying scanning engine require these libraries.
 dependencies = [
     "beautifulsoup4==4.15.0",
@@ -50,8 +50,7 @@ dependencies = [
 # users who only need the command-line interface can install the
 # package normally; none of the API-specific requirements will be
 # pulled in. to enable the REST server build the extra explicitly:
-#
-#     pip install "ciberwebscan[api]"
+#     uv sync --extra api
 #
 # the API implementation is located in ``src/ciberwebscan/api`` and
 # depends on FastAPI/uvicorn, which are therefore kept out of the

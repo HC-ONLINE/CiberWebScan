@@ -5,7 +5,7 @@ This guide covers the installation and setup of CiberWebScan.
 ## Prerequisites
 
 - Python 3.10 or higher
-- pip (Python package installer)
+- [uv](https://docs.astral.sh/uv/getting-started/installation/) (Python package and environment manager)
 - Git (for cloning the repository)
 
 ## Installation from Source
@@ -17,29 +17,22 @@ This guide covers the installation and setup of CiberWebScan.
    cd CiberWebScan
    ```
 
-2. It's recommended to use a virtual environment:
+2. Install in development mode (`uv` creates and manages `.venv` automatically):
 
    ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   uv sync
    ```
 
-3. Install in development mode:
+3. (Optional) API Setup:
 
    ```bash
-   pip install -e .
+   uv sync --extra api
    ```
 
-4. (Optional) API Setup:
+4. (Optional) Install development dependencies:
 
    ```bash
-   pip install -e ".[api]"
-   ```
-
-5. (Optional) Install development dependencies:
-
-   ```bash
-   pip install -e ".[dev]"
+   uv sync --extra api --extra dev
    ```
 
 ## Additional Setup
@@ -49,7 +42,7 @@ This guide covers the installation and setup of CiberWebScan.
 For dynamic web scraping functionality, install Playwright browsers:
 
 ```bash
-playwright install
+uv run playwright install
 ```
 
 ### Verify Installation
@@ -57,7 +50,7 @@ playwright install
 Check that CiberWebScan is properly installed:
 
 ```bash
-ciberwebscan --help
+uv run ciberwebscan --help
 ```
 
 You should see the main help output with available commands.
@@ -68,13 +61,13 @@ CiberWebScan supports shell completion for bash, zsh, fish, and powershell. Afte
 
 ```bash
 # Auto-detect your shell and install completion
-ciberwebscan completion install
+uv run ciberwebscan completion install
 
 # Or specify a shell explicitly
-ciberwebscan completion install --shell zsh
-ciberwebscan completion install --shell bash
-ciberwebscan completion install --shell fish
-ciberwebscan completion install --shell powershell
+uv run ciberwebscan completion install --shell zsh
+uv run ciberwebscan completion install --shell bash
+uv run ciberwebscan completion install --shell fish
+uv run ciberwebscan completion install --shell powershell
 ```
 
 The command will print post-installation instructions specific to your shell. See `ciberwebscan completion --help` for more options.
@@ -85,6 +78,6 @@ The command will print post-installation instructions specific to your shell. Se
 
 1. **ImportError**: Ensure you're using Python 3.10+ and have installed the package correctly.
 
-2. **Playwright errors**: Make sure to run `playwright install` after installation.
+2. **Playwright errors**: Make sure to run `uv run playwright install` after installation.
 
-3. **Permission errors**: Try installing with `pip install --user` or use a virtual environment.
+3. **Permission errors**: Run `uv sync` inside the project so dependencies land in the project-local `.venv` instead of your system Python.

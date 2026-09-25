@@ -223,7 +223,7 @@ ciberwebscan scrape url https://example.com              # Static (default)
 ciberwebscan scrape url https://example.com --dynamic     # Dynamic (Playwright)
 ```
 
-Dynamic mode requires: `playwright install` (first time)
+Dynamic mode requires: `uv run playwright install` (first time)
 
 ## Attack Modules
 
@@ -310,34 +310,34 @@ ciberwebscan config load examples/profiles/bugbounty.yaml
 ## Development Commands
 
 ```bash
-# Setup
-pip install -e ".[dev]"          # CLI + dev dependencies
-pip install -e ".[api,dev]"      # Include API dependencies
-pip install -e ".[api]"          # API only (no dev tools)
-playwright install                # Required for dynamic scraping
+# Setup (uv manages .venv; see uv.lock)
+uv sync                            # CLI + core dependencies
+uv sync --extra api                # Include API dependencies
+uv sync --extra api --extra dev    # CLI + API + dev dependencies
+uv run playwright install          # Required for dynamic scraping
 
 # Running
-ciberwebscan                      # CLI entry point
-python -m ciberwebscan            # Alternative CLI entry
-python -m ciberwebscan.api.app    # Direct API server start
-ciberwebscan api                  # API via CLI
+uv run ciberwebscan                      # CLI entry point
+uv run python -m ciberwebscan            # Alternative CLI entry
+uv run python -m ciberwebscan.api.app    # Direct API server start
+uv run ciberwebscan api                  # API via CLI
 
 # Testing
-pytest                                          # All tests with coverage
-pytest tests/unit/                              # Unit tests only
-pytest tests/integration/                       # Integration tests only
-pytest tests/unit/core/analyzers/test_ssl.py   # Specific file
-pytest -k "test_name"                           # By name pattern
-pytest -m "not slow"                            # Exclude slow tests
-pytest -m integration                           # Only integration tests
+uv run pytest                                          # All tests with coverage
+uv run pytest tests/unit/                              # Unit tests only
+uv run pytest tests/integration/                       # Integration tests only
+uv run pytest tests/unit/core/analyzers/test_ssl.py   # Specific file
+uv run pytest -k "test_name"                           # By name pattern
+uv run pytest -m "not slow"                            # Exclude slow tests
+uv run pytest -m integration                           # Only integration tests
 
 # Code Quality
-ruff check .                    # Lint
-ruff check . --fix              # Lint + auto-fix
-ruff format .                   # Format
-pyright                         # Type check
-pre-commit run --all-files      # All checks (ruff, prettier, trailing-whitespace, etc.)
-pre-commit run pytest --hook-stage pre-push  # Run tests on push
+uv run ruff check .                    # Lint
+uv run ruff check . --fix              # Lint + auto-fix
+uv run ruff format .                   # Format
+uv run pyright                         # Type check
+uv run pre-commit run --all-files      # All checks (ruff, prettier, trailing-whitespace, etc.)
+uv run pre-commit run pytest --hook-stage pre-push  # Run tests on push
 ```
 
 ## Testing Conventions
