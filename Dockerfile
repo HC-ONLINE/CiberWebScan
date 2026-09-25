@@ -3,7 +3,10 @@
 # =============================================================================
 FROM python:3.12-slim AS builder
 
-WORKDIR /build
+# uv replaces pip for dependency installation (same tool as local dev and CI)
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+WORKDIR /app
 
 # System deps required by Playwright Chromium
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -29,26 +32,28 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies first (layer caching)
-COPY pyproject.toml ./
+# README.md and LICENSE are required by pyproject.toml metadata
+COPY pyproject.toml uv.lock README.md LICENSE ./
+RUN UV_PYTHON_DOWNLOADS=never uv sync --locked --no-install-project --extra api
+
+# Install the application source and its Playwright browsers
 COPY src/ src/
-
-RUN pip install --no-cache-dir --prefix=/install ".[api]"
-
-# Install Playwright and its browsers
-RUN pip install --no-cache-dir playwright \
-    && playwright install --with-deps chromium
+RUN UV_PYTHON_DOWNLOADS=never uv sync --locked --extra api \
+    && uv run playwright install --with-deps chromium
 
 # =============================================================================
 # Stage 2: Runtime — minimal image with only what's needed
 # =============================================================================
 FROM python:3.12-slim AS runtime
 
-# Copy installed Python packages from builder
-COPY --from=builder /install /usr/local
-
-# Copy application source (already installed via pip, but needed for package data)
-COPY src/ /app/src/
 WORKDIR /app
+
+# Copy the virtualenv; it is built at /app/.venv in the builder so the
+# absolute paths recorded inside it stay valid
+COPY --from=builder /app/.venv /app/.venv
+
+# Copy application source (installed in editable mode, needed for package data)
+COPY src/ /app/src/
 
 # Non-root user for security
 RUN groupadd -r ciberwebscan && useradd -r -g ciberwebscan ciberwebscan \
@@ -59,6 +64,7 @@ COPY --from=builder --chown=ciberwebscan:ciberwebscan /root/.cache/ms-playwright
 USER ciberwebscan
 
 # Playwright env vars
+ENV PATH="/app/.venv/bin:$PATH"
 ENV PLAYWRIGHT_BROWSERS_PATH=/home/ciberwebscan/.cache/ms-playwright
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1

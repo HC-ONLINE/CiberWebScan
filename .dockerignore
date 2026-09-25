@@ -45,3 +45,7 @@ Thumbs.db
 
 # Exports / Data
 exports/
+
+# Required by pyproject.toml metadata (readme/license) during uv sync
+!README.md
+!LICENSE
