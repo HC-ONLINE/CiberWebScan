@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.23.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.22.0...v2.23.0) (2026-09-30)
+
+
+### Features
+
+* **codeql:** add custom CodeQL model and configuration for path security analysis ([6d547a1](https://github.com/HC-ONLINE/CiberWebScan/commit/6d547a15d4dbfa86286afa11b287dc6cabfe4b47))
+
+
+### Bug Fixes
+
+* **config:** remove print_warning and handle warnings as errors in config_load ([696ac72](https://github.com/HC-ONLINE/CiberWebScan/commit/696ac72e84a7c551ff8ee3330120f1faa0a5c77c))
+* **pre-commit:** update pyright entry to use 'uv run' for execution ([c7370cb](https://github.com/HC-ONLINE/CiberWebScan/commit/c7370cb579db2f5ae9cbf06d907964f7e25cf453))
+* **pre-commit:** update pytest entry to use 'uv run' for execution ([97ed90e](https://github.com/HC-ONLINE/CiberWebScan/commit/97ed90e1f001b3033be568e1c72c45680de9d558))
+
 ## [2.22.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.21.1...v2.22.0) (2026-09-17)
 
 
