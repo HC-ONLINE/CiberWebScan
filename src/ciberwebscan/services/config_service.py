@@ -432,7 +432,7 @@ class ConfigService(BaseService):
                     config_dict,
                     str(export_path),
                     "json",
-                    validate_path=False,
+                    allowed_base=allowed_base,
                 )
             else:
                 # YAML export
