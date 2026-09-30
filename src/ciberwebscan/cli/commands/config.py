@@ -20,7 +20,6 @@ from ciberwebscan.cli.output import (
     print_key_value,
     print_list,
     print_success,
-    print_warning,
 )
 from ciberwebscan.cli.validators import (
     ValidationError,
@@ -381,11 +380,10 @@ def config_load(
 
         if result.success:
             if result.warnings:
-                print_success(f"Loaded configuration from: {path} (with warnings)")
                 for warning in result.warnings:
-                    print_warning(f"  - {warning}")
-            else:
-                print_success(f"Loaded configuration from: {path}")
+                    print_error(warning)
+                sys.exit(1)
+            print_success(f"Loaded configuration from: {path}")
         else:
             print_error(result.error or "Unknown error")
             sys.exit(1)
