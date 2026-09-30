@@ -1,0 +1,10 @@
+extensions:
+  - addsTo:
+      pack: codeql/python-all
+      extensible: barrierModel
+    data:
+      - [
+          "ciberwebscan",
+          "Member[utils].Member[path_security].Member[resolve_and_validate_path].ReturnValue",
+          "path-injection",
+        ]
