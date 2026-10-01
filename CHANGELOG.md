@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.24.1](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.24.0...v2.24.1) (2026-10-01)
+
+
+### Bug Fixes
+
+* **codeql:** add barrier model for validate_export_path_only ([ea3a76f](https://github.com/HC-ONLINE/CiberWebScan/commit/ea3a76fb5af3007e361da5311f5f519947689ac4))
+* **codeql:** add barrier model for validate_export_path_only ([dc7f4fb](https://github.com/HC-ONLINE/CiberWebScan/commit/dc7f4fb1340b044e7a4850dd28a4912d1ab52709))
+
 ## [2.24.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.23.0...v2.24.0) (2026-10-01)
 
 
