@@ -22,6 +22,11 @@ jobs:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
 
+      - name: Check lockfile is up to date
+        # fails fast if pyproject.toml and uv.lock drifted apart (e.g. a
+        # version bump without `uv lock`), which would break the Docker build
+        run: uv lock --check
+
       - name: Install dependencies
         # install both dev and api extras so that the full test
         # matrix (unit + integration + API) can execute.
