@@ -8,3 +8,8 @@ extensions:
           "Member[utils].Member[path_security].Member[resolve_and_validate_path].ReturnValue",
           "path-injection",
         ]
+      - [
+          "ciberwebscan",
+          "Member[utils].Member[path_security].Member[validate_export_path_only].ReturnValue",
+          "path-injection",
+        ]
