@@ -133,6 +133,45 @@ class TestResolveAndValidatePath:
 
             shutil.rmtree(outside, ignore_errors=True)
 
+    def test_prefix_confusion_sibling_dir_rejected(self, tmp_path: Path) -> None:
+        """An absolute path in a sibling dir sharing the base name prefix must be rejected."""
+        base = tmp_path / "export"
+        base.mkdir()
+        attacker = tmp_path / "export-attacker"
+        attacker.mkdir()
+        (attacker / "file.json").write_text("{}")
+        with pytest.raises(PathTraversalError):
+            resolve_and_validate_path(str(attacker / "file.json"), base)
+
+    def test_prefix_confusion_relative_sibling_rejected(self, tmp_path: Path) -> None:
+        """Relative traversal into a prefix-sibling directory must be rejected."""
+        base = tmp_path / "export"
+        base.mkdir()
+        (tmp_path / "export2").mkdir()
+        with pytest.raises(PathTraversalError):
+            resolve_and_validate_path("../export2/file.json", base)
+
+    def test_bare_dotdot_rejected(self, tmp_path: Path) -> None:
+        """A bare '..' path must be rejected as it resolves to the parent of base."""
+        with pytest.raises(PathTraversalError):
+            resolve_and_validate_path("..", tmp_path)
+
+    def test_encoded_traversal_is_literal_filename(self, tmp_path: Path) -> None:
+        """Percent-encoded traversal must stay a literal name inside base (no decoding layer)."""
+        resolved = tmp_path.resolve()
+        result = resolve_and_validate_path("..%2f..%2fescape.json", tmp_path)
+        assert result == resolved / "..%2f..%2fescape.json"
+
+    @pytest.mark.skipif(sys.platform != "win32", reason="Windows-specific test")
+    def test_drive_relative_path_never_escapes_base(self, tmp_path: Path) -> None:
+        """A drive-relative path must either be rejected or resolve inside base."""
+        try:
+            result = resolve_and_validate_path("C:evil.yaml", tmp_path)
+        except PathTraversalError:
+            return  # rejected — safe
+        base = str(tmp_path.resolve())
+        assert str(result).startswith(base + "\\") or str(result) == base
+
 
 class TestValidateExportPath:
     """Tests for export path validation."""
