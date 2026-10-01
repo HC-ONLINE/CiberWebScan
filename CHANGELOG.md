@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.24.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.23.0...v2.24.0) (2026-10-01)
+
+
+### Features
+
+* **release:** add release configuration and manifest for versioning with uv.lock ([e607e33](https://github.com/HC-ONLINE/CiberWebScan/commit/e607e333b1e776cbe1603a3ee310f8f4455183d4))
+
+
+### Bug Fixes
+
+* **ci:** sync uv.lock and let release-please update it on every release ([23e664c](https://github.com/HC-ONLINE/CiberWebScan/commit/23e664c7254ad8095bce57516868980205db78d5))
+
 ## [2.23.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.22.0...v2.23.0) (2026-09-30)
 
 
