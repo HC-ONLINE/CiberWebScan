@@ -15,4 +15,8 @@ jobs:
     steps:
       - uses: googleapis/release-please-action@v4
         with:
-          release-type: python
+          # manifest mode: release-type comes from the config, which also
+          # updates uv.lock's project version on every release PR
+          # (otherwise `uv sync --locked` fails in the Docker build)
+          config-file: .github/release-please-config.json
+          manifest-file: .github/release-please-manifest.json
