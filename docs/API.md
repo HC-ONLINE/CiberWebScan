@@ -787,6 +787,33 @@ Save configuration to file.
 }
 ```
 
+#### Runtime vs startup configuration
+
+`PUT /api/config`, `POST /api/config/reset`, and `POST /api/config/load` modify the in-process
+configuration object in place (when the request sets `"save": true`, the change is also persisted
+to the config file). Changes take effect immediately for components that read the configuration on
+each use:
+
+- **API authentication** (`api.auth.api_keys`): every request re-reads the key list, so adding or
+  revoking a key applies to the very next request, without restarting the server.
+- **HTTP client settings** (timeouts, retries, rate limits): apply to HTTP clients created after
+  the change; operations already in flight keep the settings they started with.
+- **Scan defaults** (scraping, analysis, attack options): apply to operations started after the
+  change.
+
+The following settings are read **once at startup** and require a server restart to take effect:
+
+| Setting                                         | Read when                               |
+| ----------------------------------------------- | --------------------------------------- |
+| `api.cors.*`                                    | App creation (`create_app()`)           |
+| `api.rate_limit.enabled`, `requests_per_minute` | Middleware registration at app creation |
+| `download.cleanup_interval_seconds`             | Cleanup scheduler loop start            |
+| `logging.*` (handlers, level, file)             | Logging setup at process start          |
+| uvicorn `host` / `port` / `workers`             | Server launch                           |
+
+A restart re-reads the config file and environment variables (environment variables keep higher
+precedence than the file).
+
 ## Error Handling
 
 All error responses include standardized error information:

@@ -6,6 +6,20 @@ from __future__ import annotations
 
 import pytest
 
+from ciberwebscan.config.loader import reset_config
+
+
+@pytest.fixture(autouse=True)
+def isolate_global_config():
+    """Reset the global config singleton before and after each test.
+
+    ConfigService() shares the global loader (get_loader()), so tests that
+    mutate configuration must not leak state into other tests.
+    """
+    reset_config()
+    yield
+    reset_config()
+
 
 @pytest.fixture
 def sample_user_agents() -> list[str]:

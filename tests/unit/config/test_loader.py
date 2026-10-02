@@ -7,6 +7,7 @@ and legacy underscore-to-dot compatibility.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -249,3 +250,51 @@ class TestUnmappableEnvVars:
     def test_empty_value(self, loader, monkeypatch):
         _set(monkeypatch, "CIBERWEBSCAN_ATTACK_COMMAND_INJECTION", "")
         assert loader.config is not None
+
+
+# =============================================================================
+# baseline_config() — defaults + env, never reads the config file
+# =============================================================================
+
+
+class TestBaselineConfig:
+    """baseline_config() must not read the persisted file, only defaults + env."""
+
+    def test_baseline_ignores_config_file(self, tmp_path):
+        config_path = tmp_path / "config.yaml"
+        config_path.write_text(
+            "http:\n  timeout:\n    connect: 15\n",
+            encoding="utf-8",
+        )
+        loader = ConfigLoader(config_path=config_path)
+
+        baseline = loader.baseline_config()
+
+        # File says 15, baseline must stay at the default (10.0)
+        assert baseline.http.timeout.connect == 10.0
+
+    def test_baseline_applies_env_overrides(self, loader, monkeypatch):
+        _set(monkeypatch, "CIBERWEBSCAN_HTTP_TIMEOUT_CONNECT", "7.5")
+
+        baseline = loader.baseline_config()
+
+        assert baseline.http.timeout.connect == 7.5
+
+    def test_baseline_without_env_returns_defaults(self, loader, monkeypatch):
+        from ciberwebscan.config.models import AppConfig
+
+        # The session may inherit CIBERWEBSCAN_* vars (e.g. set by other
+        # suites' conftests at collection time); "without_env" means none.
+        for key in [k for k in os.environ if k.startswith("CIBERWEBSCAN_")]:
+            monkeypatch.delenv(key)
+
+        baseline = loader.baseline_config()
+
+        assert baseline.model_dump() == AppConfig().model_dump()
+
+    def test_baseline_invalid_env_falls_back_to_defaults(self, loader, monkeypatch):
+        _set(monkeypatch, "CIBERWEBSCAN_HTTP_TIMEOUT_CONNECT", "not-a-number")
+
+        baseline = loader.baseline_config()
+
+        assert baseline.http.timeout.connect == 10.0
