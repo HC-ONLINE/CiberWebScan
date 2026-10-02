@@ -14,6 +14,7 @@ from typing import Any
 from ciberwebscan.config.loader import (
     Config,
     ConfigLoader,
+    get_loader,
 )
 from ciberwebscan.services.base import (
     BaseService,
@@ -91,26 +92,33 @@ class ConfigService(BaseService):
         Initialize config service.
 
         Args:
-            config_path: Optional path to config file. If None, uses default location.
+            config_path: Optional path to config file. If None, the service
+                operates on the global configuration loader (shared with
+                ``get_config()``). If given, the service uses an isolated
+                private loader and never touches the global state.
         """
         super().__init__()
 
-        if config_path is None:
-            # Use default config location
-            default_path = Path.home() / ".ciberwebscan" / "config.yaml"
-            self.config_path = default_path if default_path.exists() else default_path
-        else:
-            self.config_path = Path(config_path)
-
+        # None => global mode (get_loader()); Path => isolated private loader.
+        self._explicit_path: Path | None = Path(config_path) if config_path else None
         self._loader: ConfigLoader | None = None
         self._reset_mode: bool = False  # Flag to track if we're in reset mode
 
     @property
     def loader(self) -> ConfigLoader:
-        """Get or create config loader."""
+        """Get the config loader (global in default mode, private otherwise)."""
+        if self._explicit_path is None:
+            return get_loader()
         if self._loader is None:
-            self._loader = ConfigLoader(config_path=self.config_path)
+            self._loader = ConfigLoader(config_path=self._explicit_path)
         return self._loader
+
+    @property
+    def config_path(self) -> Path:
+        """Config file path (from the active loader)."""
+        if self._explicit_path is not None:
+            return self._explicit_path
+        return self.loader.config_path
 
     @property
     def config(self) -> Config:
@@ -215,6 +223,9 @@ class ConfigService(BaseService):
         """
         Set a configuration value.
 
+        The resulting configuration is validated before it is applied, so an
+        invalid value never reaches the (possibly global) config object.
+
         Args:
             key: Configuration key (dot-notation supported).
             value: New value.
@@ -228,13 +239,19 @@ class ConfigService(BaseService):
             # Validate key exists
             _ = self._get_nested_value(self.config, key)
 
-            # Update value
-            self._set_nested_value(self.config, key, value)
+            # Validate the candidate state before mutating anything
+            candidate = self.config.model_dump()
+            self._set_nested_value(candidate, key, value)
+            coerced = Config.model_validate(candidate)
+            coerced_value = self._get_nested_value(coerced, key)
+
+            # Update value with the validated, coerced value
+            self._set_nested_value(self.config, key, coerced_value)
 
             # Return updated value
             result.data = ConfigValue(
                 key=key,
-                value=value,
+                value=coerced_value,
                 default=self._get_default_value(key),
                 source="runtime",
             )
@@ -262,6 +279,11 @@ class ConfigService(BaseService):
         """
         Reset configuration to defaults.
 
+        The reset baseline is defaults plus environment variable overrides
+        (see ``ConfigLoader.baseline_config()``), so the in-memory result
+        matches what a restart would produce. The config object is mutated
+        in place, preserving its identity for global consumers.
+
         Args:
             key: Specific key to reset, or None to reset all.
 
@@ -271,10 +293,19 @@ class ConfigService(BaseService):
         result = ServiceResult[bool](success=False)
 
         try:
+            baseline = self.loader.baseline_config()
+
             if key:
-                # Reset specific key to default value
-                default_value = self._get_default_value(key)
-                if default_value is not None:
+                # Distinguish a missing key from a key whose default is None
+                try:
+                    default_value = self._get_nested_value(baseline, key)
+                except KeyError:
+                    default_value = None
+                    key_exists = False
+                else:
+                    key_exists = True
+
+                if key_exists:
                     self._set_nested_value(self.config, key, default_value)
                     result.data = True
                     result.success = True
@@ -283,8 +314,10 @@ class ConfigService(BaseService):
                     result.error = f"Key not found in defaults: {key}"
                     result.error_code = "CONFIG_KEY_NOT_FOUND"
             else:
-                # Reset all - clear loader and create defaults-only configuration
-                self._loader = ConfigLoader()  # Create loader with defaults only
+                # Reset all - mutate the existing config object in place so
+                # global consumers keep the same instance (id preserved)
+                for field in Config.model_fields:
+                    setattr(self.config, field, getattr(baseline, field))
                 # If saving after reset, we want to create an essentially empty file
                 self._reset_mode = True  # Flag to indicate we're in reset mode
                 result.data = True
@@ -369,15 +402,15 @@ class ConfigService(BaseService):
             if not load_path.exists():
                 raise FileNotFoundError(f"Config file not found: {load_path}")
 
-            self._loader = ConfigLoader(config_path=load_path)
-
+            # Phase 1: parse the file with a temporary loader (never shared)
+            temp_loader = ConfigLoader(config_path=load_path)
             # Access config to trigger _load() which sets validation_error
-            config_dict = self.config.model_dump()
+            loaded_config = temp_loader.config
 
-            if self._loader.validation_error is not None:
+            if temp_loader.validation_error is not None:
                 result.warnings.append(
                     f"Invalid configuration values detected: "
-                    f"{self._loader.validation_error}. "
+                    f"{temp_loader.validation_error}. "
                     f"Falling back to default configuration."
                 )
                 self.logger.warning(
@@ -387,6 +420,16 @@ class ConfigService(BaseService):
             else:
                 self.logger.info(f"Configuration loaded from: {load_path}")
 
+            # Phase 2: activate. Global mode mutates the shared config object
+            # in place (identity preserved for get_config() consumers); an
+            # explicit service swaps only its private loader.
+            if self._explicit_path is None:
+                for field in Config.model_fields:
+                    setattr(self.config, field, getattr(loaded_config, field))
+            else:
+                self._loader = temp_loader
+
+            config_dict = self.config.model_dump()
             result.data = self._sanitize_config_dict(config_dict)
             result.success = True
 

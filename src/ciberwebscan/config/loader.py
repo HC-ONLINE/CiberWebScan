@@ -402,6 +402,25 @@ class ConfigLoader:
             logger.error(f"Failed to save config file: {e}")
             raise
 
+    def baseline_config(self) -> Config:
+        """
+        Build the default configuration plus environment variable overrides.
+
+        Does not read any config file. Used by ``ConfigService.reset()`` so a
+        reset lands on the same values a restart would produce (defaults plus
+        immutable env overrides).
+        """
+        raw = Config().model_dump()
+        env_overrides = self._load_env()
+        if env_overrides:
+            raw = self._deep_merge(raw, env_overrides)
+
+        try:
+            return Config(**raw)
+        except PydanticValidationError as e:
+            logger.error(f"Invalid environment overrides in baseline: {e}")
+            return Config()
+
     def reload(self) -> None:
         """Reload configuration from sources."""
         self._config = None
