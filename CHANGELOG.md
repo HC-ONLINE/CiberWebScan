@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.25.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.24.1...v2.25.0) (2026-10-02)
+
+
+### Features
+
+* **config:** add baseline_config method and enhance config service functionality ([6feca32](https://github.com/HC-ONLINE/CiberWebScan/commit/6feca323ac3af0debea0b530f7207046b7acc1c7))
+* **config:** document runtime vs startup configuration changes in API and Configuration guides ([c14e24b](https://github.com/HC-ONLINE/CiberWebScan/commit/c14e24b647470b27a32eb26f35a146eba65e19e6))
+* **config:** implement global config synchronization tests for ConfigService ([128df43](https://github.com/HC-ONLINE/CiberWebScan/commit/128df43679b0eb0027aed9d7521c875e861fd672))
+
+
+### Bug Fixes
+
+* **config:** synchronize API updates with the global runtime config ([df70445](https://github.com/HC-ONLINE/CiberWebScan/commit/df70445b22f3bcf9ebecb09b079e6ae81431d221))
+
 ## [2.24.1](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.24.0...v2.24.1) (2026-10-01)
 
 
