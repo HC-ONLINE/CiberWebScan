@@ -781,6 +781,26 @@ ciberwebscan config load my-custom-profile.yaml
 - CLI/runtime options (for example `AttackOptions`, `AnalyzeOptions`) are dataclasses used only for the current execution. CLI flags are converted into these option objects and **override behavior for that run** but do **not** modify the persistent configuration file.
 - When an options field is omitted (or set to `None`), the service may fall back to the value from `get_config()` — see `AttackOptions.__post_init__` (`src/ciberwebscan/services/attack_service.py`) and `AnalyzeOptions` handling (`src/ciberwebscan/services/analyze_service.py`).
 
+### Runtime changes vs restart-required settings
+
+Configuration changes made through the API (`PUT /api/config`, `POST /api/config/reset`,
+`POST /api/config/load`) or programmatically through `ConfigService` mutate the shared
+configuration object in place, so every `get_config()` consumer sees them immediately:
+
+- **Applied at next use (no restart):** `api.auth.api_keys` (API authentication is checked per
+  request), HTTP client settings used when a client is created for a new operation, and
+  scraping/analysis/attack defaults read per scan.
+- **Require a restart:** `api.cors.*`, `api.rate_limit.*`, `download.cleanup_interval_seconds`,
+  `logging.*` handler configuration, and the API server `host`/`port` — these are captured once at
+  startup (app creation, scheduler start, logging setup, server launch).
+
+Changes saved with `"save": true` (API) or `ciberwebscan config set` are also written to
+`~/.ciberwebscan/config.yaml`, so they survive restarts. Runtime-only changes (`"save": false`)
+are lost when the process stops.
+
+After any restart, the config file is merged with `CIBERWEBSCAN_` environment variables again,
+and the environment keeps higher precedence.
+
 ## Programmatic Access
 
 You can access configuration in your code:
