@@ -12,6 +12,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from ciberwebscan.api.app import create_app
+from ciberwebscan.config.loader import get_config, get_loader
+from ciberwebscan.services.config_service import ConfigService
 
 pytestmark = pytest.mark.unit
 
@@ -590,3 +592,234 @@ class TestSensitiveFieldMasking:
             # Metadata should be preserved
             assert data["data"]["source"] == "file"
             assert data["data"]["key"] == "api.auth.api_keys"
+
+
+# =============================================================================
+# Real-service behavior tests (shared global config, real auth)
+# =============================================================================
+
+
+@pytest.fixture
+def real_client():
+    """TestClient WITHOUT auth overrides: real API-key auth via global config."""
+    app = create_app()
+    client = TestClient(app)
+    yield client
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def isolated_config_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Redirect the global loader's config_path to a temp file."""
+    target = tmp_path / "config.yaml"
+    monkeypatch.setattr(get_loader(), "config_path", target)
+    return target
+
+
+@pytest.fixture
+def auth_headers() -> dict[str, str]:
+    """Seed a known API key in the global config and return its auth headers."""
+    key = "unit-test-api-key-1234567890"
+    ConfigService().set("api.auth.api_keys", [key])
+    return {"X-API-Key": key}
+
+
+class TestConfigRuntimeSync:
+    """PUT /api/config must modify the runtime state shared process-wide."""
+
+    def test_put_save_false_updates_runtime(
+        self,
+        real_client: TestClient,
+        auth_headers: dict[str, str],
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        monkeypatch.delenv("CIBERWEBSCAN_HTTP_TIMEOUT_CONNECT", raising=False)
+
+        response = real_client.put(
+            "/api/config",
+            json={"path": "http.timeout.connect", "value": 77.0, "save": False},
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 200
+        # Runtime (get_config) sees the change without any save
+        assert get_config().http.timeout.connect == 77.0
+        # A subsequent GET (new ConfigService instance) sees it too
+        got = real_client.get(
+            "/api/config/value",
+            params={"path": "http.timeout.connect"},
+            headers=auth_headers,
+        )
+        assert got.status_code == 200
+        assert got.json()["data"]["value"] == 77.0
+
+    def test_put_save_false_does_not_touch_disk(
+        self,
+        real_client: TestClient,
+        isolated_config_file: Path,
+        auth_headers: dict[str, str],
+    ):
+        response = real_client.put(
+            "/api/config",
+            json={"path": "http.timeout.connect", "value": 77.0, "save": False},
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 200
+        assert get_config().http.timeout.connect == 77.0
+        assert not isolated_config_file.exists()
+
+    def test_put_save_true_persists_runtime_and_disk(
+        self,
+        real_client: TestClient,
+        isolated_config_file: Path,
+        auth_headers: dict[str, str],
+    ):
+        response = real_client.put(
+            "/api/config",
+            json={"path": "http.timeout.connect", "value": 88.0, "save": True},
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 200
+        # Runtime updated
+        assert get_config().http.timeout.connect == 88.0
+        # Disk updated
+        assert isolated_config_file.exists()
+        import yaml
+
+        saved = yaml.safe_load(isolated_config_file.read_text(encoding="utf-8"))
+        assert saved["http"]["timeout"]["connect"] == 88.0
+
+    def test_put_invalid_value_leaves_runtime_untouched(
+        self, real_client: TestClient, auth_headers: dict[str, str]
+    ):
+        default = get_config().http.timeout.connect
+
+        response = real_client.put(
+            "/api/config",
+            json={"path": "http.timeout.connect", "value": "not-a-float"},
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 400
+        assert get_config().http.timeout.connect == default
+
+
+class TestApiKeyRevocation:
+    """Changing api.auth.api_keys must take effect on the very next request."""
+
+    @pytest.fixture(autouse=True)
+    def seed_keys(self):
+        ConfigService().set("api.auth.api_keys", ["old-key-1234567890"])
+
+    def test_old_key_authenticates_before_revocation(self, real_client: TestClient):
+        response = real_client.get(
+            "/api/config/keys", headers={"X-API-Key": "old-key-1234567890"}
+        )
+        assert response.status_code == 200
+
+    def test_revoked_key_stops_authenticating(self, real_client: TestClient):
+        old = {"X-API-Key": "old-key-1234567890"}
+        new_key = "new-key-0987654321"
+
+        # Revoke via PUT (authenticated with the old key)
+        put = real_client.put(
+            "/api/config",
+            json={"path": "api.auth.api_keys", "value": [new_key], "save": False},
+            headers=old,
+        )
+        assert put.status_code == 200
+
+        # Old key is rejected immediately, without restart
+        assert real_client.get("/api/config/keys", headers=old).status_code == 401
+        # New key works immediately
+        fresh = real_client.get("/api/config/keys", headers={"X-API-Key": new_key})
+        assert fresh.status_code == 200
+
+    def test_no_key_is_rejected(self, real_client: TestClient):
+        assert real_client.get("/api/config/keys").status_code == 401
+
+    def test_revocation_survives_config_service_instances(
+        self, real_client: TestClient
+    ):
+        new_key = "another-key-555555"
+        ConfigService().set("api.auth.api_keys", [new_key])
+
+        assert (
+            real_client.get(
+                "/api/config/keys", headers={"X-API-Key": new_key}
+            ).status_code
+            == 200
+        )
+        assert (
+            real_client.get(
+                "/api/config/keys", headers={"X-API-Key": "old-key-1234567890"}
+            ).status_code
+            == 401
+        )
+
+
+class TestResetViaAPI:
+    """POST /api/config/reset must modify runtime state without identity loss."""
+
+    def test_reset_key_updates_runtime(
+        self,
+        real_client: TestClient,
+        auth_headers: dict[str, str],
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        monkeypatch.delenv("CIBERWEBSCAN_HTTP_TIMEOUT_CONNECT", raising=False)
+        real_client.put(
+            "/api/config",
+            json={"path": "http.timeout.connect", "value": 99.0, "save": False},
+            headers=auth_headers,
+        )
+        assert get_config().http.timeout.connect == 99.0
+
+        response = real_client.post(
+            "/api/config/reset",
+            json={"path": "http.timeout.connect", "save": False},
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 200
+        assert get_config().http.timeout.connect == 10.0
+
+    def test_reset_all_updates_runtime_and_preserves_identity(
+        self,
+        real_client: TestClient,
+        auth_headers: dict[str, str],
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        monkeypatch.delenv("CIBERWEBSCAN_HTTP_TIMEOUT_CONNECT", raising=False)
+        ident = id(get_config())
+        real_client.put(
+            "/api/config",
+            json={"path": "http.timeout.connect", "value": 99.0, "save": False},
+            headers=auth_headers,
+        )
+
+        response = real_client.post(
+            "/api/config/reset",
+            json={"path": None, "save": False},
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 200
+        assert get_config().http.timeout.connect == 10.0
+        assert id(get_config()) == ident
+
+    def test_reset_key_with_none_default_via_api(
+        self, real_client: TestClient, auth_headers: dict[str, str]
+    ):
+        ConfigService().set("analysis.cve.nvd_api_key", "some-key")
+
+        response = real_client.post(
+            "/api/config/reset",
+            json={"path": "analysis.cve.nvd_api_key", "save": False},
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 200
+        assert get_config().analysis.cve.nvd_api_key is None
