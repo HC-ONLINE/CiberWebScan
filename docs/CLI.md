@@ -377,6 +377,27 @@ ciberwebscan completion uninstall --shell zsh
 
 Manage application configuration.
 
+#### Path resolution
+
+Every file path accepted by the `config` group (`--config <FILE>`,
+`config export <PATH>`, `config load <PATH>`) is resolved from your **current
+working directory**:
+
+- **Relative paths** are anchored to the CWD: `ciberwebscan config load
+examples/profiles/bugbounty.yaml` works from the repository root, and
+  `ciberwebscan config export backup.yaml` writes `backup.yaml` into the
+  directory you are in — never into `~/.ciberwebscan`.
+- **Absolute paths** are used as-is, anywhere on disk.
+- **`~`** is expanded to your home directory first (e.g.
+  `config load ~/.ciberwebscan/snapshot.yaml`).
+- `--config rel.yaml` makes `show`, `get`, `set`, and `reset` read **and
+  write** that single file: `set`/`reset` save back to the file they loaded,
+  not to the default `~/.ciberwebscan/config.yaml`.
+- Only `.yaml`, `.yml`, and `.json` are accepted.
+- The CLI does **not** sandbox these paths (unlike the API): you can read or
+  write any location your user has access to. Missing `load` files exit with
+  code `2` (validation), other file errors exit with code `1`.
+
 #### config show
 
 Display current configuration.
@@ -508,13 +529,17 @@ ciberwebscan config export <PATH> [OPTIONS]
 **Examples:**
 
 ```bash
+# Relative to the current directory
 ciberwebscan config export config.yaml
 ciberwebscan config export config.json -f json
+
+# Absolute path or home-relative
+ciberwebscan config export ~/backups/config.yaml
 ```
 
 #### config load
 
-Load configuration from file.
+Load configuration from file (resolved from the current directory).
 
 ```bash
 ciberwebscan config load <PATH>
@@ -525,6 +550,9 @@ ciberwebscan config load <PATH>
 ```bash
 ciberwebscan config load config.yaml
 ciberwebscan config load config.json
+
+# From the repository root
+ciberwebscan config load examples/profiles/bugbounty.yaml
 ```
 
 ## Configuration

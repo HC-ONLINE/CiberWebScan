@@ -711,42 +711,90 @@ Retrieve a specific configuration section.
 
 #### PUT /api/config
 
-Update configuration settings.
+Update a single configuration value.
 
 **Request:**
 
 ```json
 {
-  "updates": {
-    "scraping.timeout": 45.0,
-    "analysis.cve_limit": 150
-  }
+  "path": "scraping.timeout",
+  "value": 45.0,
+  "save": false
+}
+```
+
+| Field   | Type    | Description                                                        |
+| ------- | ------- | ------------------------------------------------------------------ |
+| `path`  | string  | Configuration key in dot-notation                                  |
+| `value` | any     | New value (string, number, boolean, list, or object)               |
+| `save`  | boolean | Persist the change to the config file immediately (default: false) |
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "key": "scraping.timeout",
+    "value": 45.0,
+    "default": 30.0,
+    "source": "runtime"
+  },
+  "timestamp": "2026-01-01T00:00:00Z"
 }
 ```
 
 #### POST /api/config/export
 
-Export configuration to file.
+Export the current configuration to a file inside the configuration base
+directory (`~/.ciberwebscan`).
 
 **Request:**
 
 ```json
 {
+  "path": "backup.yaml",
   "format": "yaml"
+}
+```
+
+| Field    | Type   | Description                                          |
+| -------- | ------ | ---------------------------------------------------- |
+| `path`   | string | Output file path (resolved inside `~/.ciberwebscan`) |
+| `format` | string | `yaml` (default) or `json`                           |
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "file_path": "/home/user/.ciberwebscan/backup.yaml",
+    "operation": "export",
+    "format": "yaml"
+  },
+  "timestamp": "2026-01-01T00:00:00Z"
 }
 ```
 
 #### POST /api/config/load
 
-Load configuration from file.
+Load configuration from a file (values are merged into the running
+configuration; sensitive values are masked in the response).
 
 **Request:**
 
 ```json
 {
-  "file_path": "/path/to/config.yaml"
+  "path": "backup.yaml"
 }
 ```
+
+| Field  | Type   | Description                                         |
+| ------ | ------ | --------------------------------------------------- |
+| `path` | string | Input file path (resolved inside `~/.ciberwebscan`) |
+
+A missing file returns `404`; invalid paths return `400`.
 
 #### POST /api/config/reset
 
@@ -756,22 +804,31 @@ Reset to default configuration.
 
 ```json
 {
-  "section": "scraping"
+  "path": "scraping",
+  "save": false
 }
 ```
+
+| Field  | Type    | Description                                                       |
+| ------ | ------- | ----------------------------------------------------------------- |
+| `path` | string  | Key or section to reset; omit the field to reset everything       |
+| `save` | boolean | Persist the reset to the config file immediately (default: false) |
 
 #### POST /api/config/save
 
-Save configuration to file.
+Save the current configuration to a file.
 
-**Request:**
+**Request** (body optional):
 
 ```json
 {
-  "file_path": "/path/to/config.yaml",
-  "format": "yaml"
+  "path": "snapshot.yaml"
 }
 ```
+
+| Field  | Type   | Description                                                        |
+| ------ | ------ | ------------------------------------------------------------------ |
+| `path` | string | Destination inside `~/.ciberwebscan`; omit to use the default file |
 
 **Response:**
 
@@ -779,13 +836,32 @@ Save configuration to file.
 {
   "success": true,
   "data": {
-    "file_path": "/path/to/config.yaml",
-    "format": "yaml",
-    "message": "Configuration saved successfully"
+    "file_path": "/home/user/.ciberwebscan/snapshot.yaml",
+    "operation": "save",
+    "format": null
   },
   "timestamp": "2026-01-01T00:00:00Z"
 }
 ```
+
+#### Config file paths (API)
+
+Every per-call file path accepted by `POST /api/config/export`, `POST
+/api/config/load`, and `POST /api/config/save` is resolved against the
+configuration base directory `~/.ciberwebscan`:
+
+- `~` is expanded first, then the result must still lie inside the base
+  (`~/.ciberwebscan/x.yaml` succeeds, `~/x.yaml` is rejected).
+- Relative paths such as `backup.yaml` resolve to `~/.ciberwebscan/backup.yaml`,
+  never to the server's working directory.
+- Parent traversal (`../`), absolute paths outside the base, and symlinks that
+  resolve outside the base are rejected with `400` (`Invalid configuration
+path`).
+- Only `.yaml`, `.yml`, and `.json` extensions are accepted; a missing file on
+  load returns `404`.
+
+The CLI uses different rules (relative to the current working directory, no
+sandbox) — see [CLI.md](CLI.md).
 
 #### Runtime vs startup configuration
 
