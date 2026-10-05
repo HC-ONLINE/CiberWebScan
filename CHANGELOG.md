@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.26.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.25.0...v2.26.0) (2026-10-05)
+
+
+### Features
+
+* **config:** enhance config service with path policy and normalization ([098d2a6](https://github.com/HC-ONLINE/CiberWebScan/commit/098d2a610848cf8837b83b868d75d32c6f07ee8e))
+* **config:** update ConfigService initialization to use PathPolicy.LOCAL for consistent path handling ([0e0542f](https://github.com/HC-ONLINE/CiberWebScan/commit/0e0542fa51b087f587f9a77ca62eb2f1f8821f68))
+* **tests:** add unit tests for config path resolution in CLI and API ([0b97faf](https://github.com/HC-ONLINE/CiberWebScan/commit/0b97faf8eb4cecb6dd44fe5f4f336aa1b7847a6e))
+* **validators:** enhance file path validation with normalization and improved error reporting ([1f44053](https://github.com/HC-ONLINE/CiberWebScan/commit/1f44053cbb48f16cf50b29d9bb8f012d2a2618b8))
+
+
+### Bug Fixes
+
+* **config:** resolve config paths from CWD in CLI and sandbox them in the API ([dbc3fd2](https://github.com/HC-ONLINE/CiberWebScan/commit/dbc3fd256293726f45df533710eafc88015712ac))
+
+
+### Documentation
+
+* update API and CLI documentation for consistent path resolution rules ([68fbf73](https://github.com/HC-ONLINE/CiberWebScan/commit/68fbf73beeaa9d1bdd946cbd8d291bb191d877eb))
+
 ## [2.25.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.24.1...v2.25.0) (2026-10-02)
 
 
