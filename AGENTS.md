@@ -4,7 +4,7 @@
 
 CiberWebScan is a hybrid web security scanner combining passive reconnaissance, attack surface analysis, structured extraction, and security assessment of web applications. Version **2.4.0** (beta), licensed under Apache 2.0.
 
-- **Python**: >= 3.10 (supports 3.10, 3.11, 3.12)
+- **Python**: >= 3.10 (supports 3.10, 3.11, 3.12, 3.13)
 - **Package**: `ciberwebscan` (src layout: `src/ciberwebscan/`)
 - **Entry point**: `ciberwebscan` CLI → `ciberwebscan.cli.app:main`
 - **License**: Apache 2.0
@@ -470,7 +470,7 @@ docker run -p 8000:8000 ciberwebscan  # Starts API on port 8000
 
 ### GitHub Actions
 
-- **ci.yml**: Runs on push/PR to `main` and `CI-testing` — lint, type check, test (Python 3.10, 3.11, 3.12 matrix)
+- **ci.yml**: Runs on push/PR to `main` and `CI-testing` — lint, type check, test (Python 3.10, 3.11, 3.12, 3.13 matrix)
 - **docker.yml**: Builds and pushes to GHCR (`ghcr.io`) on push to `main`
 
 ## Pre-commit Hooks
