@@ -1,7 +1,7 @@
 # =============================================================================
 # Stage 1: Builder — install dependencies and Playwright browsers
 # =============================================================================
-FROM python:3.12-slim AS builder
+FROM python:3.13-slim AS builder
 
 # uv replaces pip for dependency installation (same tool as local dev and CI)
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
@@ -44,7 +44,7 @@ RUN UV_PYTHON_DOWNLOADS=never uv sync --locked --extra api \
 # =============================================================================
 # Stage 2: Runtime — minimal image with only what's needed
 # =============================================================================
-FROM python:3.12-slim AS runtime
+FROM python:3.13-slim AS runtime
 
 WORKDIR /app
 
