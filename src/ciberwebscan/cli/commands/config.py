@@ -25,7 +25,7 @@ from ciberwebscan.cli.validators import (
     ValidationError,
     validate_file_path,
 )
-from ciberwebscan.services.config_service import is_sensitive_key
+from ciberwebscan.services.config_service import PathPolicy, is_sensitive_key
 
 config = typer.Typer(
     name="config",
@@ -71,7 +71,7 @@ def config_show(
     try:
         from ciberwebscan.services import ConfigService
 
-        service = ConfigService(config_path=config_path)
+        service = ConfigService(config_path=config_path, path_policy=PathPolicy.LOCAL)
 
         result = service.get_section(section) if section else service.get_all()
 
@@ -118,7 +118,7 @@ def config_get(
     try:
         from ciberwebscan.services import ConfigService
 
-        service = ConfigService(config_path=config_path)
+        service = ConfigService(config_path=config_path, path_policy=PathPolicy.LOCAL)
         result = service.get(key)
 
         if json_output:
@@ -187,7 +187,7 @@ def config_set(
                 with suppress(ValueError):
                     parsed_value = float(value)
 
-        service = ConfigService(config_path=config_path)
+        service = ConfigService(config_path=config_path, path_policy=PathPolicy.LOCAL)
         result = service.set(key, parsed_value)
 
         if not result.success:
@@ -197,9 +197,10 @@ def config_set(
         display_val = "***" if is_sensitive_key(key) else parsed_value
         print_success(f"Set {key} = {display_val}")
 
-        # Save to file if requested
+        # Save to file if requested (the service's own config_path is the
+        # single normalized destination, identical to what the loader read)
         if save_config:
-            save_result = service.save(config_path)
+            save_result = service.save()
             if save_result.success:
                 print_info(f"Configuration saved to: {save_result.data}")
             else:
@@ -260,7 +261,7 @@ def config_reset(
 
         from ciberwebscan.services import ConfigService
 
-        service = ConfigService(config_path=config_path)
+        service = ConfigService(config_path=config_path, path_policy=PathPolicy.LOCAL)
         result = service.reset(key)
 
         if not result.success:
@@ -272,9 +273,10 @@ def config_reset(
         else:
             print_success("Reset all configuration to defaults")
 
-        # Save to file if requested
+        # Save to file if requested (the service's own config_path is the
+        # single normalized destination, identical to what the loader read)
         if save_config:
-            save_result = service.save(config_path)
+            save_result = service.save()
             if save_result.success:
                 print_info(f"Configuration saved to: {save_result.data}")
             else:
@@ -344,7 +346,7 @@ def config_export(
     try:
         from ciberwebscan.services import ConfigService
 
-        service = ConfigService()
+        service = ConfigService(path_policy=PathPolicy.LOCAL)
         result = service.export_config(path, format)
 
         if result.success:
@@ -375,7 +377,7 @@ def config_load(
 
         from ciberwebscan.services import ConfigService
 
-        service = ConfigService()
+        service = ConfigService(path_policy=PathPolicy.LOCAL)
         result = service.load(path)
 
         if result.success:
