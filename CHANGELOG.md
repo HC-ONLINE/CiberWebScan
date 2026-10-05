@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.27.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.26.0...v2.27.0) (2026-10-05)
+
+
+### Features
+
+* add Python 3.13 support ([5b21419](https://github.com/HC-ONLINE/CiberWebScan/commit/5b21419328cacd3d356dae054d32532b076e9915))
+* add Python 3.13 support in classifiers ([c7e8811](https://github.com/HC-ONLINE/CiberWebScan/commit/c7e8811cd52be2b681ce8b5303ea1f247589a6f0))
+* add Python 3.13 to CI workflow matrix ([bd40fe6](https://github.com/HC-ONLINE/CiberWebScan/commit/bd40fe64697a988fb41198f07ad7e14ecb374aae))
+* update Dockerfile to use Python 3.13 for builder and runtime stages ([ba10f4a](https://github.com/HC-ONLINE/CiberWebScan/commit/ba10f4a38cec7c29ee4a7b0c3fe5f65ab0caf2de))
+* update Python support to include version 3.13 in documentation and CI workflow ([3bfe8cc](https://github.com/HC-ONLINE/CiberWebScan/commit/3bfe8cca3291dc68821392d9cc68df1f310e2b93))
+
 ## [2.26.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.25.0...v2.26.0) (2026-10-05)
 
 
