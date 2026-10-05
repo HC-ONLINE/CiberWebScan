@@ -25,7 +25,11 @@ from ciberwebscan.services.base import (
     ServiceResult,
     ValidationError,
 )
-from ciberwebscan.services.config_service import ConfigService, ConfigValue
+from ciberwebscan.services.config_service import (
+    ConfigService,
+    ConfigValue,
+    PathPolicy,
+)
 from ciberwebscan.services.quick_service import QuickOptions, QuickService
 from ciberwebscan.services.scrape_service import ScrapeOptions, ScrapeService
 
@@ -47,4 +51,5 @@ __all__ = [
     "QuickOptions",
     "ConfigService",
     "ConfigValue",
+    "PathPolicy",
 ]

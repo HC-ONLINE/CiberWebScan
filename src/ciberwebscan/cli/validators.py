@@ -6,6 +6,7 @@ Simple validation without external dependencies.
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 from urllib.parse import urlparse
@@ -97,13 +98,17 @@ def validate_file_path(
     """
     Validate a file path.
 
+    The path is normalized (``~`` expanded, relative paths anchored to the
+    CWD) before any check, and error messages report the normalized absolute
+    path that was actually verified.
+
     Args:
         path: Path to validate.
         must_exist: Whether the file must already exist.
         create_parent: Whether to create parent directories.
 
     Returns:
-        Validated Path object.
+        Normalized absolute Path object.
 
     Raises:
         ValidationError: If path is invalid.
@@ -112,12 +117,12 @@ def validate_file_path(
         raise ValidationError("Path cannot be empty", "path")
 
     try:
-        p = Path(path)
+        p = Path(os.path.abspath(os.path.expanduser(path)))
     except Exception as e:
         raise ValidationError(f"Invalid path: {e}", "path") from e
 
     if must_exist and not p.exists():
-        raise ValidationError(f"File not found: {path}", "path")
+        raise ValidationError(f"File not found: {p}", "path")
 
     if create_parent and not p.parent.exists():
         p.parent.mkdir(parents=True)

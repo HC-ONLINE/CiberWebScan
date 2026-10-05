@@ -7,9 +7,11 @@ Provides configuration management functionality for CLI and API.
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from ciberwebscan.config.loader import (
     Config,
@@ -27,6 +29,29 @@ from ciberwebscan.utils.path_security import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Extensions accepted for config file paths in both path policies.
+ALLOWED_CONFIG_EXTENSIONS: tuple[str, ...] = (".yaml", ".yml", ".json")
+
+
+class PathPolicy(str, Enum):
+    """Where per-call config file paths (save/load/export) are resolved against.
+
+    The policy only governs the ``path`` argument of ``save()``/``load()``/
+    ``export_config()``. It never re-scopes an explicit ``config_path`` passed
+    to the constructor (that is the caller's own pointer, see ``__init__``).
+    """
+
+    CONFIG_DIR = "config_dir"
+    """Resolve paths inside ``~/.ciberwebscan`` (sandboxed, API default)."""
+
+    LOCAL = "local"
+    """Resolve paths from the current working directory (CLI policy).
+
+    Not a sandbox: absolute paths anywhere, ``..`` and symlinks are allowed;
+    only empty/null-byte input, extensions and file-type are checked.
+    """
+
 
 # =============================================================================
 # Sensitive Field Protection
@@ -87,7 +112,12 @@ class ConfigService(BaseService):
         service.reset()
     """
 
-    def __init__(self, config_path: str | Path | None = None):
+    def __init__(
+        self,
+        config_path: str | Path | None = None,
+        *,
+        path_policy: PathPolicy | str = PathPolicy.CONFIG_DIR,
+    ):
         """
         Initialize config service.
 
@@ -95,12 +125,32 @@ class ConfigService(BaseService):
             config_path: Optional path to config file. If None, the service
                 operates on the global configuration loader (shared with
                 ``get_config()``). If given, the service uses an isolated
-                private loader and never touches the global state.
+                private loader and never touches the global state. The path is
+                normalized once (``~`` expanded, made absolute from the CWD) so
+                the loader reads and ``save()`` writes exactly the same file.
+                It is intentionally NOT contained to any base directory: it is
+                the caller's own pointer (legacy programmatic escape hatch).
+                The API must never build this service from ``request.path``.
+            path_policy: Resolution policy for the ``path`` argument of
+                ``save()``/``load()``/``export_config()``. A ``PathPolicy``
+                member or its string value (``"config_dir"``/``"local"``);
+                anything else raises ``ValueError``. Defaults to
+                ``CONFIG_DIR``; the CLI passes ``LOCAL``.
+
+        Raises:
+            ValueError: If ``path_policy`` is not a valid policy. An invalid
+                value never falls back to ``LOCAL`` silently.
         """
         super().__init__()
 
         # None => global mode (get_loader()); Path => isolated private loader.
-        self._explicit_path: Path | None = Path(config_path) if config_path else None
+        self._explicit_path: Path | None = (
+            self._normalize_local_path(config_path) if config_path else None
+        )
+        # Normalize via the enum: "config_dir" must stay the sandbox even
+        # though the raw value is a str, and unknown values must fail loudly
+        # instead of resolving to the LOCAL branch.
+        self._path_policy: PathPolicy = PathPolicy(path_policy)
         self._loader: ConfigLoader | None = None
         self._reset_mode: bool = False  # Flag to track if we're in reset mode
 
@@ -330,13 +380,101 @@ class ConfigService(BaseService):
 
         return result.finalize()
 
+    # -------------------------------------------------------------------------
+    # Path resolution
+    # -------------------------------------------------------------------------
+
+    @staticmethod
+    def _normalize_local_path(value: str | Path) -> Path:
+        """Normalize *value* into an absolute path resolved from the CWD.
+
+        Used both for ``LOCAL`` policy paths and for the constructor's
+        ``config_path`` (normalized exactly once so the loader and ``save()``
+        always agree on the same file).
+
+        Rejects empty paths, null bytes and Windows drive-relative paths
+        (``D:file.yaml``). Expands ``~``. Relative paths become absolute from
+        the current working directory; absolute paths outside the CWD are
+        allowed. ``..`` and symlinks are intentionally *not* rejected: this is
+        not a sandbox.
+
+        Raises:
+            ValueError: If the path is empty, contains a null byte, or is
+                drive-relative on Windows.
+        """
+        raw = str(value)
+        if not raw.strip():
+            raise ValueError("Path cannot be empty")
+        if "\0" in raw:
+            raise ValueError("Path contains null bytes")
+
+        expanded = Path(raw).expanduser()
+        if not expanded.is_absolute() and expanded.drive:
+            # Windows drive-relative ("D:file.yaml"): not anchored, reject.
+            raise ValueError(f"Drive-relative path is not allowed: {raw}")
+        # abspath anchors relative paths to the CWD and normalizes ". / .."
+        # textually without resolving symlinks.
+        return Path(os.path.abspath(expanded))
+
+    def _resolve_user_path(
+        self,
+        path: str | Path,
+        *,
+        purpose: Literal["read", "write"],
+    ) -> Path:
+        """Resolve a per-call ``path`` argument according to the path policy.
+
+        Args:
+            path: Raw user-provided path (file path, not a config key).
+            purpose: ``"read"`` requires an existing regular file; ``"write"``
+                rejects a destination that is already a directory.
+
+        Returns:
+            The resolved absolute path.
+
+        Raises:
+            PathTraversalError: CONFIG_DIR only, if the path escapes
+                ``~/.ciberwebscan``.
+            ValueError: Empty path, null byte, wrong extension, drive-relative
+                path (LOCAL), missing file (read) or directory destination.
+            FileNotFoundError: Read path does not exist.
+        """
+        if self._path_policy is PathPolicy.CONFIG_DIR:
+            # Expand ~ before sandboxing: "~/.ciberwebscan/x.yaml" must land
+            # inside the base, "~/x.yaml" must be rejected by containment
+            # instead of creating a literal "~" directory.
+            expanded = os.path.expanduser(path)
+            resolved = validate_export_path_only(
+                expanded,
+                get_config_base_dir(),
+                allowed_extensions=list(ALLOWED_CONFIG_EXTENSIONS),
+            )
+        else:  # PathPolicy.LOCAL
+            resolved = self._normalize_local_path(path)
+            suffix = resolved.suffix.lower()
+            if suffix not in ALLOWED_CONFIG_EXTENSIONS:
+                raise ValueError(
+                    f"File extension '{suffix}' not in allowed extensions: "
+                    f"{list(ALLOWED_CONFIG_EXTENSIONS)}"
+                )
+
+        if purpose == "read":
+            if not resolved.exists():
+                raise FileNotFoundError(f"Config file not found: {resolved}")
+            if not resolved.is_file():
+                raise ValueError(f"Config path is not a file: {resolved}")
+        elif resolved.is_dir():
+            raise ValueError(f"Destination path is a directory: {resolved}")
+
+        return resolved
+
     def save(self, path: str | Path | None = None) -> ServiceResult[Path]:
         """
         Save current configuration to file.
 
         Args:
-            path: File path. Uses default if not provided. Must be within the
-                configuration directory if specified.
+            path: File path resolved per the configured path policy. Uses the
+                service's own config path if not provided.
 
         Returns:
             ServiceResult containing saved file path.
@@ -345,12 +483,11 @@ class ConfigService(BaseService):
 
         try:
             if path is not None:
-                allowed_base = get_config_base_dir()
-                save_path = validate_export_path_only(
-                    path, allowed_base, allowed_extensions=[".yaml", ".yml", ".json"]
-                )
+                save_path = self._resolve_user_path(path, purpose="write")
             elif self.config_path is not None:
                 save_path = self.config_path
+                if save_path.is_dir():
+                    raise ValueError(f"Config path is a directory: {save_path}")
             else:
                 save_path = Path.home() / ".ciberwebscan" / "config.yaml"
 
@@ -386,7 +523,7 @@ class ConfigService(BaseService):
         Sensitive fields (API keys, secrets) are masked with ``'***'``.
 
         Args:
-            path: File path to load. Must be within the configuration directory.
+            path: File path resolved per the configured path policy.
 
         Returns:
             ServiceResult containing loaded config with sensitive values masked.
@@ -394,13 +531,9 @@ class ConfigService(BaseService):
         result = ServiceResult[dict[str, Any]](success=False)
 
         try:
-            allowed_base = get_config_base_dir()
-            load_path = validate_export_path_only(
-                path, allowed_base, allowed_extensions=[".yaml", ".yml", ".json"]
-            )
-
-            if not load_path.exists():
-                raise FileNotFoundError(f"Config file not found: {load_path}")
+            # Raises FileNotFoundError for a missing file and ValueError for a
+            # directory destination (both handled below).
+            load_path = self._resolve_user_path(path, purpose="read")
 
             # Phase 1: parse the file with a temporary loader (never shared)
             temp_loader = ConfigLoader(config_path=load_path)
@@ -455,7 +588,7 @@ class ConfigService(BaseService):
         Export configuration to file.
 
         Args:
-            path: Output file path. Must be within the configuration directory.
+            path: Output file path resolved per the configured path policy.
             format: Export format ('yaml', 'json').
 
         Returns:
@@ -464,13 +597,18 @@ class ConfigService(BaseService):
         result = ServiceResult[Path](success=False)
 
         try:
-            allowed_base = get_config_base_dir()
-            export_path = validate_export_path_only(
-                path, allowed_base, allowed_extensions=[".yaml", ".yml", ".json"]
-            )
+            export_path = self._resolve_user_path(path, purpose="write")
             config_dict = self.config.model_dump()
 
             if format == "json":
+                if self._path_policy is PathPolicy.LOCAL:
+                    # LOCAL was already normalized/validated above; basing the
+                    # second _export_result validation on the destination's
+                    # parent keeps its mandatory-validation contract and does
+                    # not add security containment (LOCAL is not a sandbox).
+                    allowed_base: Path | str = export_path.parent
+                else:
+                    allowed_base = get_config_base_dir()
                 exported, final_path = self._export_result(
                     config_dict,
                     str(export_path),

@@ -614,6 +614,26 @@ Configure logging behavior.
 
 ## CLI Configuration Commands
 
+### Path resolution rules
+
+File paths used by the `config` group follow one consistent rule: **they are
+resolved from your current working directory**.
+
+- `--config <FILE>`, `config export <PATH>`, and `config load <PATH>` accept
+  relative paths (anchored to the CWD), absolute paths (anywhere on disk), and
+  `~` (expanded to your home directory first).
+- `config export <PATH>` writes next to you — for example
+  `ciberwebscan config export backup.yaml` creates `./backup.yaml`, not
+  `~/.ciberwebscan/backup.yaml`.
+- `--config rel.yaml` makes `show`, `get`, `set`, and `reset` operate on that
+  one file: `set` and `reset` save back to it instead of the default
+  `~/.ciberwebscan/config.yaml`.
+- Only `.yaml`, `.yml`, and `.json` extensions are accepted. A missing file in
+  `config load` exits with code `2`; other file errors exit with code `1`.
+- The CLI does not restrict where these paths may point (you write with your
+  own user's permissions). The REST API, in contrast, sandboxes every path
+  inside `~/.ciberwebscan` — see [API.md](API.md#config-file-paths-api).
+
 ### View Current Configuration
 
 ```bash
