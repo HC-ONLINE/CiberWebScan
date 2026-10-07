@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.28.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.27.0...v2.28.0) (2026-10-07)
+
+
+### Features
+
+* **logging:** enhance log identifier masking with HMAC-SHA256 and server secret management ([90a9bcd](https://github.com/HC-ONLINE/CiberWebScan/commit/90a9bcd058b05e6216b11a9df79143a2a286534b))
+
+
+### Bug Fixes
+
+* **api-auth:** clarify server_secret description for HMAC log obfuscation ([4affb4c](https://github.com/HC-ONLINE/CiberWebScan/commit/4affb4c41d9598b17b6306251ad0113a6f9fb48e))
+* **auth:** improve server secret handling and update logging identifiers ([a5bfaff](https://github.com/HC-ONLINE/CiberWebScan/commit/a5bfaff3c234040f32ca854cfdc4c86d448d3024))
+* **auth:** stable API key identity fixes permanent 401 on downloads ([4660f88](https://github.com/HC-ONLINE/CiberWebScan/commit/4660f88619ab49abaaab6f27c3d57d92af0adb8c))
+* **config:** add API auth and download settings to environment and documentation ([bf4cf81](https://github.com/HC-ONLINE/CiberWebScan/commit/bf4cf812a216bdb4ffa44b23bc289b65cd9b2fc2))
+* **download:** mask user identifiers in logs for enhanced security ([4eb715e](https://github.com/HC-ONLINE/CiberWebScan/commit/4eb715e305c52a38a683c1402363df1d6a744941))
+
 ## [2.27.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.26.0...v2.27.0) (2026-10-05)
 
 
