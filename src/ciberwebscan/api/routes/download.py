@@ -16,6 +16,7 @@ from fastapi.responses import StreamingResponse
 from ciberwebscan.api.auth import AuthenticatedUser, get_current_user
 from ciberwebscan.config.loader import get_config
 from ciberwebscan.services.download_service import DownloadService
+from ciberwebscan.utils.logging import mask_identifier
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +75,9 @@ async def download_file(
             detail="Download service is disabled",
         )
 
+    # Log-safe caller identity: never write raw API key material to logs.
+    log_user = mask_identifier(user.identifier)
+
     # Validate token
     validation_result = download_service.validate_download_request(
         token=token,
@@ -93,7 +97,7 @@ async def download_file(
         else:
             status_code = status.HTTP_400_BAD_REQUEST
 
-        logger.warning(f"Download validation failed for {user.identifier}: {error_msg}")
+        logger.warning(f"Download validation failed for {log_user}: {error_msg}")
         raise HTTPException(status_code=status_code, detail=error_msg)
 
     # Get file stream
@@ -113,7 +117,7 @@ async def download_file(
         "Pragma": "no-cache",
     }
 
-    logger.info(f"Streaming download for token {token} to user {user.identifier}")
+    logger.info(f"Streaming download for token {token} to user {log_user}")
 
     # Get file stream and validate data is not None
     if stream_result.data is None:
