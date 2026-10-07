@@ -603,6 +603,12 @@ X-API-Key: your-api-key-here
 | 429  | Too many retry attempts                               |
 | 503  | Download service unavailable                          |
 
+**Same-key requirement:** by default a token can only be redeemed with the **same** `X-API-Key`
+that issued it. The `401` case above (`token belongs to different user`) is controlled by
+`download.require_same_user` (default `true`) — keep it `true` unless you intentionally want to
+share tokens across API keys, because `false` disables that access control entirely. See
+[CONFIGURATION.md — Download](CONFIGURATION.md#download).
+
 **Example:**
 
 ```bash
@@ -635,6 +641,23 @@ api:
 CIBERWEBSCAN_API_AUTH_API_KEYS="my-secret-key-1,my-secret-key-2"
 ```
 
+**Optional `server_secret` (log obfuscation only):**
+
+```yaml
+api:
+  auth:
+    server_secret: "" # default; auto-generated once per process, never persisted
+```
+
+```bash
+CIBERWEBSCAN_API_AUTH_SERVER_SECRET=""
+```
+
+`api.auth.server_secret` is used **only** to obfuscate API keys in logs (HMAC-SHA256). It does **not**
+take part in authentication or download-token authorization: identity is derived from the API key
+itself, and changing the secret only changes the identifiers shown in logs. Full details:
+[CONFIGURATION.md — `api.auth.server_secret`](CONFIGURATION.md#apiauthserver_secret-log-obfuscation-only).
+
 #### Auth endpoints
 
 ##### GET /api/auth/me
@@ -651,6 +674,12 @@ Get information about the current authenticated user.
   "authenticated": true
 }
 ```
+
+**Identity model:** for API-key requests, `identifier` is `apikey:` followed by the first 8
+characters of the key that authenticated the request. It is **stable across requests** — the same
+key always yields the same identifier — and it does not depend on `api.auth.server_secret`.
+Download tokens are bound to this identifier, which is why redeeming a token requires the same
+`X-API-Key` that issued it (see [Downloads](#get-apidownloadtoken)).
 
 #### POST /api/auth/generate-key
 
@@ -872,6 +901,10 @@ each use:
 
 - **API authentication** (`api.auth.api_keys`): every request re-reads the key list, so adding or
   revoking a key applies to the very next request, without restarting the server.
+- **Download access control** (`download.require_same_user`): checked on every
+  `GET /api/download/{token}`, so toggling it applies to the next download request.
+- **API auth `server_secret`** (`api.auth.server_secret`): read per request but used only for log
+  identifiers; the auto-generated default is fixed for the lifetime of the process.
 - **HTTP client settings** (timeouts, retries, rate limits): apply to HTTP clients created after
   the change; operations already in flight keep the settings they started with.
 - **Scan defaults** (scraping, analysis, attack options): apply to operations started after the
@@ -949,6 +982,7 @@ CIBERWEBSCAN_API_PORT=8000
 
 # Authentication
 CIBERWEBSCAN_API_AUTH_API_KEYS="key1,key2,key3"
+CIBERWEBSCAN_API_AUTH_SERVER_SECRET=""
 
 # Rate Limiting
 CIBERWEBSCAN_API_RATE_LIMIT_ENABLED=true
@@ -965,6 +999,7 @@ CIBERWEBSCAN_API_CORS_EXPOSE_HEADERS="X-Custom-Header"
 CIBERWEBSCAN_DOWNLOAD_ENABLED=true
 CIBERWEBSCAN_DOWNLOAD_TOKEN_EXPIRY_MINUTES=60
 CIBERWEBSCAN_DOWNLOAD_MAX_RETRY_ATTEMPTS=3
+CIBERWEBSCAN_DOWNLOAD_REQUIRE_SAME_USER=true
 ```
 
 ### Rate Limiting

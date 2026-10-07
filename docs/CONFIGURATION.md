@@ -14,6 +14,7 @@ CiberWebScan uses a flexible configuration system that allows customization of v
    - [Analysis](#analysis)
    - [Attack](#attack)
    - [Export](#export)
+   - [Download](#download)
    - [Cache](#cache)
    - [API](#api)
    - [Logging](#logging)
@@ -466,6 +467,41 @@ Configure export behavior.
 >
 > - `include_screenshots` is defined in `ExportConfig` (`src/ciberwebscan/config/models.py`) and exposed in API models, but it is **not implemented** by the export pipeline (unused by `BaseService._export_result` and exporter classes).
 
+### Download
+
+Configure the download tokens returned by export-enabled API requests (`download_token` in `POST /api/analyze`, `/api/scrape`, `/api/attack`, and `/api/quick/scan` responses).
+
+```json
+{
+  "download": {
+    "enabled": true,
+    "retention_seconds": 1800,
+    "require_same_user": true
+  }
+}
+```
+
+#### Access control: `download.require_same_user`
+
+`download.require_same_user` (default `true`) binds every download token to the API key that issued it: `GET /api/download/{token}` must be requested with the **same** `X-API-Key` used in the `POST` request that created the token. With the default, a request made with a different API key gets `401 Unauthorized: token belongs to different user`.
+
+- **Keep it `true`** unless you intentionally want to share download tokens across different API keys — this setting is the access control that stops one API key from redeeming another key's token.
+- **Setting it to `false` disables that control for every token**: any valid API key (or any requester, if authentication is disabled) holding the token URL can redeem it. Do this only when that is explicitly what you want.
+
+The value is read from the configuration on every download request, so it applies at the next request without a restart — see [Runtime changes vs restart-required settings](#runtime-changes-vs-restart-required-settings).
+
+#### Default values (quick reference)
+
+| Key                                 |   Default | Description                                             |
+| ----------------------------------- | --------: | ------------------------------------------------------- |
+| `download.enabled`                  |    `true` | Download service enabled (tokens + `GET /api/download`) |
+| `download.retention_seconds`        |    `1800` | Seconds before a download token expires (60-86400)      |
+| `download.max_file_size_mb`         |     `500` | Max export file size accepted for download (MB)         |
+| `download.max_retries`              |       `3` | Max download attempts per token (1-10)                  |
+| `download.cleanup_interval_seconds` |     `300` | Cleanup scheduler interval (requires restart)           |
+| `download.require_same_user`        |    `true` | Bind each download token to the API key that issued it  |
+| `download.stream_chunk_size`        | `1048576` | Streaming chunk size in bytes                           |
+
 ### Cache
 
 Configure caching behavior.
@@ -517,22 +553,42 @@ Configure the FastAPI server, authentication, and CORS settings.
 
 #### Default values (quick reference)
 
-| Key                                  |   Default | Description                                    |
-| ------------------------------------ | --------: | ---------------------------------------------- |
-| `api.host`                           | `0.0.0.0` | API server bind address                        |
-| `api.port`                           |    `8000` | API server port (1-65535)                      |
-| `api.auth.api_keys`                  |      `[]` | List of valid API keys for authentication      |
-| `api.rate_limit.enabled`             |    `true` | Rate limiting enabled by default               |
-| `api.rate_limit.requests_per_minute` |      `60` | Max requests per minute (1-10000)              |
-| `api.cors_origins`                   |      `[]` | Allowed CORS origins (empty = no cross-origin) |
-| `api.cors_allow_credentials`         |   `false` | Allow credentials in cross-origin requests     |
-| `api.cors_allow_methods`             | see below | HTTP methods allowed for CORS                  |
-| `api.cors_allow_headers`             | see below | HTTP headers allowed for CORS                  |
-| `api.cors_expose_headers`            |      `[]` | Headers to expose to the browser               |
+| Key                                  |   Default | Description                                      |
+| ------------------------------------ | --------: | ------------------------------------------------ |
+| `api.host`                           | `0.0.0.0` | API server bind address                          |
+| `api.port`                           |    `8000` | API server port (1-65535)                        |
+| `api.auth.api_keys`                  |      `[]` | List of valid API keys for authentication        |
+| `api.auth.server_secret`             |      `""` | Secret for HMAC log obfuscation only (see below) |
+| `api.rate_limit.enabled`             |    `true` | Rate limiting enabled by default                 |
+| `api.rate_limit.requests_per_minute` |      `60` | Max requests per minute (1-10000)                |
+| `api.cors_origins`                   |      `[]` | Allowed CORS origins (empty = no cross-origin)   |
+| `api.cors_allow_credentials`         |   `false` | Allow credentials in cross-origin requests       |
+| `api.cors_allow_methods`             | see below | HTTP methods allowed for CORS                    |
+| `api.cors_allow_headers`             | see below | HTTP headers allowed for CORS                    |
+| `api.cors_expose_headers`            |      `[]` | Headers to expose to the browser                 |
 
 **Default `cors_allow_methods`:** `["GET", "POST", "PUT", "DELETE", "PATCH"]`
 
 **Default `cors_allow_headers`:** `["Authorization", "Content-Type", "X-API-Key"]`
+
+#### `api.auth.server_secret` (log obfuscation only)
+
+`api.auth.server_secret` (default `""`) is used **only** to obfuscate API keys in logs: log identifiers are derived from HMAC-SHA256 of the key under this secret. It takes **no part in authorization** — the authenticated identity (`GET /api/auth/me`) and download-token ownership are derived from a stable key identifier instead, so downloads work regardless of this value.
+
+- **Default (`""`)**: a random secret is generated **once per process** and reused for the lifetime of that process. It is never persisted to `~/.ciberwebscan/config.yaml`.
+- **Explicit value**: always wins over the auto-generated secret and is not cached, so it can be changed at runtime.
+- **Changing it only changes the identifiers shown in logs.** It does not affect authentication, download tokens, or any other behavior.
+- **Applied to every event that names a key**: authentication, download-token issuance, download streaming and authorization denials all log `apikey:<HMAC>` rather than the raw 8-character key id (see `ciberwebscan.utils.logging.mask_identifier()`), so API key material never reaches the logs verbatim.
+
+```yaml
+api:
+  auth:
+    api_keys:
+      - "my-secret-key-1"
+    server_secret: "" # optional; leave empty to auto-generate per process
+```
+
+See also: [API.md — Authentication](API.md#authentication-1).
 
 #### CORS Security
 
@@ -576,6 +632,7 @@ The following configuration fields contain secrets and are **automatically maske
 | Field                          | Description                     |
 | ------------------------------ | ------------------------------- |
 | `api.auth.api_keys`            | API keys for authentication     |
+| `api.auth.server_secret`       | HMAC secret for log obfuscation |
 | `analysis.cve.nvd_api_key`     | NVD API key for CVE lookups     |
 | `analysis.cve.vulners_api_key` | Vulners API key for CVE lookups |
 
@@ -808,8 +865,10 @@ Configuration changes made through the API (`PUT /api/config`, `POST /api/config
 configuration object in place, so every `get_config()` consumer sees them immediately:
 
 - **Applied at next use (no restart):** `api.auth.api_keys` (API authentication is checked per
-  request), HTTP client settings used when a client is created for a new operation, and
-  scraping/analysis/attack defaults read per scan.
+  request), `api.auth.server_secret` (log obfuscation only, read per request — the auto-generated
+  default stays stable until the process restarts) and `download.require_same_user` (checked on
+  every `GET /api/download/{token}`), HTTP client settings used when a client is created for a new
+  operation, and scraping/analysis/attack defaults read per scan.
 - **Require a restart:** `api.cors.*`, `api.rate_limit.*`, `download.cleanup_interval_seconds`,
   `logging.*` handler configuration, and the API server `host`/`port` — these are captured once at
   startup (app creation, scheduler start, logging setup, server launch).
