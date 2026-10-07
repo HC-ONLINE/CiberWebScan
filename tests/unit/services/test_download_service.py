@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
+import logging
 import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -517,3 +518,60 @@ class TestThreadSafety:
             f"Expected 2 results, got {len(results)}. "
             "If using asyncio.Lock, this would deadlock."
         )
+
+
+# =============================================================================
+# Test: Log masking (BUG-003 follow-up)
+# =============================================================================
+
+
+class TestDownloadLogsAreMasked:
+    """Service logs must never expose raw API key material."""
+
+    @pytest.fixture(autouse=True)
+    def reset_generated_secret(self, monkeypatch: pytest.MonkeyPatch):
+        """Isolate the process-level secret cache for each test."""
+        monkeypatch.setattr("ciberwebscan.utils.logging._generated_server_secret", None)
+
+    def test_generate_token_log_masks_the_user_id(
+        self,
+        service: DownloadService,
+        test_file: Path,
+        caplog: pytest.LogCaptureFixture,
+    ):
+        """Token issuance logs the masked identity, not the key id."""
+        with caplog.at_level(logging.INFO):
+            result = service.generate_download_token(
+                file_path=test_file,
+                user_id="apikey:abcd1234",
+                file_format="json",
+            )
+
+        assert result.success, result.error
+        assert "abcd1234" not in caplog.text
+        assert "for user apikey:" in caplog.text
+
+    def test_ownership_denial_masks_owner_and_requester(
+        self,
+        service: DownloadService,
+        test_file: Path,
+        caplog: pytest.LogCaptureFixture,
+    ):
+        """The unauthorized-download warning masks both identities."""
+        generate = service.generate_download_token(
+            file_path=test_file,
+            user_id="apikey:owner001",
+            file_format="json",
+        )
+        assert generate.success, generate.error
+        assert generate.data is not None
+        token = generate.data.token
+
+        with caplog.at_level(logging.WARNING):
+            result = service.validate_download_request(token, "apikey:intruder")
+
+        assert not result.success
+        assert "owner001" not in caplog.text
+        assert "intruder" not in caplog.text
+        assert "token owner apikey:" in caplog.text
+        assert "requester apikey:" in caplog.text

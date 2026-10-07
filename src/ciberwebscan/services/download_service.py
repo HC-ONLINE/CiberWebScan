@@ -17,6 +17,7 @@ from ciberwebscan.api.models.responses import DownloadInfo, DownloadTokenRespons
 from ciberwebscan.config.loader import get_config
 from ciberwebscan.services.base import BaseService, ServiceResult
 from ciberwebscan.utils.async_runner import run_async
+from ciberwebscan.utils.logging import mask_identifier
 from ciberwebscan.utils.path_security import (
     PathTraversalError,
     resolve_and_validate_path,
@@ -183,7 +184,8 @@ class DownloadService(BaseService):
             )
 
             self.logger.info(
-                f"Generated download token {token} for user {user_id} "
+                f"Generated download token {token} for user "
+                f"{mask_identifier(user_id)} "
                 f"(file size: {file_size_mb:.2f}MB, expires: {expires_at.isoformat()})"
             )
 
@@ -226,8 +228,9 @@ class DownloadService(BaseService):
             # Check user match if required
             if config.download.require_same_user and info.user_id != user_id:
                 self.logger.warning(
-                    f"Unauthorized download attempt: token owner {info.user_id}, "
-                    f"requester {user_id}"
+                    f"Unauthorized download attempt: "
+                    f"token owner {mask_identifier(info.user_id)}, "
+                    f"requester {mask_identifier(user_id)}"
                 )
                 return ServiceResult(
                     success=False,

@@ -331,7 +331,11 @@ class APIAuthConfig(BaseModel):
     # Server secret for HMAC-based log obfuscation
     server_secret: str = Field(
         default="",
-        description="Secret key for HMAC log obfuscation (auto-generated if empty)",
+        description=(
+            "Secret key for HMAC log obfuscation only (auto-generated once per "
+            "process if empty). It never takes part in authorization: download "
+            "tokens are bound to a stable API key identifier instead."
+        ),
     )
 
     @field_validator("api_keys", mode="before")

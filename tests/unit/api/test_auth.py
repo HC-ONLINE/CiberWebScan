@@ -6,6 +6,7 @@ Tests for API Key authentication with security best practices.
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -19,6 +20,7 @@ from ciberwebscan.api.auth import (
     verify_api_key,
 )
 from ciberwebscan.api.routes.auth import router as auth_router
+from ciberwebscan.utils.logging import mask_identifier, mask_key_for_logging
 
 pytestmark = pytest.mark.unit
 
@@ -33,11 +35,14 @@ def test_api_key() -> str:
     return "test-api-key-12345"
 
 
-def _create_mock_config(api_keys: list[str] | None = None) -> MagicMock:
+def _create_mock_config(
+    api_keys: list[str] | None = None,
+    server_secret: str = "test-server-secret-for-hmac",
+) -> MagicMock:
     """Create a mock config object with api.auth settings."""
     mock_config = MagicMock()
     mock_config.api.auth.api_keys = api_keys or []
-    mock_config.api.auth.server_secret = "test-server-secret-for-hmac"
+    mock_config.api.auth.server_secret = server_secret
     return mock_config
 
 
@@ -97,6 +102,106 @@ class TestAuthConfig:
             config = get_auth_config()
             assert config.api_key_enabled is False
             assert config.api_keys == []
+
+
+# =============================================================================
+# Default Server Secret Tests (api.auth.server_secret == "")
+# =============================================================================
+
+
+class TestDefaultServerSecret:
+    """Tests for the auto-generated server secret with the default config."""
+
+    @pytest.fixture(autouse=True)
+    def reset_generated_secret(self, monkeypatch: pytest.MonkeyPatch):
+        """Isolate the process-level secret cache for each test."""
+        monkeypatch.setattr("ciberwebscan.utils.logging._generated_server_secret", None)
+
+    def test_empty_secret_is_stable_across_calls(self):
+        """Two consecutive calls must not generate a different secret each time."""
+        mock_config = _create_mock_config(api_keys=["any-key"], server_secret="")
+        with patch("ciberwebscan.api.auth.get_config", return_value=mock_config):
+            first = get_auth_config().server_secret
+            second = get_auth_config().server_secret
+
+        assert first, "auto-generated server secret must not be empty"
+        assert first == second
+
+    def test_empty_secret_keeps_log_identifiers_correlatable(self):
+        """mask_key_for_logging must return the same value across calls."""
+        mock_config = _create_mock_config(api_keys=["any-key"], server_secret="")
+        with patch("ciberwebscan.utils.logging.get_config", return_value=mock_config):
+            first = mask_key_for_logging("abcd1234")
+            second = mask_key_for_logging("abcd1234")
+
+        assert first == second
+
+    def test_configured_secret_is_never_replaced_by_cache(self):
+        """An explicit secret always wins over a previously cached one."""
+        empty_config = _create_mock_config(api_keys=[], server_secret="")
+        explicit_config = _create_mock_config(
+            api_keys=[], server_secret="explicit-secret"
+        )
+
+        with patch("ciberwebscan.api.auth.get_config", return_value=empty_config):
+            auto_generated = get_auth_config().server_secret
+
+        with patch("ciberwebscan.api.auth.get_config", return_value=explicit_config):
+            assert get_auth_config().server_secret == "explicit-secret"
+
+        with patch("ciberwebscan.api.auth.get_config", return_value=empty_config):
+            assert get_auth_config().server_secret == auto_generated
+
+    def test_concurrent_first_calls_agree_on_one_secret(self):
+        """Concurrent first calls must generate the secret exactly once."""
+        mock_config = _create_mock_config(api_keys=["any-key"], server_secret="")
+
+        def _read_secret(_: int) -> str:
+            return get_auth_config().server_secret
+
+        with (
+            patch("ciberwebscan.api.auth.get_config", return_value=mock_config),
+            ThreadPoolExecutor(max_workers=8) as executor,
+        ):
+            secrets_seen = set(executor.map(_read_secret, range(32)))
+
+        assert len(secrets_seen) == 1
+
+
+# =============================================================================
+# Log Identifier Masking Tests
+# =============================================================================
+
+
+class TestMaskIdentifier:
+    """mask_identifier must keep raw API key material out of log messages."""
+
+    @pytest.fixture(autouse=True)
+    def reset_generated_secret(self, monkeypatch: pytest.MonkeyPatch):
+        """Isolate the process-level secret cache for each test."""
+        monkeypatch.setattr("ciberwebscan.utils.logging._generated_server_secret", None)
+
+    def test_apikey_identifier_masks_the_key_id(self):
+        """The 8-character key id must never appear verbatim in the result."""
+        masked = mask_identifier("apikey:abcd1234")
+
+        assert masked.startswith("apikey:")
+        assert "abcd1234" not in masked
+        assert len(masked) == len("apikey:") + 12
+
+    def test_mask_is_stable_and_specific_to_the_key(self):
+        """Same key → same log id; different key → different log id."""
+        first = mask_identifier("apikey:abcd1234")
+        second = mask_identifier("apikey:abcd1234")
+        other_key = mask_identifier("apikey:abcd9999")
+
+        assert first == second
+        assert first != other_key
+
+    def test_non_apikey_identifier_is_returned_unchanged(self):
+        """Identifiers that carry no key material are left as they are."""
+        assert mask_identifier("test_user") == "test_user"
+        assert mask_identifier("") == ""
 
 
 # =============================================================================
@@ -194,6 +299,90 @@ class TestApiKeyAuthentication:
 
             # Should log info for success
             mock_logger.info.assert_called()
+
+
+# =============================================================================
+# Identifier Stability Tests (authorization identity)
+# =============================================================================
+
+
+class TestIdentifierStability:
+    """The authorization identity must be stable and secret-independent."""
+
+    @pytest.fixture(autouse=True)
+    def reset_generated_secret(self, monkeypatch: pytest.MonkeyPatch):
+        """Isolate the process-level secret cache for each test."""
+        monkeypatch.setattr("ciberwebscan.utils.logging._generated_server_secret", None)
+
+    @pytest.mark.asyncio
+    async def test_verify_api_key_twice_same_identifier_default_secret(
+        self, test_api_key
+    ):
+        """Same key, default (empty) secret, two calls → same identifier."""
+        mock_config = _create_mock_config(api_keys=[test_api_key], server_secret="")
+        with patch("ciberwebscan.api.auth.get_config", return_value=mock_config):
+            first = await verify_api_key(_create_mock_request(), test_api_key)
+            second = await verify_api_key(_create_mock_request(), test_api_key)
+
+        assert first is not None and second is not None
+        assert first.identifier == second.identifier
+        assert first.identifier == f"apikey:{test_api_key[:8]}"
+
+    def test_me_endpoint_identifier_stable_with_default_secret(
+        self, client: TestClient, test_api_key
+    ):
+        """GET /auth/me twice with the same key returns the same identifier."""
+        mock_config = _create_mock_config(api_keys=[test_api_key], server_secret="")
+        with patch("ciberwebscan.api.auth.get_config", return_value=mock_config):
+            response_one = client.get("/auth/me", headers={"X-API-Key": test_api_key})
+            response_two = client.get("/auth/me", headers={"X-API-Key": test_api_key})
+
+        assert response_one.status_code == 200
+        assert response_two.status_code == 200
+        assert response_one.json()["identifier"] == response_two.json()["identifier"]
+
+    def test_me_endpoint_identifier_with_empty_secret(self, client, test_api_key):
+        """Identifier is derived from the key id, not from server_secret."""
+        mock_config = _create_mock_config(api_keys=[test_api_key], server_secret="")
+        with patch("ciberwebscan.api.auth.get_config", return_value=mock_config):
+            response = client.get("/auth/me", headers={"X-API-Key": test_api_key})
+
+        assert response.status_code == 200
+        assert response.json()["identifier"] == f"apikey:{test_api_key[:8]}"
+
+    def test_identifier_is_independent_of_server_secret(self, client, test_api_key):
+        """A different server_secret must not change the identity of a key."""
+        with patch(
+            "ciberwebscan.api.auth.get_config",
+            return_value=_create_mock_config(
+                api_keys=[test_api_key], server_secret="secret-one"
+            ),
+        ):
+            first = client.get("/auth/me", headers={"X-API-Key": test_api_key})
+
+        with patch(
+            "ciberwebscan.api.auth.get_config",
+            return_value=_create_mock_config(
+                api_keys=[test_api_key], server_secret="secret-two"
+            ),
+        ):
+            second = client.get("/auth/me", headers={"X-API-Key": test_api_key})
+
+        assert first.json()["identifier"] == second.json()["identifier"]
+        assert first.json()["identifier"] == f"apikey:{test_api_key[:8]}"
+
+    @pytest.mark.asyncio
+    async def test_different_keys_get_different_identifiers(self):
+        """Two different keys must not share an identity."""
+        mock_config = _create_mock_config(
+            api_keys=["key-one-123456789", "key-two-123456789"], server_secret=""
+        )
+        with patch("ciberwebscan.api.auth.get_config", return_value=mock_config):
+            first = await verify_api_key(_create_mock_request(), "key-one-123456789")
+            second = await verify_api_key(_create_mock_request(), "key-two-123456789")
+
+        assert first is not None and second is not None
+        assert first.identifier != second.identifier
 
 
 # =============================================================================

@@ -6,8 +6,6 @@ Provides API Key authentication.
 
 from __future__ import annotations
 
-import hashlib
-import hmac
 import logging
 import secrets
 from typing import Annotated
@@ -17,6 +15,7 @@ from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 
 from ciberwebscan.config.loader import get_config
+from ciberwebscan.utils.logging import _resolve_server_secret, mask_key_for_logging
 
 logger = logging.getLogger(__name__)
 
@@ -37,20 +36,15 @@ def get_auth_config() -> AuthConfig:
     """
     Load authentication configuration from global config.
 
-    Auto-generates a server secret if one is not configured.
+    Auto-generates a server secret once per process if one is not configured.
     """
     config = get_config()
     auth_cfg = config.api.auth
 
-    # Auto-generate server secret if not provided
-    server_secret = auth_cfg.server_secret
-    if not server_secret:
-        server_secret = secrets.token_urlsafe(32)
-
     return AuthConfig(
         api_key_enabled=bool(auth_cfg.api_keys),
         api_keys=auth_cfg.api_keys,
-        server_secret=server_secret,
+        server_secret=_resolve_server_secret(auth_cfg.server_secret),
     )
 
 
@@ -67,7 +61,15 @@ api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 
 class AuthenticatedUser(BaseModel):
-    """Authenticated user/client information."""
+    """
+    Authenticated user/client information.
+
+    ``identifier`` must be stable across requests for a given API key: download
+    tokens are bound to the identifier of the request that issued them and
+    compared against the identifier of the request that redeems them. It is
+    derived from the key id (first 8 characters of the stored key), never from
+    ``server_secret``, so authorization does not depend on log obfuscation.
+    """
 
     identifier: str
     auth_method: str
@@ -83,25 +85,6 @@ def _secure_compare_key(provided_key: str, stored_keys: list[str]) -> str | None
         if secrets.compare_digest(provided_key.encode(), stored_key.encode()):
             return stored_key[:8]
     return None
-
-
-def _mask_key_for_logging(key: str) -> str:
-    """
-    Create a safe, non-reversible identifier for logging purposes.
-
-    Uses HMAC-SHA256 with a server-side secret to produce a keyed hash.
-    This allows correlating log entries for the same key without exposing
-    the actual key material, and is not vulnerable to pre-image attacks
-    without knowledge of the server secret.
-
-    Note: HMAC-SHA256 is appropriate here because this is a log identifier,
-    not password storage. SHA-2 is explicitly recommended by OWASP for
-    non-password cryptographic operations.
-    """
-    auth_config = get_auth_config()
-    server_secret = auth_config.server_secret.encode()
-    # codeql[py/weak-sensitive-data-hashing]
-    return hmac.new(server_secret, key.encode(), hashlib.sha256).hexdigest()[:12]
 
 
 async def verify_api_key(
@@ -134,7 +117,7 @@ async def verify_api_key(
     key_id = _secure_compare_key(api_key, config.api_keys)
 
     if key_id:
-        masked_key = _mask_key_for_logging(key_id)
+        masked_key = mask_key_for_logging(key_id)
         logger.info(
             "API key authenticated successfully",
             extra={
@@ -144,13 +127,13 @@ async def verify_api_key(
             },
         )
         return AuthenticatedUser(
-            identifier=f"apikey:{masked_key}",
+            identifier=f"apikey:{key_id}",
             auth_method="api_key",
             scopes=["full_access"],
         )
 
     # Log failed attempt
-    masked_key = _mask_key_for_logging(api_key)
+    masked_key = mask_key_for_logging(api_key)
     logger.warning(
         "Invalid API key attempt",
         extra={
