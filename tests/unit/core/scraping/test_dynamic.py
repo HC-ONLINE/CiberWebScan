@@ -917,3 +917,102 @@ class TestBrowserContext:
 
         call_kwargs = asyncio.run(run_test())
         assert call_kwargs["java_script_enabled"] is False
+
+
+class TestDynamicSSRFGuard:
+    """SSRF route guard and post-redirect validation (BUG-004)."""
+
+    @staticmethod
+    def _make_route(url: str, resource_type: str = "document"):
+        route = MagicMock()
+        route.request = MagicMock(url=url, resource_type=resource_type)
+        route.abort = AsyncMock()
+        route.continue_ = AsyncMock()
+        return route
+
+    def test_route_aborts_link_local_ip(self):
+        """Subresources pointing at link-local/metadata IPs are aborted."""
+        scraper = DynamicScraper()
+        route = self._make_route("http://169.254.169.254/latest/meta-data/", "image")
+
+        asyncio.run(scraper._handle_route(route, []))
+
+        route.abort.assert_awaited_once()
+        route.continue_.assert_not_awaited()
+
+    def test_route_aborts_private_hostname(self):
+        """Hostnames that resolve to loopback are aborted before sending."""
+        scraper = DynamicScraper()
+        route = self._make_route("http://localtest.me/app.js", "script")
+
+        asyncio.run(scraper._handle_route(route, []))
+
+        route.abort.assert_awaited_once()
+        route.continue_.assert_not_awaited()
+
+    def test_route_allows_public_subresource(self):
+        scraper = DynamicScraper()
+        route = self._make_route("https://example.com/app.js", "script")
+
+        asyncio.run(scraper._handle_route(route, []))
+
+        route.continue_.assert_awaited_once()
+        route.abort.assert_not_awaited()
+
+    def test_route_allows_non_http_urls(self):
+        """data:/blob: URLs are not network targets and pass through."""
+        scraper = DynamicScraper()
+        route = self._make_route("data:image/png;base64,AAAA", "image")
+
+        asyncio.run(scraper._handle_route(route, []))
+
+        route.continue_.assert_awaited_once()
+        route.abort.assert_not_awaited()
+
+    def test_route_still_blocks_configured_resources(self):
+        """SSRF validation does not replace resource blocking."""
+        scraper = DynamicScraper()
+        route = self._make_route("https://example.com/style.css", "stylesheet")
+
+        asyncio.run(scraper._handle_route(route, ["stylesheet"]))
+
+        route.abort.assert_awaited_once()
+
+    def test_final_url_redirect_to_metadata_blocked(self):
+        """After navigation the final URL is re-validated (redirect hops
+        are not intercepted by Playwright routing)."""
+        sample_html = "<html><body><div class='item'>x</div></body></html>"
+        mock_pw, mock_browser, mock_context, mock_page = _create_mock_playwright(
+            sample_html
+        )
+        mock_page.url = "http://169.254.169.254/latest/meta-data/"
+
+        async def run_test():
+            scraper = _create_scraper_with_mocked_browser(mock_pw)
+            config = DynamicScrapeConfig(selector="div.item", check_robots=False)
+            result = await scraper.scrape("https://example.com", config)
+            await scraper._close_browser()
+            return result
+
+        result = asyncio.run(run_test())
+        assert result.success is False
+        assert result.error is not None
+        assert "ssrf" in result.error.lower()
+
+    def test_final_url_public_redirect_allowed(self):
+        """A final URL on another public host remains allowed."""
+        sample_html = "<html><body><div class='item'>x</div></body></html>"
+        mock_pw, mock_browser, mock_context, mock_page = _create_mock_playwright(
+            sample_html
+        )
+        mock_page.url = "https://public-next.test/after-redirect"
+
+        async def run_test():
+            scraper = _create_scraper_with_mocked_browser(mock_pw)
+            config = DynamicScrapeConfig(selector="div.item", check_robots=False)
+            result = await scraper.scrape("https://example.com", config)
+            await scraper._close_browser()
+            return result
+
+        result = asyncio.run(run_test())
+        assert result.success is True
