@@ -179,6 +179,11 @@ class ScrapingConfig(BaseModel):
     extract_scripts: bool = False
     extract_forms: bool = False
     max_content_length: Annotated[int, Field(ge=1024)] = 10 * 1024 * 1024  # 10MB
+    allow_local: bool = Field(
+        default=False,
+        description="Allow scraping localhost, private IPs, and link-local "
+        "addresses. Set to true for authorized internal targets.",
+    )
 
 
 # =============================================================================
@@ -241,6 +246,11 @@ class AnalysisConfig(BaseModel):
     cve: CVEConfig = Field(default_factory=lambda: CVEConfig())
     headers: HeadersAnalysisConfig = Field(
         default_factory=lambda: HeadersAnalysisConfig()
+    )
+    allow_local: bool = Field(
+        default=False,
+        description="Allow analyzing localhost, private IPs, and link-local "
+        "addresses. Set to true for authorized internal targets.",
     )
 
 
