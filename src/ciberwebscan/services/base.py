@@ -286,3 +286,32 @@ class BaseService:
             raise ValidationError(f"Invalid URL: {e}") from e
 
         return url
+
+    def _check_target_url(self, url: str, *, allow_local: bool = False) -> str:
+        """
+        Enforce the SSRF policy on a target URL.
+
+        Args:
+            url: URL to check (absolute http(s) URL).
+            allow_local: Whether localhost/private/link-local targets are
+                permitted (per-module ``allow_local`` config opt-in).
+
+        Returns:
+            The URL, unchanged, when permitted.
+
+        Raises:
+            ValidationError: If the target is blocked by the SSRF policy.
+        """
+        from ciberwebscan.core.client.ssrf import (
+            SSRFBlockedError,
+            check_url,
+        )
+
+        try:
+            check_url(url, allow_local=allow_local)
+        except SSRFBlockedError as e:
+            raise ValidationError(
+                str(e),
+                details={"url": url, "allow_local": allow_local},
+            ) from e
+        return url

@@ -12,7 +12,6 @@ to test. Unauthorized security testing is illegal and unethical.
 from __future__ import annotations
 
 import logging
-import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -31,7 +30,6 @@ from ciberwebscan.core.attacks import (
 )
 from ciberwebscan.core.attacks.base import AttackIntensity
 from ciberwebscan.core.client import HTTPClient
-from ciberwebscan.core.scraping.helpers import is_safe_url
 from ciberwebscan.export.models import (
     AttackResult,
     ExportMeta,
@@ -229,23 +227,6 @@ class AttackService(BaseService):
             return self._proxy_rotator.next()
         return None
 
-    # Defense-in-depth: regex patterns for ranges that is_safe_url() does not
-    # cover (127.0.0.0/8 shorthand, 169.254.0.0/16 link-local / metadata).
-    _LOOPBACK_RE = re.compile(r"^127\.(?:\d{1,3}\.){0,2}\d{1,3}$")
-    _LINK_LOCAL_RE = re.compile(r"^169\.254\.(?:\d{1,3}\.){0,2}\d{1,3}$")
-
-    @classmethod
-    def _is_local_or_private_address(cls, hostname: str) -> bool:
-        """Extra SSRF check for addresses is_safe_url() does not cover.
-
-        Covers 127.x.x.x (entire loopback range) and 169.254.x.x
-        (link-local / cloud metadata). Returns True if the hostname
-        represents a local or private address.
-        """
-        return bool(
-            cls._LOOPBACK_RE.match(hostname) or cls._LINK_LOCAL_RE.match(hostname)
-        )
-
     def attack(self, options: AttackOptions) -> ServiceResult[AttackResult]:
         """
         Perform security attack simulations.
@@ -298,32 +279,19 @@ class AttackService(BaseService):
                     details={"url": options.url},
                 )
 
-            # SSRF protection: block localhost and private IPs by default.
-            # Layer 1: is_safe_url() covers standard representations.
-            # Layer 2: _is_local_or_private_address() covers 127.x.x.x
-            #          and 169.254.x.x that is_safe_url() does not detect.
+            # SSRF protection: block localhost, private, link-local and
+            # metadata targets by default (single policy: URL format, DNS
+            # resolution, non-canonical IPv4 forms, every address range).
             allow_local = attack_cfg.allow_local
-            if not is_safe_url(options.url, allow_local=allow_local):
+            try:
+                self._check_target_url(options.url, allow_local=allow_local)
+            except ValidationError as e:
                 raise ValidationError(
-                    f"Target URL '{options.url}' points to a local or private "
-                    "network address and is blocked by default for SSRF protection. "
-                    "Set attack.allow_local=true in config.yaml to allow scanning "
-                    "internal networks (only for authorized penetration testing).",
-                    details={"url": options.url, "allow_local": allow_local},
-                )
-            if not allow_local:
-                from urllib.parse import urlparse as _urlparse
-
-                _parsed = _urlparse(options.url)
-                _host = _parsed.hostname or ""
-                if self._is_local_or_private_address(_host):
-                    raise ValidationError(
-                        f"Target URL '{options.url}' resolves to a local or "
-                        "private network address and is blocked by default for "
-                        "SSRF protection. Set attack.allow_local=true to allow "
-                        "authorized internal penetration testing.",
-                        details={"url": options.url, "host": _host},
-                    )
+                    f"{e.message} Set attack.allow_local=true in config.yaml "
+                    "to allow scanning internal networks (only for authorized "
+                    "penetration testing).",
+                    details=e.details,
+                ) from e
 
             # Validate at least one attack type selected
             if not any(
@@ -414,6 +382,8 @@ class AttackService(BaseService):
                 default_headers=default_headers or None,
                 cookies=options.cookies or None,
                 proxy=self._resolve_proxy(options.proxy),
+                ssrf_guard=True,
+                allow_local=allow_local,
             ) as http_client:
                 # Create attack context
                 context = AttackContext(config=attack_config, http_client=http_client)
