@@ -1,5 +1,26 @@
 # Changelog
 
+## [2.29.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.28.0...v2.29.0) (2026-10-13)
+
+
+### Features
+
+* **config:** add allow_local option for scraping and analysis configurations ([7c81ea8](https://github.com/HC-ONLINE/CiberWebScan/commit/7c81ea8a7e84fded149783de7a5819fd6e11ad04))
+* **ssrf:** add comprehensive tests for SSRF request guard functionality ([8128fca](https://github.com/HC-ONLINE/CiberWebScan/commit/8128fcaf6ca1014a9ed8db85f2d45b81b5d8b689))
+* **ssrf:** add SSRF guard and allow_local option to HTTP client ([fb4b7ee](https://github.com/HC-ONLINE/CiberWebScan/commit/fb4b7ee6ddf88729322dd532eb5f277a7f1b393c))
+* **ssrf:** add SSRF guard tests for route handling and validation ([53e32fe](https://github.com/HC-ONLINE/CiberWebScan/commit/53e32fe310604ee115435e80542b7129bf21c4b7))
+* **ssrf:** enforce shared SSRF validation policy across CLI and API paths ([c5b0489](https://github.com/HC-ONLINE/CiberWebScan/commit/c5b0489304e10166891cfdfac781fb45faa8bcb5))
+* **ssrf:** enhance URL safety checks and improve robots.txt validation ([17ca7fc](https://github.com/HC-ONLINE/CiberWebScan/commit/17ca7fc81645860ec91da174952bcca9d9fea29d))
+* **ssrf:** implement fake DNS resolver for unit tests to enhance SSRF validation ([db89cce](https://github.com/HC-ONLINE/CiberWebScan/commit/db89cce249ea823abcd2d2ec7c5ba2629cfc680e))
+* **ssrf:** implement SSRF policy enforcement across services with allow_local option ([7be9c1d](https://github.com/HC-ONLINE/CiberWebScan/commit/7be9c1d853843e7a5653f7ae2f00028514f6a229))
+* **ssrf:** implement SSRF protection policy with URL validation and DNS resolution ([e912e4c](https://github.com/HC-ONLINE/CiberWebScan/commit/e912e4ca0fc6cadd10f7b29956cb6089ed0b057b))
+* **ssrf:** integrate allow_local option into Dynamic and Static Scraper for SSRF validation ([0d35ec7](https://github.com/HC-ONLINE/CiberWebScan/commit/0d35ec79aa5c15978e80501e382391b647321c03))
+
+
+### Documentation
+
+* **config:** document allow_local options for analysis and scraping ([9729d13](https://github.com/HC-ONLINE/CiberWebScan/commit/9729d137b3f62951e86cb79bf606d7fe5f3d570d))
+
 ## [2.28.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.27.0...v2.28.0) (2026-10-07)
 
 
