@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any
 
 from bs4 import BeautifulSoup
 
+from ciberwebscan.core.client.ssrf import SSRFBlockedError, check_url
 from ciberwebscan.core.scraping.extractor import DataExtractor
 from ciberwebscan.core.scraping.helpers import (
     check_robots_txt,
@@ -309,6 +310,7 @@ class DynamicScraper:
                 url,
                 user_agent,
                 http_client=self._http_client,
+                allow_local=config.allow_local,
             )
             if not allowed:
                 return DynamicScrapeResult(
@@ -337,6 +339,19 @@ class DynamicScraper:
                     wait_until=config.wait_strategy.value,
                     timeout=config.wait_timeout * 1000,
                 )
+
+                # Re-validate after navigation: Playwright routing does not
+                # intercept redirect hops, so the final URL is checked here.
+                final_url = str(page.url)
+                if final_url.startswith(("http://", "https://")):
+                    try:
+                        check_url(final_url, allow_local=config.allow_local)
+                    except SSRFBlockedError as exc:
+                        return DynamicScrapeResult(
+                            url=url,
+                            success=False,
+                            error=str(exc),
+                        )
 
                 # Wait for selector if specified
                 if config.wait_selector:
@@ -551,20 +566,37 @@ class DynamicScraper:
         page: Page,
         config: DynamicScrapeConfig,
     ) -> None:
-        """Set up page with request interception if needed."""
-        if config.block_resources:
-            block_list = config.block_resources  # Capture for lambda
-            await page.route(
-                "**/*",
-                lambda route: self._handle_route(route, block_list),
-            )
+        """Set up page request interception.
+
+        A guard route is always registered: every http(s) subresource is
+        validated against the SSRF policy before it is sent. Redirect hops
+        are not intercepted by Playwright routing, so the final ``page.url``
+        is re-validated after navigation (see :meth:`scrape`).
+        """
+        block_list = config.block_resources or []  # Capture for closure
+        allow_local = config.allow_local
+
+        async def _route_handler(route) -> None:
+            await self._handle_route(route, block_list, allow_local=allow_local)
+
+        await page.route("**/*", _route_handler)
 
     async def _handle_route(
         self,
         route,
         block_resources: list[str],
+        *,
+        allow_local: bool = False,
     ) -> None:
-        """Handle route for resource blocking."""
+        """Handle route for SSRF validation and resource blocking."""
+        request_url = route.request.url
+        if request_url.startswith(("http://", "https://")):
+            try:
+                check_url(request_url, allow_local=allow_local)
+            except SSRFBlockedError:
+                logger.warning("SSRF policy blocked request to %s", request_url)
+                await route.abort()
+                return
         if route.request.resource_type in block_resources:
             await route.abort()
         else:

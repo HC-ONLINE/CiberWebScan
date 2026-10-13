@@ -246,6 +246,7 @@ class StaticScraper:
                 url,
                 user_agent,
                 http_client=self._client,
+                allow_local=config.allow_local,
             )
             if not allowed:
                 return ScrapeResult(
@@ -259,7 +260,7 @@ class StaticScraper:
         cookies = self._prepare_cookies(config.cookies)
 
         # Resolve HTTP client (may differ when proxy rotation is active)
-        client = self._get_client()
+        client = self._get_client(config.allow_local)
 
         # Make request
         start_time = time.time()
@@ -476,13 +477,17 @@ class StaticScraper:
             return self._proxy_rotator.next()
         return None
 
-    def _get_client(self) -> HTTPClient:
+    def _get_client(self, allow_local: bool = False) -> HTTPClient:
         """Return an HTTP client configured with the current rotated proxy.
 
         If no proxy rotator is active the default client is returned.
         When the rotator yields a new proxy a fresh :class:`HTTPClient` is
-        created; the client is cached and reused while the proxy stays the
-        same to avoid per-request overhead.
+        created with the SSRF request guard enabled; the client is cached
+        and reused while the proxy stays the same to avoid per-request
+        overhead.
+
+        Args:
+            allow_local: SSRF policy opt-in forwarded to the proxy client.
         """
         proxy = self._get_proxy()
         if proxy is None:
@@ -498,7 +503,11 @@ class StaticScraper:
         logger.debug("Switching proxy to %s", proxy)
         if self._proxy_client is not None:
             self._proxy_client.close()
-        self._proxy_client = _HTTPClient(proxy=proxy)
+        self._proxy_client = _HTTPClient(
+            proxy=proxy,
+            ssrf_guard=True,
+            allow_local=allow_local,
+        )
         self._last_proxy = proxy
         return self._proxy_client
 
@@ -583,7 +592,7 @@ def scrape_static(
     if http_client is None:
         from ciberwebscan.core.client.http_client import HTTPClient
 
-        http_client = HTTPClient()
+        http_client = HTTPClient(ssrf_guard=True)
         should_close = True
 
     try:
