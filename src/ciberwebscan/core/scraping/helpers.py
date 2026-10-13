@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import http.cookies
 import logging
-import re
 from typing import Any
 from urllib.parse import urljoin, urlparse, urlunparse
 from urllib.robotparser import RobotFileParser
@@ -17,69 +16,38 @@ from urllib.robotparser import RobotFileParser
 from bs4 import BeautifulSoup
 from bs4.element import Tag
 
+from ciberwebscan.core.client.ssrf import SSRFBlockedError, check_url
+
 logger = logging.getLogger(__name__)
-
-# URL validation regex
-URL_REGEX = re.compile(
-    r"^(?:http|https)://"  # http:// or https://
-    r"(?:[\w.-]+(?::[^@]*)?@)?"  # optional user:pass@
-    r"(?:[\w-]+\.)*[\w-]+"  # domain
-    r"(?::\d+)?"  # optional port
-    r"(?:/[^\s]*)?$",  # optional path
-    re.IGNORECASE,
-)
-
-# Private IP patterns
-PRIVATE_IP_PATTERNS = [
-    re.compile(r"^10\.\d+\.\d+\.\d+$"),
-    re.compile(r"^192\.168\.\d+\.\d+$"),
-    re.compile(r"^172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+$"),
-]
 
 
 def is_safe_url(url: str, *, allow_local: bool = False) -> bool:
     """
     Check if URL is safe for scraping.
 
-    Rejects dangerous schemes (file, javascript, data) and optionally
-    rejects localhost/private IPs.
+    Rejects dangerous schemes (file, javascript, data), malformed URLs and
+    targets that reach loopback/private/link-local/reserved addresses,
+    including non-canonical IPv4 notations and hostnames that resolve to
+    them (see :mod:`ciberwebscan.core.client.ssrf`).
 
     Args:
         url: URL to validate.
-        allow_local: Whether to allow localhost and private IPs.
+        allow_local: Whether to allow localhost and private IPs. When True
+            only the URL format is checked (no DNS lookups).
 
     Returns:
         True if URL is valid and safe.
 
     Examples:
-        >>> is_safe_url('https://example.com')
-        True
         >>> is_safe_url('file:///etc/passwd')
         False
         >>> is_safe_url('http://localhost:8080', allow_local=True)
         True
     """
-    if not URL_REGEX.match(url):
+    try:
+        check_url(url, allow_local=allow_local)
+    except SSRFBlockedError:
         return False
-
-    parsed = urlparse(url)
-
-    # Reject dangerous schemes
-    if parsed.scheme not in {"http", "https"}:
-        return False
-
-    host = parsed.hostname or ""
-
-    # Check localhost
-    if host in {"localhost", "127.0.0.1", "0.0.0.0", "::1"}:
-        return allow_local
-
-    # Check private IPs
-    if not allow_local:
-        for pattern in PRIVATE_IP_PATTERNS:
-            if pattern.match(host):
-                return False
-
     return True
 
 
@@ -88,6 +56,7 @@ def check_robots_txt(
     user_agent: str,
     *,
     http_client: Any = None,
+    allow_local: bool = False,
 ) -> tuple[bool, str | None]:
     """
     Check if URL is allowed by robots.txt.
@@ -95,12 +64,16 @@ def check_robots_txt(
     Args:
         url: URL to check.
         user_agent: User-Agent string for the check.
-        http_client: Optional HTTPClient instance. If None, uses httpx directly.
+        http_client: Optional HTTPClient instance. If None, creates a
+            temporary guarded client (SSRF validation on the robots.txt
+            URL and on every redirect hop).
+        allow_local: Whether localhost/private targets are permitted for
+            this scrape. Must match the policy applied to *url*.
 
     Returns:
         Tuple of (is_allowed, reason).
-        - (True, None) if allowed or on error
-        - (False, "message") if explicitly denied
+        - (True, None) if allowed or on non-SSRF error
+        - (False, "message") if explicitly denied or blocked by SSRF policy
 
     Examples:
         >>> allowed, reason = check_robots_txt('https://example.com/page', 'MyBot/1.0')
@@ -108,7 +81,7 @@ def check_robots_txt(
         ...     print(f"Blocked: {reason}")
     """
     # Validate URL first
-    if not is_safe_url(url, allow_local=True):
+    if not is_safe_url(url, allow_local=allow_local):
         return False, "Invalid URL format"
 
     try:
@@ -125,15 +98,20 @@ def check_robots_txt(
             )
             robots_content = response.text
         else:
-            import httpx
+            from ciberwebscan.core.client.http_client import HTTPClient
 
-            response = httpx.get(
-                robots_url,
-                headers={"User-Agent": user_agent},
+            with HTTPClient(
+                max_attempts=0,
+                rate_limit=0,
                 timeout=10.0,
-                follow_redirects=True,
-            )
-            robots_content = response.text
+                ssrf_guard=True,
+                allow_local=allow_local,
+            ) as client:
+                response = client.get(
+                    robots_url,
+                    headers={"User-Agent": user_agent},
+                )
+                robots_content = response.text
 
         # Parse robots.txt
         rp = RobotFileParser()
@@ -145,6 +123,11 @@ def check_robots_txt(
             return False, reason
 
         return True, None
+
+    except SSRFBlockedError as e:
+        # Fail closed: never continue when the fetch itself is unsafe.
+        logger.warning(f"robots.txt fetch blocked by SSRF protection: {e}")
+        return False, str(e)
 
     except Exception as e:
         # On error, allow access (fail open)
