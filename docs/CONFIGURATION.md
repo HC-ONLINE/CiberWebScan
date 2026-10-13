@@ -69,6 +69,8 @@ Examples that work out of the box:
 - `CIBERWEBSCAN_HTTP_RATE_LIMIT_REQUESTS_PER_SECOND` → `http.rate_limit.requests_per_second`
 - `CIBERWEBSCAN_ATTACK_COMMAND_INJECTION` → `attack.command_injection`
 - `CIBERWEBSCAN_ATTACK_ALLOW_LOCAL` → `attack.allow_local`
+- `CIBERWEBSCAN_ANALYSIS_ALLOW_LOCAL` → `analysis.allow_local`
+- `CIBERWEBSCAN_SCRAPING_ALLOW_LOCAL` → `scraping.allow_local`
 - `CIBERWEBSCAN_ATTACK_USER_CONSENT` → `attack.user_consent`
 - `CIBERWEBSCAN_USER_AGENT_MODE` / `CIBERWEBSCAN_USER_AGENT_AGENTS` → `user_agent.*`
 - `CIBERWEBSCAN_EXPORT_INCLUDE_SCREENSHOTS` → `export.include_screenshots`
@@ -313,18 +315,19 @@ Configure web scraping behavior.
 
 ### Default values (quick reference)
 
-| Key                             |            Default | Description                                           |
-| ------------------------------- | -----------------: | ----------------------------------------------------- |
-| `scraping.dynamic.enabled`      |            `false` | Dynamic (browser) scraping disabled by default        |
-| `scraping.dynamic.wait_timeout` |             `10.0` | Wait timeout for dynamic scraping (s)                 |
-| `scraping.dynamic.headless`     |             `true` | Playwright runs headless by default                   |
-| `scraping.dynamic.browser_type` |         `chromium` | Default browser engine                                |
-| `scraping.pagination.max_pages` |               `10` | Max pages to follow in pagination                     |
-| `scraping.extract_links`        |             `true` | Extract links by default                              |
-| `scraping.extract_images`       |             `true` | Extract images by default                             |
-| `scraping.extract_scripts`      |             `true` | Extract scripts by default                            |
-| `scraping.extract_forms`        |            `false` | Extract forms by default (opt-in via CLI/API)         |
-| `scraping.max_content_length`   | `10485760 (10 MB)` | Max response size handled by scrapers (model default) |
+| Key                             |            Default | Description                                                     |
+| ------------------------------- | -----------------: | --------------------------------------------------------------- |
+| `scraping.dynamic.enabled`      |            `false` | Dynamic (browser) scraping disabled by default                  |
+| `scraping.dynamic.wait_timeout` |             `10.0` | Wait timeout for dynamic scraping (s)                           |
+| `scraping.dynamic.headless`     |             `true` | Playwright runs headless by default                             |
+| `scraping.dynamic.browser_type` |         `chromium` | Default browser engine                                          |
+| `scraping.pagination.max_pages` |               `10` | Max pages to follow in pagination                               |
+| `scraping.extract_links`        |             `true` | Extract links by default                                        |
+| `scraping.extract_images`       |             `true` | Extract images by default                                       |
+| `scraping.extract_scripts`      |             `true` | Extract scripts by default                                      |
+| `scraping.extract_forms`        |            `false` | Extract forms by default (opt-in via CLI/API)                   |
+| `scraping.allow_local`          |            `false` | Block localhost/private/link-local scrape targets (SSRF opt-in) |
+| `scraping.max_content_length`   | `10485760 (10 MB)` | Max response size handled by scrapers (model default)           |
 
 > Implementation status — scraping options
 >
@@ -378,15 +381,16 @@ Configure security analysis settings.
 
 ### Default values (quick reference)
 
-| Key                                 |      Default | Description                         |
-| ----------------------------------- | -----------: | ----------------------------------- |
-| `analysis.ssl.enabled`              |       `true` | SSL/TLS analysis enabled            |
-| `analysis.ssl.warning_days`         |         `30` | Days before expiry to warn          |
-| `analysis.fingerprint.enabled`      |       `true` | Technology fingerprinting enabled   |
-| `analysis.fingerprint.check_dns`    |      `false` | DNS checks disabled by default      |
-| `analysis.cve.api`                  |        `all` | CVE data sources used by default    |
-| `analysis.cve.cache_ttl`            |      `86400` | CVE cache TTL (seconds)             |
-| `analysis.headers.required_headers` | default list | Security headers checked by default |
+| Key                                 |      Default | Description                                                       |
+| ----------------------------------- | -----------: | ----------------------------------------------------------------- |
+| `analysis.ssl.enabled`              |       `true` | SSL/TLS analysis enabled                                          |
+| `analysis.ssl.warning_days`         |         `30` | Days before expiry to warn                                        |
+| `analysis.fingerprint.enabled`      |       `true` | Technology fingerprinting enabled                                 |
+| `analysis.fingerprint.check_dns`    |      `false` | DNS checks disabled by default                                    |
+| `analysis.cve.api`                  |        `all` | CVE data sources used by default                                  |
+| `analysis.cve.cache_ttl`            |      `86400` | CVE cache TTL (seconds)                                           |
+| `analysis.headers.required_headers` | default list | Security headers checked by default                               |
+| `analysis.allow_local`              |      `false` | Block localhost/private/link-local analysis targets (SSRF opt-in) |
 
 > Implementation status — `analysis.fingerprint.deep_scan`
 >

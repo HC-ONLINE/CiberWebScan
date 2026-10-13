@@ -122,6 +122,7 @@ class ScrapeService(BaseService):
         proxy: str | None = None,
         verify: bool | None = None,
         cookies: dict[str, str] | None = None,
+        allow_local: bool | None = None,
     ):
         from ciberwebscan.core.client import HTTPClient
 
@@ -130,6 +131,9 @@ class ScrapeService(BaseService):
         # Get user agent from provider
         user_agent = self._user_agent_provider.get()
         default_headers = {"User-Agent": user_agent}
+
+        if allow_local is None:
+            allow_local = self.config.allow_local
 
         return HTTPClient(
             timeout=http_config.timeout.read,
@@ -146,6 +150,8 @@ class ScrapeService(BaseService):
             cookies=cookies,
             proxy=proxy,
             default_headers=default_headers,
+            ssrf_guard=True,
+            allow_local=allow_local,
         )
 
     def _build_proxy_rotator(self):
@@ -232,6 +238,7 @@ class ScrapeService(BaseService):
             from ciberwebscan.core.scraping import DynamicScraper
 
             self._dynamic_scraper = DynamicScraper(
+                http_client=self._build_http_client(),
                 proxy_rotator=self._proxy_rotator,
                 user_agent_provider=self._user_agent_provider,
             )
@@ -254,6 +261,7 @@ class ScrapeService(BaseService):
         try:
             # Validate URL
             url = self._validate_url(options.url)
+            self._check_target_url(url, allow_local=self.config.allow_local)
             self.logger.info(f"Scraping: {url}")
 
             # Choose scraper
@@ -378,6 +386,7 @@ class ScrapeService(BaseService):
                 headers=options.headers or None,
                 check_robots=options.check_robots,
                 extract_forms=options.extract_forms,
+                allow_local=self.config.allow_local,
             )
 
             core_result: CoreScrapeResult = self._get_static_scraper_with_proxy(
@@ -450,6 +459,7 @@ class ScrapeService(BaseService):
                 browser_type=BrowserType(dyn_cfg.browser_type),
                 schema=options.schema,
                 extract_forms=options.extract_forms,
+                allow_local=self.config.allow_local,
             )
 
             # Run the async scrape method safely from sync context

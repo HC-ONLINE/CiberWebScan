@@ -268,6 +268,8 @@ class HTTPClient:
         proxy: str | None = None,
         retryable_status_codes: set[int] | None = None,
         max_redirects: int | None = None,
+        ssrf_guard: bool = False,
+        allow_local: bool = False,
     ):
         """
         Initialize the HTTP client.
@@ -291,6 +293,11 @@ class HTTPClient:
                 If None, uses config value or DEFAULT_RETRYABLE_STATUS_CODES.
             max_redirects: Maximum number of redirects to follow.
                 If None, uses config value (default 10).
+            ssrf_guard: Validate every request target before it is sent,
+                including each redirect hop (via a synchronous httpx request
+                event hook). Raises SSRFBlockedError for forbidden targets.
+            allow_local: Policy opt-in for ssrf_guard: only validate the URL
+                format and skip private/loopback classification.
         """
         config = get_config().http
 
@@ -367,6 +374,19 @@ class HTTPClient:
             else None
         )
 
+        # SSRF guard: synchronous request hook validated before every
+        # request httpx sends, including each redirect hop and each retry.
+        # httpx invokes sync hooks without awaiting them, so this hook must
+        # never be an async function (it would silently never run).
+        event_hooks: dict[str, list[Any]] = {}
+        if ssrf_guard:
+            from ciberwebscan.core.client.ssrf import check_url as _check_url
+
+            def _validate_request_target(request: httpx.Request) -> None:
+                _check_url(str(request.url), allow_local=allow_local)
+
+            event_hooks["request"] = [_validate_request_target]
+
         # Build httpx client
         self._client = httpx.Client(
             timeout=resolved_timeout,
@@ -377,6 +397,7 @@ class HTTPClient:
             headers=default_headers,
             cookies=cookies,
             proxy=resolved_proxy,
+            event_hooks=event_hooks,
         )
 
     def request(

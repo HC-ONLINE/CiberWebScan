@@ -4,9 +4,65 @@ Shared pytest fixtures for CiberWebScan tests.
 
 from __future__ import annotations
 
+import socket
+
 import pytest
 
 from ciberwebscan.config.loader import reset_config
+
+# DNS answers handed out by the fake resolver (BUG-004). 93.184.216.34 is a
+# real public IP; never use TEST-NET ranges (198.51.100.x / 203.0.113.x)
+# here because ipaddress classifies them as not global and the SSRF policy
+# would block them.
+_FAKE_DNS_DEFAULT = ["93.184.216.34"]
+_FAKE_DNS_TABLE: dict[str, list[str]] = {
+    "example.com": ["93.184.216.34"],
+    "allowed.example.com": ["93.184.216.34"],
+    "public.example.com": ["93.184.216.34"],
+    # Hostnames that must resolve to loopback/metadata to prove that
+    # DNS-based blocking works.
+    "localtest.me": ["127.0.0.1"],
+    "127.0.0.1.nip.io": ["127.0.0.1"],
+    "metadata.google.internal": ["169.254.169.254"],
+    # Deliberately unresolvable names (fail-closed behaviour).
+    "nonexistent.invalid": [],
+}
+_FAKE_DNS_FAILURES = {"nonexistent.invalid"}
+
+
+def _fake_getaddrinfo(host, port=None, family=0, type=0, proto=0, flags=0):
+    """Local stand-in for ``socket.getaddrinfo`` used by the SSRF resolver."""
+    if host in _FAKE_DNS_FAILURES:
+        raise socket.gaierror(f"Name or service not known: {host}")
+    addresses = _FAKE_DNS_TABLE.get(host, _FAKE_DNS_DEFAULT)
+    return [
+        (socket.AF_INET, socket.SOCK_STREAM, 6, "", (address, 0))
+        for address in addresses
+    ]
+
+
+@pytest.fixture(autouse=True)
+def fake_dns_resolver(monkeypatch, request):
+    """Resolve hostnames through a local table so unit tests never hit DNS.
+
+    Tests marked ``network`` or ``external`` keep the real resolver. The
+    SSRF policy cache is cleared before and after each test to avoid
+    leaking resolutions across tests.
+    """
+    from ciberwebscan.core.client import ssrf as ssrf_module
+
+    ssrf_module.clear_dns_cache()
+
+    is_live = bool(
+        request.node.get_closest_marker("network")
+        or request.node.get_closest_marker("external")
+    )
+    if not is_live:
+        monkeypatch.setattr(socket, "getaddrinfo", _fake_getaddrinfo)
+
+    yield
+
+    ssrf_module.clear_dns_cache()
 
 
 @pytest.fixture(autouse=True)

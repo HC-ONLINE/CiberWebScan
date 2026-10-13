@@ -261,6 +261,9 @@ class AnalyzeService(BaseService):
         try:
             # Validate URL
             url = self._validate_url(options.url)
+            self._check_target_url(
+                url, allow_local=self.app_config.analysis.allow_local
+            )
             self.logger.info(f"Analyzing: {url}")
 
             # Initialize report with meta
@@ -347,6 +350,9 @@ class AnalyzeService(BaseService):
 
         try:
             url = self._validate_url(url)
+            self._check_target_url(
+                url, allow_local=self.app_config.analysis.allow_local
+            )
             ssl_result = self._analyze_ssl(
                 url,
                 AnalyzeOptions(url=url, **kwargs),
@@ -381,6 +387,9 @@ class AnalyzeService(BaseService):
 
         try:
             url = self._validate_url(url)
+            self._check_target_url(
+                url, allow_local=self.app_config.analysis.allow_local
+            )
             fingerprint_result = self._fingerprint(
                 url,
                 AnalyzeOptions(url=url, deep_scan=deep, **kwargs),
@@ -515,6 +524,8 @@ class AnalyzeService(BaseService):
                 default_headers=default_headers or None,
                 cookies=options.cookies or None,
                 proxy=self._resolve_proxy(options.proxy),
+                ssrf_guard=True,
+                allow_local=self.app_config.analysis.allow_local,
             ) as client:
                 resp = client.get(url)
 
@@ -585,6 +596,8 @@ class AnalyzeService(BaseService):
                 default_headers=default_headers or None,
                 cookies=options.cookies or None,
                 proxy=self._resolve_proxy(options.proxy),
+                ssrf_guard=True,
+                allow_local=self.app_config.analysis.allow_local,
             ) as client:
                 resp = client.get(url)
             headers = dict(resp.headers)

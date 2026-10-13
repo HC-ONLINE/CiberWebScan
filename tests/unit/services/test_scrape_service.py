@@ -216,7 +216,7 @@ class TestScrapeService:
             proxy=None,
         )
         mock_get_config.return_value = Mock(
-            scraping=Mock(),
+            scraping=Mock(allow_local=False),
             http=http_config,
             user_agent=Mock(
                 mode="static", custom="TestAgent", rotate_interval=1, agents=None
@@ -237,6 +237,8 @@ class TestScrapeService:
             cookies=None,
             proxy=None,
             default_headers={"User-Agent": "TestAgent"},
+            ssrf_guard=True,
+            allow_local=False,
         )
 
 

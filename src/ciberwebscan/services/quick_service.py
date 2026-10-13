@@ -11,6 +11,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
+from ciberwebscan.config.loader import get_config
 from ciberwebscan.export.models import AnalysisReport, ExportMeta
 from ciberwebscan.services.analyze_service import AnalyzeOptions, AnalyzeService
 from ciberwebscan.services.attack_service import AttackOptions, AttackService
@@ -153,6 +154,17 @@ class QuickService(BaseService):
         try:
             # Validate URL
             url = self._validate_url(options.url)
+
+            # SSRF protection: reject local/private targets early when no
+            # module opts in via allow_local. Each phase still re-checks
+            # against its own module-scoped policy.
+            cfg = get_config()
+            allow_local = (
+                cfg.analysis.allow_local
+                or cfg.attack.allow_local
+                or cfg.scraping.allow_local
+            )
+            self._check_target_url(url, allow_local=allow_local)
 
             # Validate preset
             preset = options.preset.lower()
