@@ -14,10 +14,10 @@ jobs:
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v2
+        uses: astral-sh/setup-uv@v10.3.0
         with:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
@@ -31,6 +31,10 @@ jobs:
         # install both dev and api extras so that the full test
         # matrix (unit + integration + API) can execute.
         run: uv sync --all-extras
+
+      - name: Show interpreter version
+        # makes it obvious in the logs which CPython each matrix job used
+        run: uv run python -V
 
       - name: Ruff
         run: |
