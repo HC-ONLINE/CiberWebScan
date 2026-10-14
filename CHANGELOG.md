@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.30.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.29.0...v2.30.0) (2026-10-14)
+
+
+### Features
+
+* add Python 3.14 support ([4e73068](https://github.com/HC-ONLINE/CiberWebScan/commit/4e73068e651910b5fb1b7615bd395325847f4d0b))
+* add Python 3.14 support ([6171ca5](https://github.com/HC-ONLINE/CiberWebScan/commit/6171ca51576507e640e013a46d43498d0fca9733))
+* implement network isolation for unit tests and add header analysis ([1cf4bc4](https://github.com/HC-ONLINE/CiberWebScan/commit/1cf4bc4d90c6945e9dc0243762693524cf7cac03))
+* update CI workflow for Python 3.14 support and upgrade dependencies ([cb551af](https://github.com/HC-ONLINE/CiberWebScan/commit/cb551af5ccb4fa7db007249110fa3c02fe674bc3))
+
 ## [2.29.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.28.0...v2.29.0) (2026-10-13)
 
 
