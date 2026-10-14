@@ -4,13 +4,15 @@ Shared pytest fixtures for CiberWebScan tests.
 
 from __future__ import annotations
 
+import errno
 import socket
 
 import pytest
 
 from ciberwebscan.config.loader import reset_config
+from tests.network_guard import is_loopback_address
 
-# DNS answers handed out by the fake resolver (BUG-004). 93.184.216.34 is a
+# DNS answers handed out by the fake resolver. 93.184.216.34 is a
 # real public IP; never use TEST-NET ranges (198.51.100.x / 203.0.113.x)
 # here because ipaddress classifies them as not global and the SSRF policy
 # would block them.
@@ -63,6 +65,50 @@ def fake_dns_resolver(monkeypatch, request):
     yield
 
     ssrf_module.clear_dns_cache()
+
+
+@pytest.fixture(autouse=True)
+def block_external_connections(monkeypatch, request):
+    """Fail fast on accidental non-loopback TCP connections.
+
+    Unit tests that build real services/clients can otherwise issue real
+    HTTP requests (via ``HTTPClient``/httpx) to whatever the fake DNS
+    resolver returns. On CI runners those destinations often blackhole,
+    so the connect timeout plus ``HTTPClient`` retries turn a single
+    accidental request into minutes of waiting.
+
+    Tests marked ``network`` or ``external`` keep real connectivity;
+    loopback (needed by local integration servers and TestClient) always
+    stays allowed.
+    """
+    if request.node.get_closest_marker("network") or request.node.get_closest_marker(
+        "external"
+    ):
+        yield
+        return
+
+    original_connect = socket.socket.connect
+    original_connect_ex = socket.socket.connect_ex
+
+    def guarded_connect(sock, address):
+        if not is_loopback_address(address):
+            raise ConnectionRefusedError(
+                errno.ECONNREFUSED,
+                f"Blocked non-loopback connection to {address!r} "
+                "(unit tests may not open external connections; "
+                "mark the test with @pytest.mark.network or "
+                "@pytest.mark.external if it is intentional)",
+            )
+        return original_connect(sock, address)
+
+    def guarded_connect_ex(sock, address):
+        if not is_loopback_address(address):
+            return errno.ECONNREFUSED
+        return original_connect_ex(sock, address)
+
+    monkeypatch.setattr(socket.socket, "connect", guarded_connect)
+    monkeypatch.setattr(socket.socket, "connect_ex", guarded_connect_ex)
+    yield
 
 
 @pytest.fixture(autouse=True)
