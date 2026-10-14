@@ -12,6 +12,7 @@ import pytest
 from ciberwebscan.core.analyzers.cve.models import CVESource
 from ciberwebscan.export.models import (
     FingerprintResult,
+    HeadersResult,
     SSLResult,
     TechnologyMatch,
 )
@@ -70,6 +71,12 @@ def mock_fingerprint_result() -> FingerprintResult:
         server="nginx/1.20",
         powered_by="PHP/8.1",
     )
+
+
+@pytest.fixture
+def mock_headers_result() -> HeadersResult:
+    """Create a mock security headers result."""
+    return HeadersResult(score=85)
 
 
 # =============================================================================
@@ -184,19 +191,23 @@ class TestAnalyze:
     @patch.object(AnalyzeService, "_analyze_ssl")
     @patch.object(AnalyzeService, "_fingerprint")
     @patch.object(AnalyzeService, "_lookup_cves")
+    @patch.object(AnalyzeService, "_analyze_headers")
     def test_analyze_full(
         self,
+        mock_headers: Mock,
         mock_cves: Mock,
         mock_fp: Mock,
         mock_ssl: Mock,
         analyze_service: AnalyzeService,
         mock_ssl_result: SSLResult,
         mock_fingerprint_result: FingerprintResult,
+        mock_headers_result: HeadersResult,
     ):
         """Test full analysis."""
         mock_ssl.return_value = mock_ssl_result
         mock_fp.return_value = mock_fingerprint_result
         mock_cves.return_value = []
+        mock_headers.return_value = mock_headers_result
 
         options = AnalyzeOptions(url="https://example.com")
         result = analyze_service.analyze(options)
@@ -205,18 +216,25 @@ class TestAnalyze:
         assert result.data is not None
         assert result.data.ssl is not None
         assert result.data.fingerprint is not None
+        assert result.data.headers is not None
+        assert result.data.headers.score == 85
         mock_ssl.assert_called_once()
         mock_fp.assert_called_once()
+        mock_headers.assert_called_once()
 
     @patch.object(AnalyzeService, "_analyze_ssl")
+    @patch.object(AnalyzeService, "_analyze_headers")
     def test_analyze_ssl_only(
         self,
+        mock_headers: Mock,
         mock_ssl: Mock,
         analyze_service: AnalyzeService,
         mock_ssl_result: SSLResult,
+        mock_headers_result: HeadersResult,
     ):
         """Test SSL-only analysis."""
         mock_ssl.return_value = mock_ssl_result
+        mock_headers.return_value = mock_headers_result
 
         options = AnalyzeOptions(
             url="https://example.com",
@@ -229,16 +247,22 @@ class TestAnalyze:
         assert result.success is True
         assert result.data.ssl is not None
         assert result.data.fingerprint is None
+        assert result.data.headers is not None
+        mock_headers.assert_called_once()
 
     @patch.object(AnalyzeService, "_fingerprint")
+    @patch.object(AnalyzeService, "_analyze_headers")
     def test_analyze_fingerprint_only(
         self,
+        mock_headers: Mock,
         mock_fp: Mock,
         analyze_service: AnalyzeService,
         mock_fingerprint_result: FingerprintResult,
+        mock_headers_result: HeadersResult,
     ):
         """Test fingerprint-only analysis."""
         mock_fp.return_value = mock_fingerprint_result
+        mock_headers.return_value = mock_headers_result
 
         options = AnalyzeOptions(
             url="https://example.com",
@@ -251,6 +275,8 @@ class TestAnalyze:
         assert result.success is True
         assert result.data.ssl is None
         assert result.data.fingerprint is not None
+        assert result.data.headers is not None
+        mock_headers.assert_called_once()
 
     def test_analyze_invalid_url(self, analyze_service: AnalyzeService):
         """Test analysis with invalid URL."""
@@ -262,18 +288,22 @@ class TestAnalyze:
 
     @patch.object(AnalyzeService, "_analyze_ssl")
     @patch.object(AnalyzeService, "_fingerprint")
+    @patch.object(AnalyzeService, "_analyze_headers")
     def test_analyze_with_export(
         self,
+        mock_headers: Mock,
         mock_fp: Mock,
         mock_ssl: Mock,
         analyze_service: AnalyzeService,
         mock_ssl_result: SSLResult,
         mock_fingerprint_result: FingerprintResult,
+        mock_headers_result: HeadersResult,
         tmp_path: Path,
     ):
         """Test analysis with export."""
         mock_ssl.return_value = mock_ssl_result
         mock_fp.return_value = mock_fingerprint_result
+        mock_headers.return_value = mock_headers_result
 
         output_file = tmp_path / "report.json"
         options = AnalyzeOptions(
@@ -349,6 +379,54 @@ class TestFingerprint:
         )
 
         assert result.success is True
+
+
+class TestAnalyzeHeaders:
+    """Tests for the internal security-headers analysis."""
+
+    @patch("ciberwebscan.core.client.http_client.HTTPClient")
+    def test_analyze_headers_scores_fetched_response(
+        self,
+        mock_http_client: Mock,
+        analyze_service: AnalyzeService,
+    ):
+        """_analyze_headers fetches the page and scores its headers.
+
+        HTTPClient is mocked so the analyzer runs against a controlled
+        response without touching the network.
+        """
+        mock_client = Mock()
+        mock_client.get.return_value = Mock(headers={"server": "nginx"})
+        mock_http_client.return_value.__enter__.return_value = mock_client
+
+        result = analyze_service._analyze_headers(
+            "https://example.com",
+            AnalyzeOptions(url="https://example.com"),
+        )
+
+        assert result is not None
+        mock_client.get.assert_called_once_with("https://example.com")
+        finding_headers = [f.header for f in result.findings]
+        assert "Strict-Transport-Security" in finding_headers
+        assert 0 <= result.score <= 100
+
+    @patch("ciberwebscan.core.client.http_client.HTTPClient")
+    def test_analyze_headers_returns_none_on_client_error(
+        self,
+        mock_http_client: Mock,
+        analyze_service: AnalyzeService,
+    ):
+        """A failing client yields None instead of raising."""
+        mock_http_client.return_value.__enter__.side_effect = RuntimeError(
+            "connection blocked"
+        )
+
+        result = analyze_service._analyze_headers(
+            "https://example.com",
+            AnalyzeOptions(url="https://example.com"),
+        )
+
+        assert result is None
 
 
 class TestLookupCVEs:

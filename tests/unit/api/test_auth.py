@@ -20,6 +20,12 @@ from ciberwebscan.api.auth import (
     verify_api_key,
 )
 from ciberwebscan.api.routes.auth import router as auth_router
+from ciberwebscan.export.models import (
+    AnalysisReport,
+    AttackResult,
+    ExportMeta,
+    ScrapeResult,
+)
 from ciberwebscan.utils.logging import mask_identifier, mask_key_for_logging
 
 pytestmark = pytest.mark.unit
@@ -56,6 +62,19 @@ def _create_mock_request(client_ip: str = "127.0.0.1") -> Mock:
     mock_request.url = Mock()
     mock_request.url.path = "/test"
     return mock_request
+
+
+def _make_service_result(data=None, success: bool = True, error: str | None = None):
+    """Build a mock ServiceResult (same shape as tests/unit/api/routes)."""
+    result = MagicMock()
+    result.success = success
+    result.data = data
+    result.error = error
+    result.error_code = None if success else "SERVICE_ERROR"
+    result.duration_seconds = 0.1
+    result.warnings = []
+    result.export_path = None
+    return result
 
 
 @pytest.fixture
@@ -460,15 +479,30 @@ class TestProtectedRoutes:
     def test_scrape_with_api_key(
         self, protected_client: TestClient, auth_config_patch, test_api_key
     ):
-        """Test /api/scrape works with API key."""
-        response = protected_client.post(
-            "/api/scrape",
-            json={"url": "https://example.com"},
-            headers={"X-API-Key": test_api_key},
-        )
+        """Test /api/scrape works with API key.
 
-        # May return 500 if service fails, but auth should pass
-        assert response.status_code != 401
+        The scraping service is mocked so the test verifies the auth
+        path deterministically; the real pipeline is covered by
+        service-level tests.
+        """
+        with patch("ciberwebscan.api.routes.scrape.ScrapeService") as mock_cls:
+            mock_cls.return_value.scrape.return_value = _make_service_result(
+                data=ScrapeResult(
+                    url="https://example.com",
+                    status_code=200,
+                    title="Example Domain",
+                )
+            )
+            response = protected_client.post(
+                "/api/scrape",
+                json={"url": "https://example.com"},
+                headers={"X-API-Key": test_api_key},
+            )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["success"] is True
+        assert body["data"]["title"] == "Example Domain"
 
     def test_analyze_requires_auth(
         self, protected_client: TestClient, auth_config_patch
@@ -495,15 +529,26 @@ class TestProtectedRoutes:
     def test_quick_scan_with_api_key(
         self, protected_client: TestClient, auth_config_patch, test_api_key
     ):
-        """Test /api/quick/scan works with API key."""
-        response = protected_client.post(
-            "/api/quick/scan",
-            json={"url": "https://example.com", "preset": "low"},
-            headers={"X-API-Key": test_api_key},
-        )
+        """Test /api/quick/scan works with API key.
 
-        # May return 500 if service fails, but auth should pass
-        assert response.status_code != 401
+        QuickService is mocked so the test verifies the auth path
+        deterministically without running the real scan pipeline.
+        """
+        report = AnalysisReport(meta=ExportMeta(target_url="https://example.com"))
+        with patch("ciberwebscan.api.routes.quick.QuickService") as mock_cls:
+            mock_cls.return_value.quick_scan.return_value = _make_service_result(
+                data=report
+            )
+            response = protected_client.post(
+                "/api/quick/scan",
+                json={"url": "https://example.com", "preset": "low"},
+                headers={"X-API-Key": test_api_key},
+            )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["success"] is True
+        assert body["preset"] == "low"
 
     def test_attack_requires_auth(
         self, protected_client: TestClient, auth_config_patch
@@ -519,15 +564,26 @@ class TestProtectedRoutes:
     def test_attack_with_api_key(
         self, protected_client: TestClient, auth_config_patch, test_api_key
     ):
-        """Test /api/attack works with API key."""
-        response = protected_client.post(
-            "/api/attack",
-            json={"url": "https://example.com", "xss": True, "user_consent": True},
-            headers={"X-API-Key": test_api_key},
-        )
+        """Test /api/attack works with API key.
 
-        # May return 500 if service fails, but auth should pass
-        assert response.status_code != 401
+        AttackService is mocked so the test verifies the auth path
+        deterministically; no attack traffic is generated.
+        """
+        attack_result = AttackResult(target_url="https://example.com")
+        with patch("ciberwebscan.api.routes.attack.AttackService") as mock_cls:
+            mock_cls.return_value.attack.return_value = _make_service_result(
+                data=attack_result
+            )
+            response = protected_client.post(
+                "/api/attack",
+                json={"url": "https://example.com", "xss": True, "user_consent": True},
+                headers={"X-API-Key": test_api_key},
+            )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["success"] is True
+        assert body["data"]["target_url"] == "https://example.com"
 
 
 # =============================================================================
