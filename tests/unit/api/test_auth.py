@@ -14,12 +14,14 @@ from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
 from ciberwebscan.api.auth import (
+    _get_client_ip,
     _secure_compare_key,
     generate_api_key,
     get_auth_config,
     verify_api_key,
 )
 from ciberwebscan.api.routes.auth import router as auth_router
+from ciberwebscan.config.models import APIConfig, AppConfig
 from ciberwebscan.export.models import (
     AnalysisReport,
     AttackResult,
@@ -402,6 +404,47 @@ class TestIdentifierStability:
 
         assert first is not None and second is not None
         assert first.identifier != second.identifier
+
+
+# =============================================================================
+# Client IP Attribution Tests
+# =============================================================================
+
+
+class TestClientIPAttribution:
+    """Auth logs must attribute the IP under the shared trust policy."""
+
+    def test_forwarded_for_ignored_for_untrusted_peer(self):
+        request = _create_mock_request(client_ip="10.0.0.9")
+        request.headers = {"X-Forwarded-For": "203.0.113.7"}
+
+        with patch("ciberwebscan.api.client_ip.get_config", return_value=AppConfig()):
+            assert _get_client_ip(request) == "10.0.0.9"
+
+    def test_forwarded_for_ignored_when_list_configured_but_peer_untrusted(
+        self,
+    ):
+        request = _create_mock_request(client_ip="10.0.0.9")
+        request.headers = {"X-Forwarded-For": "203.0.113.7"}
+        config = AppConfig(api=APIConfig(trusted_proxies=["10.0.0.50"]))
+
+        with patch("ciberwebscan.api.client_ip.get_config", return_value=config):
+            assert _get_client_ip(request) == "10.0.0.9"
+
+    def test_forwarded_for_resolved_behind_trusted_proxy(self):
+        request = _create_mock_request(client_ip="10.0.0.50")
+        request.headers = {"X-Forwarded-For": "203.0.113.7"}
+        config = AppConfig(api=APIConfig(trusted_proxies=["10.0.0.50"]))
+
+        with patch("ciberwebscan.api.client_ip.get_config", return_value=config):
+            assert _get_client_ip(request) == "203.0.113.7"
+
+    def test_missing_forwarded_for_keeps_peer(self):
+        request = _create_mock_request(client_ip="10.0.0.50")
+        config = AppConfig(api=APIConfig(trusted_proxies=["10.0.0.50"]))
+
+        with patch("ciberwebscan.api.client_ip.get_config", return_value=config):
+            assert _get_client_ip(request) == "10.0.0.50"
 
 
 # =============================================================================

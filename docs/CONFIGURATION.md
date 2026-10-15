@@ -77,6 +77,7 @@ Examples that work out of the box:
 - `CIBERWEBSCAN_ANALYSIS_CVE_NVD_API_KEY` → `analysis.cve.nvd_api_key`
 - `CIBERWEBSCAN_CACHE_MAX_SIZE_MB` → `cache.max_size_mb`
 - `CIBERWEBSCAN_API_RATE_LIMIT_REQUESTS_PER_MINUTE` → `api.rate_limit.requests_per_minute`
+- `CIBERWEBSCAN_API_TRUSTED_PROXIES` → `api.trusted_proxies` (comma-separated IPs/CIDRs)
 - `CIBERWEBSCAN_API_CORS_ORIGINS` → `api.cors_origins`
 - `CIBERWEBSCAN_API_CORS_ALLOW_CREDENTIALS` → `api.cors_allow_credentials`
 - `CIBERWEBSCAN_API_CORS_ALLOW_METHODS` → `api.cors_allow_methods`
@@ -556,6 +557,7 @@ Configure the FastAPI server, authentication, and CORS settings.
       "enabled": true,
       "requests_per_minute": 60
     },
+    "trusted_proxies": [],
     "cors_origins": ["http://localhost:3000"],
     "cors_allow_credentials": true,
     "cors_allow_methods": ["GET", "POST", "PUT", "DELETE", "PATCH"],
@@ -575,6 +577,7 @@ Configure the FastAPI server, authentication, and CORS settings.
 | `api.auth.server_secret`             |      `""` | Secret for HMAC log obfuscation only (see below) |
 | `api.rate_limit.enabled`             |    `true` | Rate limiting enabled by default                 |
 | `api.rate_limit.requests_per_minute` |      `60` | Max requests per minute (1-10000)                |
+| `api.trusted_proxies`                |      `[]` | Reverse proxies allowed to set `X-Forwarded-For` |
 | `api.cors_origins`                   |      `[]` | Allowed CORS origins (empty = no cross-origin)   |
 | `api.cors_allow_credentials`         |   `false` | Allow credentials in cross-origin requests       |
 | `api.cors_allow_methods`             | see below | HTTP methods allowed for CORS                    |
@@ -584,6 +587,54 @@ Configure the FastAPI server, authentication, and CORS settings.
 **Default `cors_allow_methods`:** `["GET", "POST", "PUT", "DELETE", "PATCH"]`
 
 **Default `cors_allow_headers`:** `["Authorization", "Content-Type", "X-API-Key"]`
+
+#### `api.trusted_proxies` (client identification)
+
+Clients of the API are identified by their **connection peer address**. The
+`X-Forwarded-For` header is ignored unless the peer is declared in
+`api.trusted_proxies`, so the default (`[]`) is the safe choice for direct
+exposure: no header can forge a client identity, bypass the rate limiter, or
+consume the quota attributed to another address.
+
+- **Accepts**: IP addresses (IPv4/IPv6) or CIDR networks, as a list or a
+  comma-separated string. Entries are validated with `ipaddress` and stored in
+  canonical network form (`127.0.0.1` → `127.0.0.1/32`); host bits in a CIDR
+  are masked with a warning (`10.0.0.1/8` → `10.0.0.0/8`); IPv4-mapped IPv6
+  networks (`::ffff:10.0.0.0/104`) are converted to IPv4 (`10.0.0.0/8`).
+- **Invalid values** (e.g. `not-an-ip`, `1.2.3.4/33`, catch-all networks
+  like `0.0.0.0/0` or `::/0`, IPv4-mapped ranges covering the whole mapped
+  IPv4 space such as `::ffff:10.0.0.0/96`, and IPv6 zone identifiers like
+  `fe80::1%eth0`) raise a validation
+  error. Via `PUT /api/config` or `config set` this means a 400 / non-zero
+  exit without mutating the configuration; at startup (config file or
+  environment), the loader's pre-existing policy applies: it logs an error and
+  runs on the **entire default configuration**.
+- **Read per request** — changes apply without restarting the server (see
+  [Runtime changes vs restart-required
+  settings](#runtime-changes-vs-restart-required-settings)).
+- **Trust model**: declare only the proxy endpoints (e.g. `127.0.0.1`,
+  `10.0.0.1/32`). A range that also contains end clients lets a client inside
+  it forge a forwarded chain that the right-to-left walk would believe. Only
+  proxies that **overwrite** or **append** (rightmost) `X-Forwarded-For` may be
+  declared; pass-through proxies must not be.
+- **Behind a reverse proxy without configuring this**: every request is
+  attributed to the proxy's own address, so all users share a single
+  rate-limit bucket and logs name the proxy — no spoofing, but quota sharing.
+- **Uvicorn interaction**: both launch paths (`ciberwebscan api` and
+  `python -m ciberwebscan.api.app`) start Uvicorn with `proxy_headers=False`,
+  so Uvicorn never rewrites `request.client` from forwarded headers and
+  `FORWARDED_ALLOW_IPS` is irrelevant — the `api.trusted_proxies` policy is
+  the single authority. Running the app under a different ASGI server with
+  forwarded-header trust enabled (especially `FORWARDED_ALLOW_IPS=*`, which
+  installs the client-controlled leftmost header value as the peer) voids
+  this policy and is not supported. The `Forwarded` header is ignored.
+
+```yaml
+api:
+  trusted_proxies:
+    - 127.0.0.1
+    - 10.0.0.0/8
+```
 
 #### `api.auth.server_secret` (log obfuscation only)
 
@@ -880,7 +931,8 @@ configuration object in place, so every `get_config()` consumer sees them immedi
 
 - **Applied at next use (no restart):** `api.auth.api_keys` (API authentication is checked per
   request), `api.auth.server_secret` (log obfuscation only, read per request — the auto-generated
-  default stays stable until the process restarts) and `download.require_same_user` (checked on
+  default stays stable until the process restarts), `api.trusted_proxies` (client identity for
+  rate limiting and auth logs is resolved per request), and `download.require_same_user` (checked on
   every `GET /api/download/{token}`), HTTP client settings used when a client is created for a new
   operation, and scraping/analysis/attack defaults read per scan.
 - **Require a restart:** `api.cors.*`, `api.rate_limit.*`, `download.cleanup_interval_seconds`,

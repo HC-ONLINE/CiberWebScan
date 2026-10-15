@@ -8,9 +8,13 @@ with a single, validated configuration schema.
 
 from __future__ import annotations
 
+import ipaddress
+import logging
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, HttpUrl, field_validator
+
+logger = logging.getLogger(__name__)
 
 # =============================================================================
 # HTTP Client Configuration
@@ -371,6 +375,101 @@ class APIConfig(BaseModel):
     port: Annotated[int, Field(ge=1, le=65535)] = 8000
     auth: APIAuthConfig = Field(default_factory=lambda: APIAuthConfig())
     rate_limit: APIRateLimitConfig = Field(default_factory=lambda: APIRateLimitConfig())
+    trusted_proxies: list[str] = Field(
+        default=[],
+        description=(
+            "IP addresses or CIDR networks of the reverse proxies allowed to "
+            "set X-Forwarded-For. Empty list (default) = the header is always "
+            "ignored and clients are identified by their connection peer. "
+            "Declare proxy endpoint addresses only; ranges that also contain "
+            "clients would let them forge the forwarded chain."
+        ),
+    )
+
+    @field_validator("trusted_proxies", mode="before")
+    @classmethod
+    def parse_trusted_proxies(cls, v: object) -> list[str]:
+        """Validate proxy entries as IPv4/IPv6 addresses or CIDR networks."""
+        if isinstance(v, str):
+            items: list = v.split(",")
+        elif isinstance(v, (list, tuple)):
+            items = list(v)
+        else:
+            # Scalar (e.g. a numeric env var value) — still validated below.
+            items = [v]
+
+        networks: list[str] = []
+        for item in items:
+            entry = str(item).strip()
+            if not entry:
+                continue
+            if "%" in entry:
+                raise ValueError(
+                    f"IPv6 zone identifiers are not allowed in "
+                    f"api.trusted_proxies: {entry!r}; declare the proxy by "
+                    f"routable address/CIDR"
+                )
+            try:
+                network = ipaddress.ip_network(entry, strict=False)
+            except ValueError as exc:
+                raise ValueError(
+                    f"Invalid IP address or CIDR network in "
+                    f"api.trusted_proxies: {entry!r}"
+                ) from exc
+
+            converted_from_mapped = False
+            address_part = entry.split("/", 1)[0]
+            address = ipaddress.ip_address(address_part)
+            if isinstance(address, ipaddress.IPv6Address):
+                mapped = address.ipv4_mapped
+                if mapped is not None:
+                    # /96 covers the entire mapped IPv4 space, i.e. every
+                    # IPv4 peer — never accept it as a "proxy range".
+                    if network.prefixlen <= 96:
+                        raise ValueError(
+                            f"IPv4-mapped IPv6 network {entry!r} in "
+                            f"api.trusted_proxies covers the whole mapped "
+                            f"IPv4 range; use IPv4 notation instead"
+                        )
+                    network = ipaddress.IPv4Network(
+                        (mapped, network.prefixlen - 96),
+                        strict=False,
+                    )
+                    converted_from_mapped = True
+
+            canonical = str(network)
+            if network.prefixlen == 0:
+                raise ValueError(
+                    f"Catch-all network {entry!r} in api.trusted_proxies "
+                    f"would trust every peer as a proxy and defeat client "
+                    f"identification; declare the proxy addresses explicitly"
+                )
+            if canonical != entry:
+                if converted_from_mapped:
+                    logger.debug(
+                        "api.trusted_proxies entry %r (IPv4-mapped) normalized to %r",
+                        entry,
+                        canonical,
+                    )
+                else:
+                    try:
+                        ipaddress.ip_network(entry, strict=True)
+                    except ValueError:
+                        logger.warning(
+                            "api.trusted_proxies entry %r has host bits set; "
+                            "using network %r",
+                            entry,
+                            canonical,
+                        )
+                    else:
+                        logger.debug(
+                            "api.trusted_proxies entry %r normalized to %r",
+                            entry,
+                            canonical,
+                        )
+            networks.append(canonical)
+
+        return networks
 
     # CORS — secure defaults
     cors_origins: list[str] = Field(

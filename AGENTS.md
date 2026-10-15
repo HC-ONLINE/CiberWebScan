@@ -203,7 +203,7 @@ X-API-Key: <your-api-key>
 ### Middleware
 
 - **RequestLoggingMiddleware**: Logs method, path, status, duration for every request
-- **RateLimitingMiddleware**: In-memory sliding window per IP, returns 429 with `Retry-After` header
+- **RateLimitingMiddleware**: In-memory per-client counter in a fixed 60s window, returns 429 with `Retry-After` header. The client identity is the connection peer; `X-Forwarded-For` is honoured only when that peer is declared in `api.trusted_proxies` (empty by default = header always ignored), resolved right-to-left hop by hop (`api/client_ip.py`, shared with auth log attribution)
 
 ### Models
 
@@ -424,6 +424,7 @@ def test_analyze_route(mock_service_class):
 | API routes          | `src/ciberwebscan/api/routes/`                                                                                 |
 | API models          | `src/ciberwebscan/api/models/requests.py`, `responses.py`                                                      |
 | API auth            | `src/ciberwebscan/api/auth.py`                                                                                 |
+| Client IP resolver  | `src/ciberwebscan/api/client_ip.py`                                                                            |
 | API middleware      | `src/ciberwebscan/api/middleware.py`                                                                           |
 | API download helper | `src/ciberwebscan/api/helpers/download_helper.py`                                                              |
 | Pydantic config     | `src/ciberwebscan/config/models.py`                                                                            |
