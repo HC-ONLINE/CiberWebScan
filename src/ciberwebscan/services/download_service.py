@@ -68,6 +68,32 @@ class _DownloadRegistry:
             self._tokens[token] = info
             return True
 
+    async def restore_attempt(self, token: str, max_attempts: int) -> bool:
+        """
+        Return a previously consumed attempt to a token.
+
+        Never recreates a deleted token (late refunds after a concurrent
+        success or TTL cleanup are silently dropped) and never lets the
+        counter exceed ``max_attempts`` (defensive cap against unpaired
+        refunds or a runtime-lowered ``download.max_retries``).
+
+        Args:
+            token: Download token whose attempt should be restored.
+            max_attempts: Upper bound enforced on the attempts counter.
+
+        Returns:
+            True if an attempt was restored, False otherwise.
+        """
+        with self._lock:
+            info = self._tokens.get(token)
+            if info is None:
+                return False
+            if info.attempts_remaining >= max_attempts:
+                return False
+            info.attempts_remaining += 1
+            self._tokens[token] = info
+            return True
+
     async def delete(self, token: str) -> bool:
         """Delete token and associated file data."""
         with self._lock:
@@ -253,7 +279,9 @@ class DownloadService(BaseService):
                     error="Download attempts exhausted",
                 )
 
-            remaining = info.attempts_remaining - 1
+            # info is a live reference already decremented in place by
+            # update_attempts; subtracting again would under-report by one.
+            remaining = info.attempts_remaining
             self.logger.info(
                 f"Valid download request for token {token} "
                 f"({remaining} attempts remaining)"
@@ -263,6 +291,42 @@ class DownloadService(BaseService):
 
         except Exception as e:
             self.logger.error(f"Error validating download request: {e}")
+            return ServiceResult(success=False, error=str(e))
+
+    def restore_attempt(self, token: str) -> ServiceResult[bool]:
+        """
+        Return a consumed attempt after a server-side download failure.
+
+        Mirrors the reservation made by ``validate_download_request``: the
+        attempt is only restored when the token still exists and the counter
+        would stay within ``download.max_retries``. A deleted token is never
+        recreated.
+
+        The cap uses the configuration value at call time: if
+        ``download.max_retries`` is lowered at runtime, refunds on tokens
+        created under a higher value may be refused, leaving the counter at
+        its (lower) current value. This fails safe — attempts are never
+        inflated beyond the configured limit.
+
+        Args:
+            token: Download token whose attempt should be restored.
+
+        Returns:
+            ServiceResult with True if an attempt was restored.
+        """
+        try:
+            max_attempts = get_config().download.max_retries
+            restored = run_async(_registry.restore_attempt(token, max_attempts))
+            if restored:
+                self.logger.info(f"Attempt restored for token {token}")
+                return ServiceResult(success=True, data=True)
+            self.logger.warning(
+                f"Attempt not restored for token {token}: token gone or "
+                f"attempts already at the configured maximum"
+            )
+            return ServiceResult(success=False, error="Attempt not restored")
+        except Exception as e:
+            self.logger.error(f"Error restoring attempt for token {token}: {e}")
             return ServiceResult(success=False, error=str(e))
 
     def get_file_stream(

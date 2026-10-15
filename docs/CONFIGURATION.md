@@ -494,6 +494,16 @@ Configure the download tokens returned by export-enabled API requests (`download
 
 The value is read from the configuration on every download request, so it applies at the next request without a restart — see [Runtime changes vs restart-required settings](#runtime-changes-vs-restart-required-settings).
 
+#### Retry attempts: `download.max_retries`
+
+`download.max_retries` (default `3`) bounds how many times a single download token can be attempted. Each `GET /api/download/{token}` that passes token validation consumes one attempt:
+
+- **Completed download** — the token is deleted (one-shot).
+- **Server-side failure** — the consumed attempt is returned and the token stays usable.
+- **Client disconnect** — the attempt stays consumed and the token is kept until it expires, so an abort/retry loop cannot stream indefinitely.
+
+The returned-attempt refund is capped: it can never push a token above `download.max_retries`, and it never recreates a deleted token. If you lower `max_retries` at runtime, refunds on tokens created under the previous (higher) value may be refused, leaving their counter unchanged — attempts are never inflated beyond the current configuration.
+
 #### Default values (quick reference)
 
 | Key                                 |   Default | Description                                             |
