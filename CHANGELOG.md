@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.30.1](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.30.0...v2.30.1) (2026-10-15)
+
+
+### Bug Fixes
+
+* **download:** return reserved attempt on server failure ([bba3196](https://github.com/HC-ONLINE/CiberWebScan/commit/bba319633adf70d7b8c2d0aa48ace539e3ea5e45))
+* **download:** return reserved attempt on server failure ([97fd1bd](https://github.com/HC-ONLINE/CiberWebScan/commit/97fd1bd10051dba34b2e7d1f011a30afe8fcedfc))
+
 ## [2.30.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.29.0...v2.30.0) (2026-10-14)
 
 
