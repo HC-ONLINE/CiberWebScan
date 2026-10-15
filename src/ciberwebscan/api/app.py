@@ -153,4 +153,5 @@ if __name__ == "__main__":
         port=app_config.api.port,
         reload=True,
         log_level=app_config.logging.level.lower(),
+        proxy_headers=False,
     )

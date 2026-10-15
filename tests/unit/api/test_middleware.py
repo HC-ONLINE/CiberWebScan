@@ -7,6 +7,7 @@ Tests for RequestLoggingMiddleware, RateLimitingMiddleware, and CORS configurati
 from __future__ import annotations
 
 import logging
+from unittest.mock import patch
 
 import pytest
 from fastapi import FastAPI
@@ -18,7 +19,7 @@ from ciberwebscan.api.middleware import (
     add_rate_limiting_middleware,
     add_request_logging_middleware,
 )
-from ciberwebscan.config.models import APIConfig
+from ciberwebscan.config.models import APIConfig, APIRateLimitConfig, AppConfig
 
 pytestmark = pytest.mark.unit
 
@@ -140,6 +141,16 @@ class TestRequestLoggingMiddleware:
         assert isinstance(log_record.duration, float)
 
 
+def _find_rate_limiter(app: FastAPI) -> RateLimitingMiddleware:
+    """Find the RateLimitingMiddleware instance in the built stack."""
+    current = app.middleware_stack
+    while hasattr(current, "app"):
+        if isinstance(current, RateLimitingMiddleware):
+            return current
+        current = current.app
+    raise AssertionError("Could not access middleware instance")
+
+
 # =============================================================================
 # RateLimitingMiddleware Tests
 # =============================================================================
@@ -197,68 +208,100 @@ class TestRateLimitingMiddleware:
         assert 0 < retry_after <= 60
 
     def test_different_clients_have_separate_limits(self, app: FastAPI):
-        """Test that different clients have independent rate limits."""
+        """Test that different connection peers have independent rate limits."""
         add_rate_limiting_middleware(app, requests_per_minute=2)
-        client = TestClient(app)
+        client_a = TestClient(app, client=("10.0.0.1", 50000))
+        client_b = TestClient(app, client=("10.0.0.2", 50000))
 
-        # Client 1 makes 2 requests
+        # Client A makes 2 requests
         for _ in range(2):
-            response = client.get("/test", headers={"X-Forwarded-For": "10.0.0.1"})
+            response = client_a.get("/test")
             assert response.status_code == 200
 
-        # Client 1 should be blocked
-        response = client.get("/test", headers={"X-Forwarded-For": "10.0.0.1"})
+        # Client A should be blocked
+        response = client_a.get("/test")
         assert response.status_code == 429
 
-        # Client 2 should still be allowed
+        # Client B should still be allowed
         for _ in range(2):
-            response = client.get("/test", headers={"X-Forwarded-For": "10.0.0.2"})
+            response = client_b.get("/test")
             assert response.status_code == 200
 
-    def test_x_forwarded_for_header_used_for_client_identification(self, app: FastAPI):
-        """Test that X-Forwarded-For header is used for client identification."""
+    def test_rotating_forwarded_for_does_not_bypass_rate_limit(self, app: FastAPI):
+        """X-Forwarded-For must not mint fresh buckets (secure default)."""
         add_rate_limiting_middleware(app, requests_per_minute=2)
-        client = TestClient(app)
+        client = TestClient(app, client=("10.0.0.9", 50000))
 
-        # Make requests from "client1" via X-Forwarded-For
-        for _ in range(2):
-            response = client.get("/test", headers={"X-Forwarded-For": "192.168.1.1"})
-            assert response.status_code == 200
+        with patch("ciberwebscan.api.client_ip.get_config", return_value=AppConfig()):
+            for i in range(2):
+                response = client.get(
+                    "/test", headers={"X-Forwarded-For": f"192.168.1.{i + 1}"}
+                )
+                assert response.status_code == 200
 
-        # 3rd request from same "client" should be blocked
-        response = client.get("/test", headers={"X-Forwarded-For": "192.168.1.1"})
-        assert response.status_code == 429
+            # 3rd request with yet another forged hop: still limited
+            response = client.get("/test", headers={"X-Forwarded-For": "192.168.1.99"})
+            assert response.status_code == 429
 
-        # Request from different "client" should be allowed
-        response = client.get("/test", headers={"X-Forwarded-For": "192.168.1.2"})
-        assert response.status_code == 200
+        # Counter is keyed by the connection peer, not by the header
+        limiter = _find_rate_limiter(app)
+        assert set(limiter.counts) == {"10.0.0.9"}
 
-    def test_x_forwarded_for_uses_first_ip(self, app: FastAPI):
-        """Test that first IP in X-Forwarded-For chain is used."""
+    def test_forwarded_for_resolved_right_to_left_behind_trusted_proxy(
+        self, app: FastAPI
+    ):
+        """Behind a trusted proxy the identity is the rightmost hop."""
         add_rate_limiting_middleware(app, requests_per_minute=2)
-        client = TestClient(app)
+        client = TestClient(app, client=("10.0.0.50", 50000))
+        config = AppConfig(api=APIConfig(trusted_proxies=["10.0.0.50"]))
 
-        # Make requests with chained X-Forwarded-For
-        for _ in range(2):
+        with patch("ciberwebscan.api.client_ip.get_config", return_value=config):
+            # The proxy appends the real client on the right; the left side
+            # is attacker-controlled and must not create new buckets.
+            for _ in range(2):
+                response = client.get(
+                    "/test",
+                    headers={"X-Forwarded-For": "1.1.1.1, 172.16.0.7"},
+                )
+                assert response.status_code == 200
+
             response = client.get(
                 "/test",
-                headers={"X-Forwarded-For": "10.0.0.1, 192.168.1.1, 172.16.0.1"},
+                headers={"X-Forwarded-For": "2.2.2.2, 172.16.0.7"},
             )
+            assert response.status_code == 429
+
+            # A different client behind the same proxy has its own bucket
+            response = client.get("/test", headers={"X-Forwarded-For": "172.16.0.8"})
             assert response.status_code == 200
 
-        # Should be blocked based on first IP (10.0.0.1)
-        response = client.get(
-            "/test",
-            headers={"X-Forwarded-For": "10.0.0.1, 192.168.1.1"},
-        )
-        assert response.status_code == 429
+        limiter = _find_rate_limiter(app)
+        assert "172.16.0.7" in limiter.counts
+        assert "1.1.1.1" not in limiter.counts
 
-        # Different first IP should work
-        response = client.get(
-            "/test",
-            headers={"X-Forwarded-For": "10.0.0.2, 192.168.1.1"},
-        )
-        assert response.status_code == 200
+    def test_multi_proxy_chain_resolves_left_of_trusted_hops(self, app: FastAPI):
+        """All trusted hops are skipped; the first untrusted hop wins.
+
+        A forged leftmost hop (9.9.9.9) proves the chain is not resolved
+        from the client-controlled end.
+        """
+        add_rate_limiting_middleware(app, requests_per_minute=2)
+        client = TestClient(app, client=("10.0.0.50", 50000))
+        config = AppConfig(api=APIConfig(trusted_proxies=["10.0.0.50", "10.0.0.49"]))
+        chain = "9.9.9.9, 203.0.113.9, 10.0.0.49"
+
+        with patch("ciberwebscan.api.client_ip.get_config", return_value=config):
+            for _ in range(2):
+                response = client.get("/test", headers={"X-Forwarded-For": chain})
+                assert response.status_code == 200
+
+            # Same client identity (203.0.113.9, skipping the trusted hop)
+            # -> limited, and the proxies themselves get no bucket of their own
+            response = client.get("/test", headers={"X-Forwarded-For": chain})
+            assert response.status_code == 429
+
+        limiter = _find_rate_limiter(app)
+        assert set(limiter.counts) == {"203.0.113.9"}
 
     def test_rate_limiting_logs_warning_on_exceeded(
         self, client_rate_limiting: TestClient, caplog: pytest.LogCaptureFixture
@@ -339,6 +382,129 @@ class TestRateLimitingMiddlewareWindowRotation:
         # Should be allowed now
         response = client.get("/test")
         assert response.status_code == 200
+
+
+# =============================================================================
+# Security Regressions (client identity / X-Forwarded-For trust)
+# =============================================================================
+
+
+class TestForwardedForSecurity:
+    """The forwarded chain must never become a client-controlled identity."""
+
+    def test_forged_forwarded_for_does_not_consume_victim_quota(self, app: FastAPI):
+        """Flooding with a forged victim hop must not exhaust her bucket."""
+        add_rate_limiting_middleware(app, requests_per_minute=2)
+        attacker = TestClient(app, client=("10.0.0.9", 50000))
+        victim = TestClient(app, client=("172.16.0.7", 50000))
+
+        with patch("ciberwebscan.api.client_ip.get_config", return_value=AppConfig()):
+            for _ in range(2):
+                assert (
+                    attacker.get(
+                        "/test", headers={"X-Forwarded-For": "172.16.0.7"}
+                    ).status_code
+                    == 200
+                )
+            # Attacker exhausts his own (peer) quota...
+            assert (
+                attacker.get(
+                    "/test", headers={"X-Forwarded-For": "172.16.0.7"}
+                ).status_code
+                == 429
+            )
+            # ...and never created a bucket under the forged victim hop
+            limiter = _find_rate_limiter(app)
+            assert set(limiter.counts) == {"10.0.0.9"}
+
+            # The victim is unaffected
+            assert victim.get("/test").status_code == 200
+            assert limiter.counts["172.16.0.7"] == 1
+
+    def test_forged_victim_hop_behind_trusted_proxy_hits_real_client(
+        self, app: FastAPI
+    ):
+        """A proxy-appended chain credits the proxy-seen hop, not the left."""
+        add_rate_limiting_middleware(app, requests_per_minute=2)
+        client = TestClient(app, client=("10.0.0.50", 50000))
+        config = AppConfig(api=APIConfig(trusted_proxies=["10.0.0.50"]))
+
+        with patch("ciberwebscan.api.client_ip.get_config", return_value=config):
+            # Attacker is 10.0.0.9 (appended by the proxy); left hop forged
+            for _ in range(2):
+                assert (
+                    client.get(
+                        "/test",
+                        headers={"X-Forwarded-For": "172.16.0.7, 10.0.0.9"},
+                    ).status_code
+                    == 200
+                )
+            assert (
+                client.get(
+                    "/test", headers={"X-Forwarded-For": "172.16.0.7, 10.0.0.9"}
+                ).status_code
+                == 429
+            )
+            # Bucket under the attacker's real hop only, not the forged victim
+            limiter = _find_rate_limiter(app)
+            assert "10.0.0.9" in limiter.counts
+            assert "172.16.0.7" not in limiter.counts
+
+            # The real client 172.16.0.7 still has her own bucket
+            assert (
+                client.get(
+                    "/test", headers={"X-Forwarded-For": "172.16.0.7"}
+                ).status_code
+                == 200
+            )
+
+    def test_configured_trusted_proxies_do_not_trust_every_peer(self, app: FastAPI):
+        """A non-empty list must not make arbitrary peers trusted."""
+        add_rate_limiting_middleware(app, requests_per_minute=2)
+        client = TestClient(app, client=("10.0.0.9", 50000))
+        config = AppConfig(api=APIConfig(trusted_proxies=["10.0.0.50"]))
+
+        with patch("ciberwebscan.api.client_ip.get_config", return_value=config):
+            for i in range(2):
+                assert (
+                    client.get(
+                        "/test", headers={"X-Forwarded-For": f"192.168.1.{i + 1}"}
+                    ).status_code
+                    == 200
+                )
+            assert (
+                client.get(
+                    "/test", headers={"X-Forwarded-For": "192.168.1.50"}
+                ).status_code
+                == 429
+            )
+
+        limiter = _find_rate_limiter(app)
+        assert set(limiter.counts) == {"10.0.0.9"}
+
+    def test_create_app_rate_limits_rotating_forwarded_for(self):
+        """Full application (default config): rotating hops cannot bypass."""
+        from ciberwebscan.api.app import create_app
+
+        config = AppConfig(
+            api=APIConfig(rate_limit=APIRateLimitConfig(requests_per_minute=5))
+        )
+        with (
+            patch("ciberwebscan.api.app.get_config", return_value=config),
+            patch("ciberwebscan.api.client_ip.get_config", return_value=config),
+        ):
+            app = create_app()
+            client = TestClient(app, client=("10.0.0.9", 50000))
+
+            statuses = [
+                client.get(
+                    "/health", headers={"X-Forwarded-For": f"203.0.113.{i}"}
+                ).status_code
+                for i in range(7)
+            ]
+
+        assert statuses[:5] == [200] * 5
+        assert statuses[5:] == [429, 429]
 
 
 # =============================================================================
@@ -467,11 +633,12 @@ class TestEdgeCases:
         def test_endpoint():
             return {"status": "ok"}
 
-        client = TestClient(app)
+        client = TestClient(app, client=("10.0.0.9", 50000))
 
-        # Empty X-Forwarded-For should fall back to client IP
+        # Empty X-Forwarded-For should fall back to the connection peer
         response = client.get("/test", headers={"X-Forwarded-For": ""})
         assert response.status_code == 200
+        assert set(_find_rate_limiter(app).counts) == {"10.0.0.9"}
 
     def test_rate_limiting_whitespace_only_x_forwarded_for(self, app: FastAPI):
         """Test rate limiting with whitespace-only X-Forwarded-For header."""
@@ -481,11 +648,12 @@ class TestEdgeCases:
         def test_endpoint():
             return {"status": "ok"}
 
-        client = TestClient(app)
+        client = TestClient(app, client=("10.0.0.9", 50000))
 
-        # Whitespace-only X-Forwarded-For should fall back to client IP
+        # Whitespace-only X-Forwarded-For should fall back to the connection peer
         response = client.get("/test", headers={"X-Forwarded-For": "   "})
         assert response.status_code == 200
+        assert set(_find_rate_limiter(app).counts) == {"10.0.0.9"}
 
 
 # =============================================================================

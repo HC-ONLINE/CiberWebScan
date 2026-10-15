@@ -75,6 +75,7 @@ def run_api(
             port=server_port,
             reload=reload,
             log_level=log_level,
+            proxy_headers=False,
         )
     except ImportError:
         print_error(

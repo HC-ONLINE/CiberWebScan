@@ -14,6 +14,7 @@ from fastapi import Depends, HTTPException, Request, Security, status
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 
+from ciberwebscan.api.client_ip import resolve_client_ip
 from ciberwebscan.config.loader import get_config
 from ciberwebscan.utils.logging import _resolve_server_secret, mask_key_for_logging
 
@@ -147,11 +148,8 @@ async def verify_api_key(
 
 
 def _get_client_ip(request: Request) -> str:
-    """Extract client IP from request, handling proxies."""
-    forwarded = request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
-    if forwarded:
-        return forwarded
-    return request.client.host if request.client else "unknown"
+    """Resolve client IP for log attribution using the shared proxy policy."""
+    return resolve_client_ip(request)
 
 
 async def get_current_user(

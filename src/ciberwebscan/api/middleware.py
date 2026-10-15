@@ -14,6 +14,8 @@ from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from ciberwebscan.api.client_ip import resolve_client_ip
+
 logger = logging.getLogger(__name__)
 
 
@@ -56,20 +58,19 @@ class RateLimitingMiddleware(BaseHTTPMiddleware):
         self.window = 0
 
     async def dispatch(self, request: Request, call_next) -> Response:
-        # Identificación de cliente (Prioriza X-Forwarded-For)
-        client_ip = request.headers.get("X-Forwarded-For", "").split(",")[
-            0
-        ].strip() or (request.client.host if request.client else "unknown")
+        # Client identification: X-Forwarded-For is trusted only if the
+        # connection peer is a declared reverse proxy (api.trusted_proxies).
+        client_ip = resolve_client_ip(request)
 
         now = time.time()
         current_window = int(now // 60)
 
-        # Rotación de ventana
+        # Rotate the window.
         if current_window != self.window:
             self.counts.clear()
             self.window = current_window
 
-        # Verificación de límite
+        # Check the rate limit.
         if self.counts[client_ip] >= self.limit:
             retry_after = 60 - int(now % 60)
             logger.warning(f"Rate limit exceeded: {client_ip}")
