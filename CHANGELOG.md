@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.31.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.30.1...v2.31.0) (2026-10-15)
+
+
+### Features
+
+* **api:** Add trusted_proxies setting for client identification ([005b03e](https://github.com/HC-ONLINE/CiberWebScan/commit/005b03ef929aad6564cc80c20563c6749834432e))
+
+
+### Bug Fixes
+
+* **api:** Resolve client identity only from trusted proxies ([cc7d054](https://github.com/HC-ONLINE/CiberWebScan/commit/cc7d054424dbfaa5236a0cde570eaa6ca3fc61ac))
+
+
+### Documentation
+
+* **api:** Document the trusted-proxy client identification policy ([69ba1f6](https://github.com/HC-ONLINE/CiberWebScan/commit/69ba1f658124ff8c1bc96793b7fe66854af81abe))
+
 ## [2.30.1](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.30.0...v2.30.1) (2026-10-15)
 
 
