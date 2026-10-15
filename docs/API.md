@@ -922,6 +922,8 @@ each use:
   `GET /api/download/{token}`, so toggling it applies to the next download request.
 - **API auth `server_secret`** (`api.auth.server_secret`): read per request but used only for log
   identifiers; the auto-generated default is fixed for the lifetime of the process.
+- **Trusted proxies** (`api.trusted_proxies`): re-read on every request when resolving the client
+  IP for rate limiting and auth log attribution, so proxies can be declared or removed at runtime.
 - **HTTP client settings** (timeouts, retries, rate limits): apply to HTTP clients created after
   the change; operations already in flight keep the settings they started with.
 - **Scan defaults** (scraping, analysis, attack options): apply to operations started after the
@@ -1005,6 +1007,9 @@ CIBERWEBSCAN_API_AUTH_SERVER_SECRET=""
 CIBERWEBSCAN_API_RATE_LIMIT_ENABLED=true
 CIBERWEBSCAN_API_RATE_LIMIT_REQUESTS_PER_MINUTE=60
 
+# Client identification (reverse proxies allowed to set X-Forwarded-For)
+CIBERWEBSCAN_API_TRUSTED_PROXIES="127.0.0.1"
+
 # CORS
 CIBERWEBSCAN_API_CORS_ORIGINS="http://localhost:3000,https://example.com"
 CIBERWEBSCAN_API_CORS_ALLOW_CREDENTIALS=true
@@ -1027,6 +1032,68 @@ The API includes rate limiting to prevent abuse:
 - **Configurable** via `CIBERWEBSCAN_API_RATE_LIMIT_REQUESTS_PER_MINUTE`
 - **429 status code** returned when exceeded
 - **Retry-After header** included in rate limit responses
+- **Per-client counter**: each client identity has its own bucket (see
+  [Client identification](#client-identification-and-trusted-proxies) below)
+
+### Client identification and trusted proxies
+
+Clients are identified by their **connection peer address**. The
+`X-Forwarded-For` header is **ignored by default** (secure default) and is only
+honoured when the peer address is declared in `api.trusted_proxies`:
+
+```bash
+CIBERWEBSCAN_API_TRUSTED_PROXIES="127.0.0.1"          # single proxy
+CIBERWEBSCAN_API_TRUSTED_PROXIES="10.0.0.0/8,::1"     # CIDR and IPv6 accepted
+```
+
+Rules applied (`ciberwebscan.api.client_ip.resolve_client_ip`, shared by the
+rate limiter and auth log attribution):
+
+1. Peer missing or not parseable as an IP (e.g. unix socket) → that fallback
+   identity is used and `X-Forwarded-For` is never consulted.
+2. `api.trusted_proxies` empty (default) → the header is ignored.
+3. Peer outside the trusted list → the header is ignored, even when the list
+   is non-empty.
+4. Peer is a trusted proxy → the chain is walked **from right to left**; the
+   first hop not vouching for by a trusted proxy is the client. Every hop is
+   validated with `ipaddress` (IPv4, IPv6 and IPv4-mapped forms are
+   normalized); a malformed hop stops the walk and the last trusted hop wins.
+   Entries are validated as IP addresses or CIDR networks at configuration
+   time and stored in canonical network form.
+
+Reverse proxy requirements for correct attribution:
+
+- The proxy must **overwrite** `X-Forwarded-For` or **append** (rightmost) the
+  address it observed. Transparent/pass-through proxies that do not touch the
+  header must **not** be declared.
+- Declare only the proxy's own endpoint addresses (`/32` / `/128`), never a
+  range that also contains end clients — a client inside a trusted range could
+  forge a chain that the walk would believe.
+
+Effect of not configuring it behind a reverse proxy: all clients share the
+proxy's peer address, so they share a single rate-limit bucket (60 rpm global)
+and logs show the proxy IP. Spoofing is not possible either way.
+
+Interaction with Uvicorn's proxy handling: both launch paths of this API
+(`ciberwebscan api` and `python -m ciberwebscan.api.app`) start Uvicorn with
+`proxy_headers=False`, so Uvicorn never rewrites `request.client` from
+forwarded headers and `FORWARDED_ALLOW_IPS` is irrelevant — the resolver
+above is the single authority for client identity. Deployments that start
+the app under a different ASGI server (or a custom Uvicorn invocation) with
+forwarded-header trust enabled — especially `FORWARDED_ALLOW_IPS=*`, which
+installs the _leftmost_, client-controlled header value as the peer — void
+this policy and are not supported. The `Forwarded` header (RFC 7239) is not
+honoured by this API.
+
+Invalid values: `api.trusted_proxies` entries must be valid IP addresses or
+CIDR networks. Catch-all networks (`0.0.0.0/0`, `::/0`, and IPv4-mapped
+ranges covering the whole mapped IPv4 space), IPv4-mapped networks wider
+than `/96`, and IPv6 zone identifiers (`fe80::1%eth0`) are rejected: they
+would either trust every peer as a proxy or over-match silently. Any
+invalid value at startup is reported loudly and, like any
+invalid configuration value, makes the loader fall back to the default
+configuration (see [Configuration](CONFIGURATION.md)); `PUT /api/config` and
+`ciberwebscan config set` validate without mutating.
 
 ### CORS
 
