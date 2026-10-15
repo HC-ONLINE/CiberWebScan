@@ -603,6 +603,23 @@ X-API-Key: your-api-key-here
 | 429  | Too many retry attempts                               |
 | 503  | Download service unavailable                          |
 
+**Attempt and token semantics:** every request consumes one of the token's retry
+attempts (`download.max_retries`, default `3`) when the token passes validation —
+including requests that later fail. What happens next depends on the outcome:
+
+- **Completed download (200):** the token is deleted; it cannot be downloaded again.
+- **Server-side failure before streaming (500):** the consumed attempt is returned
+  and the token remains usable, so the same request can be retried.
+- **Client disconnect mid-download:** the server stops streaming, the consumed
+  attempt is **not** returned, and the token is kept until it expires — later
+  retries are allowed while attempts remain.
+
+Two limits of this contract: the server cannot verify that the client stored every
+byte (a disconnect that happens after the last chunk was sent is indistinguishable
+from a completed download), and a disconnect is detected asynchronously, so
+retry-safe cleanup is guaranteed by the attempt accounting rather than by an
+immediate disconnect signal.
+
 **Same-key requirement:** by default a token can only be redeemed with the **same** `X-API-Key`
 that issued it. The `401` case above (`token belongs to different user`) is controlled by
 `download.require_same_user` (default `true`) — keep it `true` unless you intentionally want to

@@ -41,7 +41,13 @@ def test_file(tmp_path: Path) -> Path:
 
 @pytest.fixture(autouse=True)
 def clear_registry():
-    """Clear the registry before and after each test."""
+    """Purge expired tokens before and after each test.
+
+    This does NOT empty the registry: fresh tokens (default TTL 1800s)
+    created by a test survive into later tests. Tests must therefore only
+    assert on tokens they created themselves (unique UUIDs), never on the
+    registry being globally empty.
+    """
     asyncio.run(_registry.cleanup_expired())
     yield
     asyncio.run(_registry.cleanup_expired())
@@ -518,6 +524,211 @@ class TestThreadSafety:
             f"Expected 2 results, got {len(results)}. "
             "If using asyncio.Lock, this would deadlock."
         )
+
+
+# =============================================================================
+# Test: Attempt accounting
+# =============================================================================
+
+
+class TestAttemptAccounting:
+    """Reserve/refund lifecycle for download attempts (BUG-012)."""
+
+    def _generate(self, service: DownloadService, test_file: Path) -> str:
+        gen_result = service.generate_download_token(
+            file_path=test_file,
+            user_id="test_user",
+            file_format="json",
+        )
+        assert gen_result.success is True
+        return gen_result.data.token
+
+    def _attempts(self, token: str) -> int | None:
+        info = asyncio.run(_registry.get_info(token))
+        return info.attempts_remaining if info else None
+
+    def test_restore_attempt_returns_consumed_attempt(
+        self, service: DownloadService, test_file: Path
+    ):
+        """A server-side failure path returns its reserved attempt."""
+        max_retries = get_config().download.max_retries
+        token = self._generate(service, test_file)
+
+        assert service.validate_download_request(token, "test_user").success is True
+        assert self._attempts(token) == max_retries - 1
+
+        result = service.restore_attempt(token)
+        assert result.success is True
+        assert self._attempts(token) == max_retries
+
+    def test_restore_attempt_does_not_recreate_deleted_token(
+        self, service: DownloadService, test_file: Path
+    ):
+        """Scenario 7: a refund on a missing token fails without recreating it."""
+        token = self._generate(service, test_file)
+        assert service.delete_token(token).success is True
+
+        result = service.restore_attempt(token)
+        assert result.success is False
+        assert "not restored" in result.error.lower()
+        assert asyncio.run(_registry.get_info(token)) is None
+
+    def test_restore_attempt_refuses_at_configured_maximum(
+        self, service: DownloadService, test_file: Path
+    ):
+        """Scenario 8: the cap keeps the counter within download.max_retries."""
+        max_retries = get_config().download.max_retries
+        token = self._generate(service, test_file)
+        assert self._attempts(token) == max_retries
+
+        # No attempt was consumed, so an unpaired refund must be refused.
+        result = service.restore_attempt(token)
+        assert result.success is False
+        assert self._attempts(token) == max_retries
+
+    def test_late_refund_after_ttl_cleanup_does_not_recreate(
+        self, service: DownloadService, test_file: Path
+    ):
+        """Scenario 12: TTL cleanup racing an in-flight refund never resurrects."""
+        token = self._generate(service, test_file)
+        assert service.validate_download_request(token, "test_user").success is True
+
+        async def expire_token() -> None:
+            info = await _registry.get_info(token)
+            info.expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+            await _registry.store(token, info, b"test")
+
+        asyncio.run(expire_token())
+        assert service.cleanup_expired_tokens().data == 1
+
+        # The request that was mid-flight refunds after cleanup removed the token.
+        result = service.restore_attempt(token)
+        assert result.success is False
+        assert asyncio.run(_registry.get_info(token)) is None
+
+    def test_validate_log_reports_actual_remaining_attempts(
+        self,
+        service: DownloadService,
+        test_file: Path,
+        caplog: pytest.LogCaptureFixture,
+    ):
+        """Scenario 6: the log reports the real counter, not counter minus one."""
+        max_retries = get_config().download.max_retries
+        token = self._generate(service, test_file)
+
+        with caplog.at_level(logging.INFO):
+            assert service.validate_download_request(token, "test_user").success is True
+
+        assert f"({max_retries - 1} attempts remaining)" in caplog.text
+
+    def test_concurrent_reserve_and_refund_never_exceed_max(
+        self, service: DownloadService, test_file: Path
+    ):
+        """Scenario 10: paired reserve/refund bursts keep the exact limit.
+
+        Every thread pairs each successful validation with exactly one
+        refund, so the final counter must return to the configured maximum —
+        a lost refund breaks the equality and a duplicated or unguarded
+        increment would push the counter past the maximum.
+        """
+        import threading as _threading
+
+        max_retries = get_config().download.max_retries
+        token = self._generate(service, test_file)
+        num_threads = 8
+        iterations = 5
+        barrier = _threading.Barrier(num_threads, timeout=10)
+
+        def paired_worker() -> None:
+            barrier.wait()
+            for _ in range(iterations):
+                if service.validate_download_request(token, "test_user").success:
+                    service.restore_attempt(token)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as pool:
+            futures = [pool.submit(paired_worker) for _ in range(num_threads)]
+            for future in concurrent.futures.as_completed(futures):
+                future.result()
+
+        assert self._attempts(token) == max_retries
+
+    def test_concurrent_unpaired_refunds_hit_the_cap(
+        self, service: DownloadService, test_file: Path
+    ):
+        """Unpaired concurrent refunds hit the cap without inflating the counter.
+
+        Only one reservation exists (a single consumed attempt), so exactly
+        one of the concurrent refunds can succeed; every other call must be
+        refused by the cap. Observations taken after each call never exceed
+        the configured maximum, and the final counter equals it.
+        """
+        import threading as _threading
+
+        max_retries = get_config().download.max_retries
+        token = self._generate(service, test_file)
+        # Exactly one reservation is available to refund.
+        assert service.validate_download_request(token, "test_user").success is True
+        assert self._attempts(token) == max_retries - 1
+
+        num_threads = 8
+        barrier = _threading.Barrier(num_threads, timeout=10)
+        successes: list[bool] = []
+        successes_lock = _threading.Lock()
+
+        def unpaired_worker() -> None:
+            barrier.wait()
+            result = service.restore_attempt(token)
+            with successes_lock:
+                successes.append(result.success)
+            # Every observable state respects the cap, even mid-burst.
+            info = asyncio.run(_registry.get_info(token))
+            if info is not None:
+                assert info.attempts_remaining <= max_retries
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as pool:
+            futures = [pool.submit(unpaired_worker) for _ in range(num_threads)]
+            for future in concurrent.futures.as_completed(futures):
+                future.result()
+
+        # The single reservation is refunded once; the cap refuses the rest.
+        assert sum(successes) == 1
+        assert self._attempts(token) == max_retries
+
+    def test_interleaved_downloads_share_token_safely(
+        self, service: DownloadService, test_file: Path
+    ):
+        """Scenario 11: two in-flight downloads of the same token.
+
+        Both reserve an attempt and both deliver the full file even when the
+        first one deletes the token while the second is still streaming; the
+        second cleanup fails cleanly and a late refund cannot resurrect the
+        token.
+        """
+        max_retries = get_config().download.max_retries
+        expected = test_file.read_bytes()
+        token = self._generate(service, test_file)
+
+        # Both requests reserve one attempt each (atomic, under the lock).
+        assert service.validate_download_request(token, "test_user").success is True
+        assert service.validate_download_request(token, "test_user").success is True
+        assert self._attempts(token) == max_retries - 2
+
+        # Both capture the file bytes for streaming.
+        stream_a = service.get_file_stream(token=token)
+        stream_b = service.get_file_stream(token=token)
+        assert stream_a.success is True and stream_a.data is not None
+        assert stream_b.success is True and stream_b.data is not None
+
+        # First download completes and deletes the token while B still streams.
+        assert b"".join(stream_a.data) == expected
+        assert service.delete_token(token).success is True
+        # B keeps streaming from its already captured bytes.
+        assert b"".join(stream_b.data) == expected
+        # B's cleanup finds no token: fails without side effects.
+        assert service.delete_token(token).success is False
+        # A late refund from B's failure path cannot resurrect the token.
+        assert service.restore_attempt(token).success is False
+        assert asyncio.run(_registry.get_info(token)) is None
 
 
 # =============================================================================
