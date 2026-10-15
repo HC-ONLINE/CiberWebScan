@@ -117,6 +117,42 @@ class TestUnderscoreFieldMapping:
 
 
 # =============================================================================
+# api.trusted_proxies
+# =============================================================================
+
+
+class TestTrustedProxiesEnv:
+    """CIBERWEBSCAN_API_TRUSTED_PROXIES must map onto api.trusted_proxies."""
+
+    def test_comma_separated_list(self, loader, monkeypatch):
+        _set(
+            monkeypatch,
+            "CIBERWEBSCAN_API_TRUSTED_PROXIES",
+            "127.0.0.1,10.0.0.0/8",
+        )
+        assert loader.config.api.trusted_proxies == [
+            "127.0.0.1/32",
+            "10.0.0.0/8",
+        ]
+
+    def test_single_value_without_comma(self, loader, monkeypatch):
+        _set(monkeypatch, "CIBERWEBSCAN_API_TRUSTED_PROXIES", "::1")
+        assert loader.config.api.trusted_proxies == ["::1/128"]
+
+    def test_default_without_env_is_empty(self, loader, monkeypatch):
+        monkeypatch.delenv("CIBERWEBSCAN_API_TRUSTED_PROXIES", raising=False)
+        assert loader.config.api.trusted_proxies == []
+
+    def test_invalid_value_is_reported_not_silently_dropped(self, loader, monkeypatch):
+        _set(monkeypatch, "CIBERWEBSCAN_API_TRUSTED_PROXIES", "not-an-ip")
+        config = loader.config
+        assert loader.validation_error is not None
+        # Pre-existing loader policy: invalid values fall back to defaults
+        # loudly (ERROR log + validation_error), never a partial config.
+        assert config.api.trusted_proxies == []
+
+
+# =============================================================================
 # Double-underscore convention
 # =============================================================================
 

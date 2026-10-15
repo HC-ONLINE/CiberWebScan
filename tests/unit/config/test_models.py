@@ -203,3 +203,70 @@ class TestAPIConfigCORS:
         cfg = APIConfig(cors_origins=[], cors_allow_credentials=True)
         assert cfg.cors_origins == []
         assert cfg.cors_allow_credentials is True
+
+
+# =============================================================================
+# api.trusted_proxies (client identification)
+# =============================================================================
+
+
+class TestAPIConfigTrustedProxies:
+    """Proxy allow-list: default safe, explicit validation of entries."""
+
+    def test_default_is_empty(self):
+        """Empty list = X-Forwarded-For always ignored (secure default)."""
+        assert APIConfig().trusted_proxies == []
+
+    def test_accepts_ipv4_ipv6_and_cidr_entries(self):
+        cfg = APIConfig(trusted_proxies=["127.0.0.1", "::1", "10.0.0.0/8"])
+        assert cfg.trusted_proxies == ["127.0.0.1/32", "::1/128", "10.0.0.0/8"]
+
+    def test_accepts_comma_separated_string(self):
+        cfg = APIConfig(trusted_proxies="127.0.0.1, 10.0.0.0/8")
+        assert cfg.trusted_proxies == ["127.0.0.1/32", "10.0.0.0/8"]
+
+    def test_empty_entries_are_dropped(self):
+        cfg = APIConfig(trusted_proxies=["", "  ", "10.0.0.1"])
+        assert cfg.trusted_proxies == ["10.0.0.1/32"]
+
+    def test_host_bits_are_masked_with_warning(self, caplog):
+        import logging
+
+        with caplog.at_level(logging.WARNING, logger="ciberwebscan.config.models"):
+            cfg = APIConfig(trusted_proxies=["10.0.0.1/8"])
+        assert cfg.trusted_proxies == ["10.0.0.0/8"]
+        assert any("host bits" in r.message for r in caplog.records)
+
+    def test_ipv4_mapped_network_converted_to_ipv4(self):
+        cfg = APIConfig(trusted_proxies=["::ffff:10.0.0.0/104"])
+        assert cfg.trusted_proxies == ["10.0.0.0/8"]
+
+    def test_invalid_entries_rejected(self):
+        for bad in ["not-an-ip", "1.2.3.4/33", "999.999.999.999", "10.0.0.0/8x"]:
+            with pytest.raises(ValidationError):
+                APIConfig(trusted_proxies=[bad])
+
+    def test_scalar_non_ip_value_rejected(self):
+        with pytest.raises(ValidationError):
+            APIConfig(trusted_proxies=10)
+
+    def test_ipv4_mapped_prefix_below_96_rejected(self):
+        """A mapped entry wider than /96 would over-match; reject loudly."""
+        with pytest.raises(ValidationError):
+            APIConfig(trusted_proxies=["::ffff:10.0.0.0/64"])
+
+    def test_ipv4_mapped_prefix_96_rejected(self):
+        """A mapped /96 covers every IPv4 peer; reject as catch-all."""
+        with pytest.raises(ValidationError):
+            APIConfig(trusted_proxies=["::ffff:10.0.0.0/96"])
+
+    def test_catch_all_networks_rejected(self):
+        """0.0.0.0/0 or ::/0 would trust every peer; reject loudly."""
+        for bad in ["0.0.0.0/0", "::/0"]:
+            with pytest.raises(ValidationError):
+                APIConfig(trusted_proxies=[bad])
+
+    def test_ipv6_zone_identifiers_rejected(self):
+        """Zone IDs never appear on real peers; they over-match silently."""
+        with pytest.raises(ValidationError):
+            APIConfig(trusted_proxies=["fe80::1%eth0"])
