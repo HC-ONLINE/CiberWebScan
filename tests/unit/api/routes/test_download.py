@@ -16,7 +16,11 @@ from unittest.mock import patch
 
 import pytest
 
-from ciberwebscan.api.routes.download import _AttemptReservation, _stream_and_cleanup
+from ciberwebscan.api.routes.download import (
+    _AttemptReservation,
+    _content_disposition,
+    _stream_and_cleanup,
+)
 from ciberwebscan.config.loader import get_config
 from ciberwebscan.services.download_service import DownloadService, _registry
 
@@ -126,6 +130,37 @@ class TestAttemptReservation:
 
         assert reservation.refund_once() is False
         assert _attempts(token) == max_retries
+
+
+# =============================================================================
+# Test: Content-Disposition header
+# =============================================================================
+
+
+class TestContentDisposition:
+    """The download filename always reflects a supported export format."""
+
+    @pytest.mark.parametrize(
+        ("file_format", "expected"),
+        [
+            ("json", 'attachment; filename="export.json"'),
+            ("jsonl", 'attachment; filename="export.jsonl"'),
+            ("csv", 'attachment; filename="export.csv"'),
+            ("html", 'attachment; filename="export.html"'),
+        ],
+    )
+    def test_supported_formats_produce_matching_filename(
+        self, file_format: str, expected: str
+    ):
+        assert _content_disposition(file_format) == expected
+
+    @pytest.mark.parametrize(
+        "file_format",
+        [None, "", "xml", "js", "json\r\nX-Injected: 1", 'csv"; evil=y'],
+    )
+    def test_unsupported_values_fall_back_to_json(self, file_format: str | None):
+        """Registry values outside the allowlist never reach the header."""
+        assert _content_disposition(file_format) == 'attachment; filename="export.json"'
 
 
 # =============================================================================

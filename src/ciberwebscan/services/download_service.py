@@ -141,7 +141,7 @@ class DownloadService(BaseService):
         Args:
             file_path: Path to file to download. Must be within allowed directories.
             user_id: ID of user requesting download
-            file_format: Format of the exported file (json/jsonl/csv)
+            file_format: Format of the exported file (json/jsonl/csv/html)
 
         Returns:
             ServiceResult with DownloadTokenResponse containing token and expiration
@@ -327,6 +327,30 @@ class DownloadService(BaseService):
             return ServiceResult(success=False, error="Attempt not restored")
         except Exception as e:
             self.logger.error(f"Error restoring attempt for token {token}: {e}")
+            return ServiceResult(success=False, error=str(e))
+
+    def get_info(self, token: str) -> ServiceResult[DownloadInfo]:
+        """
+        Retrieve metadata (including file_format) for a download token.
+
+        Read-only: expiration, ownership and attempt checks are the
+        caller's responsibility (``validate_download_request``), which
+        runs before any use of this metadata.
+
+        Args:
+            token: Download token
+
+        Returns:
+            ServiceResult with the token's DownloadInfo, or a failure
+            result when the token no longer exists.
+        """
+        try:
+            info = run_async(_registry.get_info(token))
+            if info is None:
+                return ServiceResult(success=False, error="Token not found")
+            return ServiceResult(success=True, data=info)
+        except Exception as e:
+            self.logger.error(f"Error getting token info: {e}")
             return ServiceResult(success=False, error=str(e))
 
     def get_file_stream(
