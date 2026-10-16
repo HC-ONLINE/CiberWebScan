@@ -17,6 +17,7 @@ from ciberwebscan.cli.output import (
     print_error,
     print_header,
     print_info,
+    print_warning,
 )
 from ciberwebscan.cli.validators import (
     ValidationError,
@@ -386,6 +387,8 @@ def scrape_batch(
                     print_info(f"  [{i}] {r.url} - {r.status_code}")
                 if len(result.data) > 5:
                     print_info(f"  ... and {len(result.data) - 5} more")
+            for warning in result.warnings:
+                print_warning(warning)
             exit_code = format_service_result(result, json_output=False)
 
         sys.exit(exit_code)

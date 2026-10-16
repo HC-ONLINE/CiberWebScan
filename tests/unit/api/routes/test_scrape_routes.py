@@ -4,7 +4,7 @@ Unit tests for scraping API endpoints.
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -160,3 +160,87 @@ class TestScrapeBatchEndpoint:
     def test_post_scrape_batch_empty_urls_returns_422(self, client: TestClient):
         response = client.post("/api/scrape/batch", json={"urls": []})
         assert response.status_code == 422
+
+
+def _mock_http_response(
+    status: int, text: str = "<html><body>ok</body></html>"
+) -> Mock:
+    """Build a minimal HTTP response stub for the real StaticScraper."""
+    response = Mock()
+    response.status_code = status
+    response.headers = {"content-type": "text/html"}
+    response.text = text
+    response.cookies.items.return_value = {}
+    return response
+
+
+class TestScrapeFailurePropagation:
+    """Real scrape failures must surface as HTTP 500, never HTTP 200.
+
+    These tests run the real ``ScrapeService`` (only the HTTP client is
+    mocked) to regression-test BUG-005 end to end through the API layer.
+    """
+
+    def test_real_scrape_failure_returns_500_with_clean_detail(
+        self, client: TestClient
+    ):
+        with patch("ciberwebscan.core.client.HTTPClient") as mock_http_cls:
+            mock_http_cls.return_value.get.return_value = _mock_http_response(
+                404, "<html>Not Found</html>"
+            )
+            response = client.post(
+                "/api/scrape",
+                json={
+                    "url": "https://example.com/missing",
+                    "check_robots": False,
+                },
+            )
+
+        assert response.status_code == 500
+        detail = response.json()["detail"]
+        assert "404" in detail
+        assert "Scraping failed: 500" not in detail
+
+    def test_real_batch_mixed_returns_partial_success(self, client: TestClient):
+        ok_response = _mock_http_response(200)
+        missing_response = _mock_http_response(404, "<html>Not Found</html>")
+        with patch("ciberwebscan.core.client.HTTPClient") as mock_http_cls:
+            mock_http_cls.return_value.get.side_effect = lambda url, **kwargs: (
+                ok_response if url.endswith("/ok") else missing_response
+            )
+            response = client.post(
+                "/api/scrape/batch",
+                json={
+                    "urls": [
+                        "https://example.com/ok",
+                        "https://example.com/missing",
+                    ]
+                },
+            )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["success"] is True
+        assert body["data"]["total_success"] == 1
+        assert body["data"]["total_failed"] == 1
+        assert body["data"]["failed_urls"][0]["url"] == "https://example.com/missing"
+
+    def test_real_batch_all_failures_returns_500(self, client: TestClient):
+        with patch("ciberwebscan.core.client.HTTPClient") as mock_http_cls:
+            mock_http_cls.return_value.get.return_value = _mock_http_response(
+                404, "<html>Not Found</html>"
+            )
+            response = client.post(
+                "/api/scrape/batch",
+                json={
+                    "urls": [
+                        "https://example.com/a",
+                        "https://example.com/b",
+                    ]
+                },
+            )
+
+        assert response.status_code == 500
+        detail = response.json()["detail"]
+        assert "404" in detail
+        assert "Batch scraping failed: 500" not in detail
