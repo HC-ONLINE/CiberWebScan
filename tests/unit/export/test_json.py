@@ -21,12 +21,22 @@ from ciberwebscan.export.json import (
     dumps,
     export_to_json,
 )
+from ciberwebscan.export.models import (
+    AnalysisReport,
+    ExportMeta,
+    ScrapeResult,
+    Severity,
+    SSLFinding,
+    SSLResult,
+)
 
 pytestmark = pytest.mark.unit
 
 # =============================================================================
 # Test Fixtures
 # =============================================================================
+
+FAKE_MARKER_HTML = "<html><body>FAKE_MARKER_HTML</body></html>"
 
 
 class Color(Enum):
@@ -90,6 +100,39 @@ def mock_report():
     }
 
     return report
+
+
+@pytest.fixture
+def report_with_raw_html() -> AnalysisReport:
+    """Real AnalysisReport with non-null scrape.raw_html."""
+    return AnalysisReport(
+        meta=ExportMeta(target_url="https://fake.test"),
+        scrape=ScrapeResult(
+            url="https://fake.test",
+            status_code=200,
+            content_type="text/html",
+            title="Fake",
+            raw_html=FAKE_MARKER_HTML,
+        ),
+    )
+
+
+@pytest.fixture
+def report_with_critical_finding() -> AnalysisReport:
+    """Real AnalysisReport with one critical SSL finding (summary unchecked)."""
+    return AnalysisReport(
+        meta=ExportMeta(target_url="https://fake.test"),
+        ssl=SSLResult(
+            is_https=True,
+            findings=[
+                SSLFinding(
+                    title="Weak protocol",
+                    description="TLS 1.0 enabled",
+                    severity=Severity.CRITICAL,
+                )
+            ],
+        ),
+    )
 
 
 # =============================================================================
@@ -374,6 +417,117 @@ class TestJSONExporterBatch:
 
         with pytest.raises(ExportWriteError, match="No output stream or path"):
             exporter.export_report(mock_report)
+
+
+class TestJSONExporterRawHtmlExclusion:
+    """Regression tests: raw_html must honour include_raw in export_report."""
+
+    def test_export_report_excludes_raw_html_by_default(
+        self, report_with_raw_html: AnalysisReport
+    ):
+        """include_raw=False must strip scrape.raw_html from the final JSON."""
+        stream = StringIO()
+
+        exporter = JSONExporter(stream=stream)
+        assert exporter.include_raw is False
+        exporter.export_report(report_with_raw_html)
+
+        raw_output = stream.getvalue()
+        content = json.loads(raw_output)
+        assert "raw_html" not in content["scrape"]
+        assert "FAKE_MARKER_HTML" not in raw_output
+
+    def test_export_report_includes_raw_html_when_enabled(
+        self, report_with_raw_html: AnalysisReport
+    ):
+        """include_raw=True must preserve the HTML exactly."""
+        stream = StringIO()
+
+        exporter = JSONExporter(stream=stream, include_raw=True)
+        exporter.export_report(report_with_raw_html)
+
+        content = json.loads(stream.getvalue())
+        assert content["scrape"]["raw_html"] == FAKE_MARKER_HTML
+
+    def test_export_report_calculates_summary(
+        self, report_with_critical_finding: AnalysisReport
+    ):
+        """Summary counters and risk_score must be updated in the output."""
+        stream = StringIO()
+
+        exporter = JSONExporter(stream=stream)
+        exporter.export_report(report_with_critical_finding)
+
+        content = json.loads(stream.getvalue())
+        assert content["critical_findings"] == 1
+        assert content["risk_score"] == 40
+        # Fields the summary did not touch stay at their defaults
+        assert content["high_findings"] == 0
+        assert content["info_findings"] == 0
+
+    def test_export_report_preserves_source_object(
+        self, report_with_raw_html: AnalysisReport
+    ):
+        """Sanitizing the output must not mutate the source report."""
+        stream = StringIO()
+
+        exporter = JSONExporter(stream=stream)
+        exporter.export_report(report_with_raw_html)
+
+        assert report_with_raw_html.scrape is not None
+        assert report_with_raw_html.scrape.raw_html == FAKE_MARKER_HTML
+
+    def test_export_report_null_raw_html_stays_omitted(self):
+        """raw_html=None keeps being omitted via exclude_none (unchanged)."""
+        report = AnalysisReport(
+            meta=ExportMeta(target_url="https://fake.test"),
+            scrape=ScrapeResult(
+                url="https://fake.test", status_code=200, raw_html=None
+            ),
+            fingerprint=None,
+        )
+        stream = StringIO()
+
+        exporter = JSONExporter(stream=stream)
+        exporter.export_report(report)
+
+        content = json.loads(stream.getvalue())
+        assert "raw_html" not in content["scrape"]
+        # exclude_none behaviour unchanged: null sections stay omitted
+        assert "fingerprint" not in content
+
+    def test_export_report_null_sections_present_when_include_raw(self):
+        """include_raw=True keeps exclude_none disabled (unchanged)."""
+        report = AnalysisReport(
+            meta=ExportMeta(target_url="https://fake.test"),
+            scrape=ScrapeResult(
+                url="https://fake.test", status_code=200, raw_html=None
+            ),
+            fingerprint=None,
+        )
+        stream = StringIO()
+
+        exporter = JSONExporter(stream=stream, include_raw=True)
+        exporter.export_report(report)
+
+        content = json.loads(stream.getvalue())
+        assert "raw_html" in content["scrape"]
+        assert content["scrape"]["raw_html"] is None
+        assert "fingerprint" in content
+
+    def test_export_report_empty_string_raw_html_excluded(self):
+        """raw_html="" is not None, so only the explicit strip can remove it."""
+        report = AnalysisReport(
+            meta=ExportMeta(target_url="https://fake.test"),
+            scrape=ScrapeResult(url="https://fake.test", status_code=200, raw_html=""),
+        )
+        stream = StringIO()
+
+        exporter = JSONExporter(stream=stream)
+        exporter.export_report(report)
+
+        content = json.loads(stream.getvalue())
+        assert "raw_html" not in content["scrape"]
 
 
 class TestExportToJson:

@@ -276,17 +276,15 @@ class JSONExporter(StreamingExporter):
             )
 
         try:
-            # Serialize the report
-            data = self._serialize_item(report)
-
-            # Remove raw data if not requested
-            if not self.include_raw and "scrape" in data and data["scrape"]:
-                data["scrape"].pop("raw_html", None)
-
-            # Calculate summary if not done
+            # Calculate summary before serializing so the single
+            # serialization below already contains the updated counters.
             if hasattr(report, "calculate_summary"):
                 report.calculate_summary()
-                data = self._serialize_item(report)
+
+            # Serialize once; _serialize_item strips raw_html when
+            # include_raw is False (no rebuild afterwards, or the
+            # sanitization would be lost).
+            data = self._serialize_item(report)
 
             # Write to stream or file
             if self._stream:

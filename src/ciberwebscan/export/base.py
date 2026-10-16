@@ -165,7 +165,10 @@ class BaseExporter(ABC):
         Serialize an item to a dictionary.
 
         Handles Pydantic models, dataclasses, and plain dicts.
-        Strips ``raw_html`` when *include_raw* is False.
+        When *include_raw* is False, strips ``raw_html`` from the top level
+        (e.g. a serialized ``ScrapeResult``) and from a nested ``scrape``
+        mapping (e.g. ``AnalysisReport``, where the field lives at
+        ``data["scrape"]["raw_html"]``). The source object is never mutated.
         """
         if hasattr(item, "model_dump"):
             # Pydantic v2
@@ -187,6 +190,13 @@ class BaseExporter(ABC):
 
         if not self.include_raw:
             data.pop("raw_html", None)
+            scrape = data.get("scrape")
+            # Copy before stripping: plain-dict input is only shallow-copied
+            # above, so popping in place would mutate the caller's mapping.
+            if isinstance(scrape, dict) and "raw_html" in scrape:
+                scrape = dict(scrape)
+                scrape.pop("raw_html", None)
+                data["scrape"] = scrape
 
         return data
 

@@ -393,6 +393,55 @@ class TestServiceExport:
 
             assert mock_json.call_args.kwargs["include_raw"] is False
 
+    def test_export_report_json_excludes_raw_html_end_to_end(
+        self, service: ConcreteService, tmp_path: Path
+    ):
+        """Real JSONExporter run: AnalysisReport JSON must not leak raw_html.
+
+        Regression test: only config is mocked (include_raw_html=False);
+        the exporter itself is the real implementation. The previous mock
+        based tests only asserted that the flag was forwarded.
+        """
+        import json
+        from unittest.mock import Mock, patch
+
+        from ciberwebscan.export.models import (
+            AnalysisReport,
+            ExportMeta,
+            ScrapeResult,
+        )
+
+        marker = "<html><body>FAKE_MARKER_HTML</body></html>"
+        report = AnalysisReport(
+            meta=ExportMeta(target_url="https://fake.test"),
+            scrape=ScrapeResult(
+                url="https://fake.test", status_code=200, raw_html=marker
+            ),
+        )
+        output_path = tmp_path / "report.json"
+
+        with patch(
+            "ciberwebscan.services.base.get_config"
+        ) as mock_cfg:  # exporter NOT mocked
+            mock_cfg.return_value = Mock(
+                export=Mock(
+                    output_dir=str(tmp_path),
+                    pretty=True,
+                    include_raw_html=False,
+                    buffer_size=100,
+                    streaming=True,
+                )
+            )
+            exported, path = service._export_result(report, str(output_path), "json")
+
+        assert exported is True
+        assert path is not None
+        raw_output = path.read_text(encoding="utf-8")
+        assert "FAKE_MARKER_HTML" not in raw_output
+
+        content = json.loads(raw_output)
+        assert "raw_html" not in content["scrape"]
+
     # -------------------------------------------------------------------------
     # output_dir tests
     # -------------------------------------------------------------------------
