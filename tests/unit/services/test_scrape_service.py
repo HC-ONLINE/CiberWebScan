@@ -9,6 +9,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from ciberwebscan.core.scraping.dynamic import DynamicScrapeResult
 from ciberwebscan.export.models import ScrapeResult
 from ciberwebscan.services.base import ServiceResult
 from ciberwebscan.services.scrape_service import (
@@ -53,6 +54,18 @@ def mock_scrape_result() -> ScrapeResult:
         headers={"content-type": "text/html"},
         elapsed_ms=100.0,
     )
+
+
+def _mock_http_response(
+    status: int, text: str = "<html><body>ok</body></html>"
+) -> Mock:
+    """Build a minimal HTTP response stub for StaticScraper."""
+    response = Mock()
+    response.status_code = status
+    response.headers = {"content-type": "text/html"}
+    response.text = text
+    response.cookies.items.return_value = {}
+    return response
 
 
 # =============================================================================
@@ -474,3 +487,222 @@ class TestScrapeServiceContextManager:
         scrape_service.close()
 
         assert scrape_service._dynamic_scraper is None
+
+
+# =============================================================================
+# Failure Propagation Tests (BUG-005)
+# =============================================================================
+
+
+class TestScrapeFailurePropagation:
+    """Core scraping failures must surface as service failures.
+
+    These tests cross the real core/service boundary: the real
+    ``StaticScraper`` runs against a mocked ``HTTPClient`` so that
+    ``success=False`` results produced by the engine actually reach
+    ``ScrapeService`` (regression for BUG-005).
+    """
+
+    def test_static_http_200_still_succeeds(self):
+        """HTTP 200 keeps producing a successful service result."""
+        with patch("ciberwebscan.core.client.HTTPClient") as mock_http_cls:
+            mock_http_cls.return_value.get.return_value = _mock_http_response(200)
+            service = ScrapeService()
+            result = service.scrape(
+                ScrapeOptions(url="https://example.com", check_robots=False)
+            )
+            service.close()
+
+        assert result.success is True
+        assert result.error is None
+        assert isinstance(result.data, ScrapeResult)
+        assert result.data.status_code == 200
+
+    def test_static_http_404_propagates_failure(self):
+        """Engine failure for HTTP 404 must not become a service success."""
+        with patch("ciberwebscan.core.client.HTTPClient") as mock_http_cls:
+            mock_http_cls.return_value.get.return_value = _mock_http_response(
+                404, "<html>Not Found</html>"
+            )
+            service = ScrapeService()
+            result = service.scrape(
+                ScrapeOptions(url="https://example.com/missing", check_robots=False)
+            )
+            service.close()
+
+        assert result.success is False
+        assert "404" in (result.error or "")
+        assert result.error_code == "EXECUTION_ERROR"
+        assert result.data is None
+
+    def test_static_connection_error_propagates_failure(self):
+        """Connection errors surface as failures with the original message."""
+        with patch("ciberwebscan.core.client.HTTPClient") as mock_http_cls:
+            mock_http_cls.return_value.get.side_effect = ConnectionError(
+                "Connection refused"
+            )
+            service = ScrapeService()
+            result = service.scrape(
+                ScrapeOptions(url="https://example.com/down", check_robots=False)
+            )
+            service.close()
+
+        assert result.success is False
+        assert "Connection refused" in (result.error or "")
+        assert result.error_code == "EXECUTION_ERROR"
+
+    def test_static_robots_block_propagates_reason(self):
+        """robots.txt blocking keeps its reason in the service error."""
+        with (
+            patch("ciberwebscan.core.client.HTTPClient"),
+            patch(
+                "ciberwebscan.core.scraping.static.check_robots_txt",
+                return_value=(False, "Blocked by robots.txt"),
+            ),
+        ):
+            service = ScrapeService()
+            result = service.scrape(
+                ScrapeOptions(url="https://example.com/private", check_robots=True)
+            )
+            service.close()
+
+        assert result.success is False
+        assert "robots" in (result.error or "").lower()
+        assert result.error_code == "EXECUTION_ERROR"
+
+    def test_ssrf_blocked_url_keeps_validation_error(self):
+        """SSRF protection still classifies as VALIDATION_ERROR."""
+        service = ScrapeService()
+        result = service.scrape(
+            ScrapeOptions(url="http://169.254.169.254/latest/meta-data/")
+        )
+        service.close()
+
+        assert result.success is False
+        assert result.error_code == "VALIDATION_ERROR"
+        assert "ssrf" in (result.error or "").lower()
+
+    def test_static_failure_is_not_exported(self):
+        """Failed scrapes never produce export artifacts."""
+        with patch("ciberwebscan.core.client.HTTPClient") as mock_http_cls:
+            mock_http_cls.return_value.get.return_value = _mock_http_response(500)
+            service = ScrapeService()
+            result = service.scrape(
+                ScrapeOptions(
+                    url="https://example.com/error",
+                    check_robots=False,
+                    export="out.json",
+                )
+            )
+            service.close()
+
+        assert result.success is False
+        assert not result.exported
+        assert result.export_path is None
+
+    def test_dynamic_failure_does_not_fabricate_http_200(self):
+        """Dynamic engine failures propagate without fake success metadata."""
+        failed = DynamicScrapeResult(
+            url="https://example.com/spa",
+            success=False,
+            error="Timeout waiting for page",
+        )
+        with (
+            patch(
+                "ciberwebscan.services.scrape_service.is_playwright_available",
+                return_value=True,
+            ),
+            patch(
+                "ciberwebscan.services.scrape_service.run_async",
+                return_value=failed,
+            ),
+        ):
+            service = ScrapeService()
+            service._dynamic_scraper = Mock()
+            service._dynamic_scraper.scrape = Mock(return_value=failed)
+            result = service.scrape(
+                ScrapeOptions(url="https://example.com/spa", dynamic=True)
+            )
+            service.close()
+
+        assert result.success is False
+        assert "Timeout waiting for page" in (result.error or "")
+        assert result.error_code == "EXECUTION_ERROR"
+        assert result.data is None
+
+    def test_dynamic_success_still_maps_result(self):
+        """Dynamic engine successes keep mapping to a valid ScrapeResult."""
+        ok = DynamicScrapeResult(
+            url="https://example.com/spa",
+            success=True,
+            html="<html><head><title>Spa</title></head><body>ready</body></html>",
+            title="Spa",
+        )
+        with (
+            patch(
+                "ciberwebscan.services.scrape_service.is_playwright_available",
+                return_value=True,
+            ),
+            patch(
+                "ciberwebscan.services.scrape_service.run_async",
+                return_value=ok,
+            ),
+        ):
+            service = ScrapeService()
+            service._dynamic_scraper = Mock()
+            service._dynamic_scraper.scrape = Mock(return_value=ok)
+            result = service.scrape(
+                ScrapeOptions(url="https://example.com/spa", dynamic=True)
+            )
+            service.close()
+
+        assert result.success is True
+        assert isinstance(result.data, ScrapeResult)
+        assert result.data.title == "Spa"
+        assert result.data.status_code == 200
+
+    def test_batch_mixed_counts_and_warns_failures(self):
+        """Mixed batches keep successes, count failures, warn with reason."""
+        ok_response = _mock_http_response(200)
+        missing_response = _mock_http_response(404, "<html>Not Found</html>")
+        with patch("ciberwebscan.core.client.HTTPClient") as mock_http_cls:
+            mock_http_cls.return_value.get.side_effect = lambda url, **kwargs: (
+                ok_response if url.endswith("/ok") else missing_response
+            )
+            service = ScrapeService()
+            result = service.scrape_multiple(
+                [
+                    "https://example.com/ok",
+                    "https://example.com/missing",
+                ],
+                ScrapeOptions(url="https://example.com", check_robots=False),
+            )
+            service.close()
+
+        assert result.success is True
+        assert len(result.data) == 1
+        assert result.data[0].url == "https://example.com/ok"
+        assert len(result.warnings) == 1
+        assert "404" in result.warnings[0]
+
+    def test_batch_all_failures_is_informative_failure(self):
+        """A fully failed batch is a failure with an informative error."""
+        with patch("ciberwebscan.core.client.HTTPClient") as mock_http_cls:
+            mock_http_cls.return_value.get.return_value = _mock_http_response(
+                404, "<html>Not Found</html>"
+            )
+            service = ScrapeService()
+            result = service.scrape_multiple(
+                [
+                    "https://example.com/a",
+                    "https://example.com/b",
+                ],
+                ScrapeOptions(url="https://example.com", check_robots=False),
+            )
+            service.close()
+
+        assert result.success is False
+        assert result.data == []
+        assert result.error_code == "SCRAPE_ERROR"
+        assert "404" in (result.error or "")
+        assert len(result.warnings) == 2

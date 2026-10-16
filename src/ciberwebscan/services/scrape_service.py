@@ -345,15 +345,19 @@ class ScrapeService(BaseService):
                 )
                 single_result = self.scrape(opts)
 
-                if single_result.success and single_result.data:
-                    if isinstance(single_result.data, ScrapeResult):
-                        results.append(single_result.data)
-                else:
-                    errors.append(f"{url}: {single_result.error}")
-                    result.warnings.append(f"Failed to scrape {url}")
+                if not single_result.success:
+                    reason = single_result.error or "Scraping failed"
+                    errors.append(f"{url}: {reason}")
+                    result.warnings.append(f"Failed to scrape {url}: {reason}")
+                elif isinstance(single_result.data, ScrapeResult):
+                    results.append(single_result.data)
 
             result.data = results
-            result.success = len(results) > 0
+            if results:
+                result.success = True
+            elif errors:
+                result.error = "; ".join(errors)
+                result.error_code = "SCRAPE_ERROR"
 
             # Export all results if requested
             if options.export and results:
@@ -394,6 +398,15 @@ class ScrapeService(BaseService):
                 config.verify_ssl,
                 cookies=options.cookies or None,
             ).scrape(url, config)
+
+            if not core_result.success:
+                details: dict[str, Any] = {"url": url}
+                if core_result.status_code is not None:
+                    details["status_code"] = core_result.status_code
+                raise ExecutionError(
+                    core_result.error or "Static scraping failed",
+                    details=details,
+                )
 
             # Map core ScrapeResult to export ScrapeResult
             from ciberwebscan.export.models import (
@@ -442,6 +455,8 @@ class ScrapeService(BaseService):
                 elapsed_ms=(core_result.elapsed_time or 0.0) * 1000,
             )
 
+        except ExecutionError:
+            raise
         except Exception as e:
             raise ExecutionError(f"Static scraping failed: {e}") from e
 
@@ -464,6 +479,16 @@ class ScrapeService(BaseService):
 
             # Run the async scrape method safely from sync context
             core_result = run_async(self.dynamic_scraper.scrape(url, config))
+
+            if not getattr(core_result, "success", True):
+                details: dict[str, Any] = {"url": url}
+                status_code = getattr(core_result, "status_code", None)
+                if status_code is not None:
+                    details["status_code"] = status_code
+                raise ExecutionError(
+                    getattr(core_result, "error", None) or "Dynamic scraping failed",
+                    details=details,
+                )
 
             # dynamic scraper returns DynamicScrapeResult-like dataclass
             from ciberwebscan.export.models import (
@@ -513,6 +538,8 @@ class ScrapeService(BaseService):
                 elapsed_ms=(getattr(core_result, "elapsed_time", 0.0) or 0.0) * 1000,
             )
 
+        except ExecutionError:
+            raise
         except Exception as e:
             raise ExecutionError(f"Dynamic scraping failed: {e}") from e
 

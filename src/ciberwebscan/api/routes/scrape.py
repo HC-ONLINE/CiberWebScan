@@ -95,6 +95,8 @@ def scrape_url(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid request: {e}",
         ) from e
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error scraping URL {request.url}: {e}", exc_info=True)
         raise HTTPException(
@@ -193,6 +195,8 @@ def scrape_batch(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid request: {e}",
         ) from e
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error in batch scraping: {e}", exc_info=True)
         raise HTTPException(

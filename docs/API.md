@@ -252,6 +252,21 @@ Scrape a single URL with flexible extraction options.
 }
 ```
 
+**Error behavior:**
+
+Real scraping failures (HTTP 4xx/5xx responses, connection errors,
+robots.txt blocks, browser timeouts) are returned as
+`500 Internal Server Error` — never as HTTP 200 with
+`success: true`. The `detail` message carries the original failure
+reason (for example `HTTP 404`).
+
+| Scenario                                    | Status | `detail`                          |
+| ------------------------------------------- | ------ | --------------------------------- |
+| Scraping failure (404, connection, robots)  | 500    | Original reason (e.g. `HTTP 404`) |
+| SSRF-protected target (metadata/private IP) | 500    | SSRF protection reason            |
+| Malformed request body                      | 422    | FastAPI validation error          |
+| Missing or invalid API key                  | 401    | Authentication error              |
+
 #### POST /api/scrape/batch
 
 Scrape multiple URLs in batch.
@@ -295,6 +310,13 @@ Scrape multiple URLs in batch.
   "timestamp": "2026-01-01T00:00:00Z"
 }
 ```
+
+**Batch error behavior:**
+
+- Mixed batches (some URLs succeed, some fail) return HTTP 200 with
+  `success: true`; failed URLs are listed individually in `failed_urls`.
+- If **every** URL fails, the endpoint returns HTTP 500 and `detail`
+  summarizes the per-URL errors.
 
 ### Attack Simulation
 

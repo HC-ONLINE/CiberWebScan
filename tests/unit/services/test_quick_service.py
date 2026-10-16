@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ciberwebscan.export.models import AnalysisReport
+from ciberwebscan.export.models import AnalysisReport, ExportMeta
 from ciberwebscan.services.quick_service import PRESETS, QuickOptions, QuickService
 
 pytestmark = pytest.mark.unit
@@ -359,3 +359,54 @@ class TestQuickScanExport:
 
         assert result.success is True
         assert result.exported is False
+
+
+# =============================================================================
+# Scrape Failure Handling Tests (BUG-005)
+# =============================================================================
+
+
+class TestRunScrapeFailureHandling:
+    """Failed scrapes must not be incorporated into the quick report."""
+
+    def test_scrape_failure_sets_warning_not_report(
+        self,
+        quick_service: QuickService,
+        caplog: pytest.LogCaptureFixture,
+    ):
+        """A real scrape failure warns with its reason and skips report.scrape."""
+        import logging
+
+        from ciberwebscan.services.scrape_service import ScrapeService
+
+        with patch("ciberwebscan.core.client.HTTPClient") as mock_http_cls:
+            response = MagicMock()
+            response.status_code = 404
+            response.headers = {"content-type": "text/html"}
+            response.text = "<html>Not Found</html>"
+            response.cookies.items.return_value = {}
+            mock_http_cls.return_value.get.return_value = response
+
+            service = ScrapeService()
+            quick_service._scrape_service = service
+            report = AnalysisReport(
+                meta=ExportMeta(target_url="https://example.com/missing")
+            )
+
+            with caplog.at_level(
+                logging.WARNING,
+                logger="ciberwebscan.services.quick_service",
+            ):
+                quick_service._run_scrape(
+                    "https://example.com/missing",
+                    QuickOptions(url="https://example.com/missing"),
+                    {"scrape": {"dynamic": False}},
+                    report,
+                )
+            service.close()
+
+        assert report.scrape is None
+        log_messages = [record.getMessage() for record in caplog.records]
+        assert any("Scrape failed" in message for message in log_messages)
+        assert any("HTTP 404" in message for message in log_messages)
+        assert not any("Scrape failed: None" in message for message in log_messages)

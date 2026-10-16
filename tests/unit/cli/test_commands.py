@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from typer.testing import CliRunner
@@ -18,6 +18,23 @@ runner = CliRunner()
 def _strip_ansi(text: str) -> str:
     """Remove ANSI escape codes from text."""
     return re.sub(r"\x1b\[[0-9;]*m", "", text)
+
+
+def _cli_output(result) -> str:
+    """Combined stdout/stderr from a CliRunner result (click >= 8.2)."""
+    return f"{result.output}{result.stderr}"
+
+
+def _mock_http_response(
+    status: int, text: str = "<html><body>ok</body></html>"
+) -> Mock:
+    """Build a minimal HTTP response stub for the real StaticScraper."""
+    response = Mock()
+    response.status_code = status
+    response.headers = {"content-type": "text/html"}
+    response.text = text
+    response.cookies.items.return_value = {}
+    return response
 
 
 class TestAppBasic:
@@ -91,6 +108,72 @@ class TestScrapeCommand:
         """Test scrape batch --help."""
         result = runner.invoke(app, ["scrape", "batch", "--help"])
         assert result.exit_code == 0
+
+    def test_scrape_url_http_404_exits_nonzero(self):
+        """A real HTTP 404 scrape must exit with a non-zero code."""
+        with patch("ciberwebscan.core.client.HTTPClient") as mock_http_cls:
+            mock_http_cls.return_value.get.return_value = _mock_http_response(
+                404, "<html>Not Found</html>"
+            )
+            result = runner.invoke(
+                app,
+                [
+                    "scrape",
+                    "url",
+                    "https://example.com/missing",
+                    "--no-check-robots",
+                    "-q",
+                ],
+            )
+
+        assert result.exit_code == 1
+        assert "404" in _strip_ansi(_cli_output(result))
+
+    def test_scrape_batch_all_failures_exits_nonzero(self):
+        """A fully failed batch must exit with a non-zero code."""
+        with patch("ciberwebscan.core.client.HTTPClient") as mock_http_cls:
+            mock_http_cls.return_value.get.return_value = _mock_http_response(
+                404, "<html>Not Found</html>"
+            )
+            result = runner.invoke(
+                app,
+                [
+                    "scrape",
+                    "batch",
+                    "https://example.com/a",
+                    "https://example.com/b",
+                    "--no-check-robots",
+                    "-q",
+                ],
+            )
+
+        assert result.exit_code == 1
+        assert "404" in _strip_ansi(_cli_output(result))
+
+    def test_scrape_batch_partial_failure_shows_warnings(self):
+        """Partial batches surface failed URLs instead of looking all-good."""
+        ok_response = _mock_http_response(200)
+        missing_response = _mock_http_response(404, "<html>Not Found</html>")
+        with patch("ciberwebscan.core.client.HTTPClient") as mock_http_cls:
+            mock_http_cls.return_value.get.side_effect = lambda url, **kwargs: (
+                ok_response if url.endswith("/ok") else missing_response
+            )
+            result = runner.invoke(
+                app,
+                [
+                    "scrape",
+                    "batch",
+                    "https://example.com/ok",
+                    "https://example.com/missing",
+                    "--no-check-robots",
+                ],
+            )
+
+        assert result.exit_code == 0
+        output = _strip_ansi(_cli_output(result))
+        assert "1 successful" in output
+        assert "Failed to scrape" in output
+        assert "404" in output
 
 
 class TestAnalyzeCommand:
