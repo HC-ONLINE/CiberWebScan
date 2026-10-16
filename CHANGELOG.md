@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.31.1](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.31.0...v2.31.1) (2026-10-16)
+
+
+### Bug Fixes
+
+* **export:** ensure raw_html is excluded from JSON exports when include_raw is False ([dd869b3](https://github.com/HC-ONLINE/CiberWebScan/commit/dd869b3ccafc0f9f5dd31f987e76ad9cc10d616d))
+* **export:** exclude raw_html from JSON exports when include_raw_html is false ([545d249](https://github.com/HC-ONLINE/CiberWebScan/commit/545d2498f2f32346efc59f041158289fb100ddd7))
+
 ## [2.31.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.30.1...v2.31.0) (2026-10-15)
 
 
