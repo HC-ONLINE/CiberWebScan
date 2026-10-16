@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.31.3](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.31.2...v2.31.3) (2026-10-16)
+
+
+### Bug Fixes
+
+* **api:** generate download filenames from the exported format ([07b203a](https://github.com/HC-ONLINE/CiberWebScan/commit/07b203a42b09d125de50c18eb74d0ff75e61dec4))
+* **api:** generate download filenames from the exported format ([4b35c76](https://github.com/HC-ONLINE/CiberWebScan/commit/4b35c768cb869d781ec07e7f8758b59a71d19161))
+
 ## [2.31.2](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.31.1...v2.31.2) (2026-10-16)
 
 
