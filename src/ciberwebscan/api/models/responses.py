@@ -267,7 +267,7 @@ class DownloadInfo(BaseModel):
     expires_at: datetime
     attempts_remaining: int
     file_format: str = Field(
-        default="json", description="Export format (json/jsonl/csv)"
+        default="json", description="Export format (json/jsonl/csv/html)"
     )
 
 

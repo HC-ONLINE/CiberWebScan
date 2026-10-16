@@ -31,8 +31,10 @@ from __future__ import annotations
 
 # Base classes and utilities
 from ciberwebscan.export.base import (
+    EXPORT_FORMATS,
     BaseExporter,
     ExportError,
+    ExportFormat,
     ExportValidationError,
     ExportWriteError,
     StreamingExporter,
@@ -102,6 +104,9 @@ __all__ = [
     "ExportError",
     "ExportWriteError",
     "ExportValidationError",
+    # Export formats
+    "ExportFormat",
+    "EXPORT_FORMATS",
     # Factory functions
     "export_to_file",
     "get_exporter",
