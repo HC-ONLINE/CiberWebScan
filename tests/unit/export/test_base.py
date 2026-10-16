@@ -191,6 +191,115 @@ class TestSerialization:
         with pytest.raises(ExportValidationError, match="Cannot serialize"):
             exporter._serialize_item("plain string")
 
+    def test_serialize_scrape_result_strips_top_level_raw_html(self):
+        """_serialize_item strips raw_html from a direct ScrapeResult."""
+        from ciberwebscan.export.models import ScrapeResult
+
+        exporter = ConcreteExporter(stream=StringIO(), include_raw=False)
+        scrape = ScrapeResult(
+            url="https://fake.test",
+            status_code=200,
+            raw_html="<html><body>FAKE_MARKER_HTML</body></html>",
+        )
+
+        result = exporter._serialize_item(scrape)
+
+        assert "raw_html" not in result
+        assert result["url"] == "https://fake.test"
+
+    def test_serialize_analysis_report_strips_nested_raw_html(self):
+        """_serialize_item strips scrape.raw_html from an AnalysisReport."""
+        from ciberwebscan.export.models import (
+            AnalysisReport,
+            ExportMeta,
+            ScrapeResult,
+        )
+
+        exporter = ConcreteExporter(stream=StringIO(), include_raw=False)
+        report = AnalysisReport(
+            meta=ExportMeta(target_url="https://fake.test"),
+            scrape=ScrapeResult(
+                url="https://fake.test",
+                status_code=200,
+                raw_html="<html><body>FAKE_MARKER_HTML</body></html>",
+            ),
+        )
+
+        result = exporter._serialize_item(report)
+
+        assert "raw_html" not in result["scrape"]
+        assert result["scrape"]["url"] == "https://fake.test"
+
+    def test_serialize_analysis_report_strips_empty_raw_html(self):
+        """Empty-string raw_html is also stripped when include_raw=False."""
+        from ciberwebscan.export.models import (
+            AnalysisReport,
+            ExportMeta,
+            ScrapeResult,
+        )
+
+        exporter = ConcreteExporter(stream=StringIO(), include_raw=False)
+        report = AnalysisReport(
+            meta=ExportMeta(target_url="https://fake.test"),
+            scrape=ScrapeResult(url="https://fake.test", status_code=200, raw_html=""),
+        )
+
+        result = exporter._serialize_item(report)
+
+        assert "raw_html" not in result["scrape"]
+
+    def test_serialize_keeps_raw_html_when_include_raw(self):
+        """include_raw=True preserves raw_html at both levels."""
+        from ciberwebscan.export.models import (
+            AnalysisReport,
+            ExportMeta,
+            ScrapeResult,
+        )
+
+        marker = "<html><body>FAKE_MARKER_HTML</body></html>"
+        exporter = ConcreteExporter(stream=StringIO(), include_raw=True)
+        report = AnalysisReport(
+            meta=ExportMeta(target_url="https://fake.test"),
+            scrape=ScrapeResult(
+                url="https://fake.test", status_code=200, raw_html=marker
+            ),
+        )
+
+        result = exporter._serialize_item(report)
+
+        assert result["scrape"]["raw_html"] == marker
+
+    def test_serialize_handles_missing_and_unexpected_scrape(self):
+        """Missing, null or non-mapping scrape must not raise."""
+        exporter = ConcreteExporter(stream=StringIO(), include_raw=False)
+
+        # scrape absent entirely
+        result = exporter._serialize_item({"meta": {"target_url": "x"}})
+        assert "scrape" not in result
+
+        # scrape null
+        result = exporter._serialize_item({"scrape": None})
+        assert result["scrape"] is None
+
+        # scrape with unexpected (non-mapping) structure
+        result = exporter._serialize_item({"scrape": "not-a-mapping"})
+        assert result["scrape"] == "not-a-mapping"
+
+    def test_serialize_does_not_mutate_plain_dict_input(self):
+        """Stripping nested raw_html must not alter the caller's dict."""
+        exporter = ConcreteExporter(stream=StringIO(), include_raw=False)
+        caller_dict = {
+            "scrape": {
+                "url": "https://fake.test",
+                "raw_html": "<html><body>FAKE_MARKER_HTML</body></html>",
+            }
+        }
+
+        result = exporter._serialize_item(caller_dict)
+
+        assert "raw_html" not in result["scrape"]
+        assert "raw_html" in caller_dict["scrape"]
+
     def test_format_datetime(self):
         """Test datetime formatting."""
         exporter = ConcreteExporter(stream=StringIO())
