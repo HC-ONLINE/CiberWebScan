@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.31.2](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.31.1...v2.31.2) (2026-10-16)
+
+
+### Bug Fixes
+
+* **scrape:** improve error handling and response propagation for scraping failures ([378d377](https://github.com/HC-ONLINE/CiberWebScan/commit/378d37788ae18535319ec9c565c16138d7c2713b))
+* **scrape:** improve error handling and response propagation for scraping failures ([3bfedc0](https://github.com/HC-ONLINE/CiberWebScan/commit/3bfedc0d83d82897e48c4ea37d3b032151276cfc))
+
 ## [2.31.1](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.31.0...v2.31.1) (2026-10-16)
 
 
