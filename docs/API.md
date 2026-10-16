@@ -611,7 +611,7 @@ Download previously exported results using a time-limited token.
 X-API-Key: your-api-key-here
 ```
 
-**Response:** File stream (application/octet-stream)
+**Response:** File stream (application/octet-stream). The `Content-Disposition` header carries a filename matching the export format: `attachment; filename="export.json"` (also `.jsonl`, `.csv` or `.html`).
 
 **Status Codes:**
 

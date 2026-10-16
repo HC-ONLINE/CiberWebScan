@@ -13,12 +13,18 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, TextIO
+from typing import TYPE_CHECKING, Any, Literal, TextIO, get_args
 
 if TYPE_CHECKING:
     from ciberwebscan.export.models import AnalysisReport
 
 logger = logging.getLogger(__name__)
+
+# Canonical export formats. Single source of truth: the Literal drives
+# validation across API models and download metadata, and EXPORT_FORMATS
+# is derived from it for runtime membership checks.
+ExportFormat = Literal["json", "jsonl", "csv", "html"]
+EXPORT_FORMATS: frozenset[str] = frozenset(get_args(ExportFormat))
 
 
 class ExportError(Exception):
@@ -320,9 +326,9 @@ def get_exporter(
     }
 
     format_lower = format.lower()
-    if format_lower not in exporters:
+    if format_lower not in EXPORT_FORMATS:
         raise ExportError(
-            f"Unknown export format: {format}. Use: {list(exporters.keys())}"
+            f"Unknown export format: {format}. Use: {sorted(EXPORT_FORMATS)}"
         )
 
     return exporters[format_lower](output_path=output_path, **kwargs)

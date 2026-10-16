@@ -11,6 +11,8 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, HttpUrl, field_validator
 
+from ciberwebscan.export import ExportFormat
+
 # =============================================================================
 # Scrape Requests
 # =============================================================================
@@ -77,7 +79,7 @@ class ScrapeRequest(BaseModel):
         default=None,
         description="Optional output file path for exported results",
     )
-    export_format: Literal["json", "jsonl", "csv", "html"] = Field(
+    export_format: ExportFormat = Field(
         default="json",
         description="Export format when export path is provided",
     )
@@ -112,7 +114,7 @@ class ScrapeBatchRequest(BaseModel):
         default=None,
         description="Optional output file path for exported batch results",
     )
-    export_format: Literal["json", "jsonl", "csv", "html"] = Field(
+    export_format: ExportFormat = Field(
         default="jsonl",
         description="Export format when export path is provided",
     )
@@ -176,7 +178,7 @@ class AnalyzeRequest(BaseModel):
         default=None,
         description="Optional output file path for exported results",
     )
-    export_format: Literal["json", "jsonl", "csv", "html"] = Field(
+    export_format: ExportFormat = Field(
         default="json",
         description="Export format when export path is provided",
     )
@@ -265,7 +267,7 @@ class AttackRequest(BaseModel):
         default=None,
         description="Optional output file path for exported results",
     )
-    export_format: Literal["json", "jsonl", "csv", "html"] = Field(
+    export_format: ExportFormat = Field(
         default="json",
         description="Export format when export path is provided",
     )
@@ -319,7 +321,7 @@ class ExportRequest(BaseModel):
     """Request for exporting results."""
 
     job_id: str = Field(..., description="Job ID from a previous operation")
-    format: Literal["jsonl", "json", "csv", "html"] = "jsonl"
+    format: ExportFormat = "jsonl"
     include_raw_html: bool = False
     include_screenshots: bool = False
 

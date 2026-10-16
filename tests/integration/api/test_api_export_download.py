@@ -265,6 +265,42 @@ class TestDownloadEndpoint:
         assert "<h1>Report</h1>" in text
 
 
+class TestDownloadContentDisposition:
+    """The Content-Disposition filename must reflect the export format."""
+
+    @pytest.mark.parametrize(
+        ("file_format", "file_name"),
+        [
+            ("json", "export.json"),
+            ("jsonl", "export.jsonl"),
+            ("csv", "export.csv"),
+            ("html", "export.html"),
+        ],
+    )
+    def test_header_filename_matches_export_format(
+        self, in_process_client: tuple, tmp_path: Path, file_format: str, file_name: str
+    ):
+        client, _ = in_process_client
+
+        test_file = tmp_path / f"data.{file_format}"
+        test_file.write_text("payload")
+
+        service = DownloadService()
+        result = service.generate_download_token(
+            file_path=test_file,
+            user_id="test_user",
+            file_format=file_format,
+        )
+        token = result.data.token
+
+        response = client.get(f"/api/download/{token}")
+        assert response.status_code == 200
+        assert (
+            response.headers["content-disposition"]
+            == f'attachment; filename="{file_name}"'
+        )
+
+
 class TestTokenLifecycle:
     """End-to-end token lifecycle test."""
 

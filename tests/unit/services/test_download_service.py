@@ -128,6 +128,33 @@ class TestGenerateDownloadToken:
 # =============================================================================
 
 
+class TestGetInfo:
+    """get_info exposes stored metadata (notably file_format) to callers."""
+
+    def test_get_info_returns_stored_file_format(
+        self, service: DownloadService, test_file: Path
+    ):
+        gen_result = service.generate_download_token(
+            file_path=test_file,
+            user_id="test_user",
+            file_format="csv",
+        )
+        assert gen_result.success is True
+
+        info_result = service.get_info(gen_result.data.token)
+
+        assert info_result.success is True
+        assert info_result.data is not None
+        assert info_result.data.file_format == "csv"
+        assert info_result.data.user_id == "test_user"
+
+    def test_get_info_unknown_token_fails(self, service: DownloadService):
+        info_result = service.get_info("missing-token")
+
+        assert info_result.success is False
+        assert info_result.error == "Token not found"
+
+
 class TestValidateDownloadRequest:
     """Tests for request validation."""
 

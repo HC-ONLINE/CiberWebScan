@@ -16,12 +16,31 @@ from fastapi.responses import StreamingResponse
 
 from ciberwebscan.api.auth import AuthenticatedUser, get_current_user
 from ciberwebscan.config.loader import get_config
+from ciberwebscan.export import EXPORT_FORMATS
 from ciberwebscan.services.download_service import DownloadService
 from ciberwebscan.utils.logging import mask_identifier
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/download", tags=["download"])
+
+
+def _content_disposition(file_format: str | None) -> str:
+    """Build the Content-Disposition header for an export format.
+
+    Only formats in ``EXPORT_FORMATS`` reach the header, so a
+    tampered registry value can never inject header content; anything
+    else falls back to ``json``.
+
+    Args:
+        file_format: Format stored in the token metadata, if any.
+
+    Returns:
+        The Content-Disposition value with a format-specific filename.
+    """
+    extension = file_format if file_format in EXPORT_FORMATS else "json"
+    return f'attachment; filename="export.{extension}"'
+
 
 # Service instance
 _download_service = DownloadService()
@@ -228,9 +247,19 @@ async def download_file(
             detail="Failed to retrieve file stream",
         )
 
+    # Token metadata: the stored export format drives the download filename
+    info_result = download_service.get_info(token=token)
+    if not info_result.success or info_result.data is None:
+        reservation.refund_once()
+        logger.error(f"Failed to get download metadata: {info_result.error}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve file metadata",
+        )
+
     # Prepare headers
     headers = {
-        "Content-Disposition": "attachment; filename=export.json",
+        "Content-Disposition": _content_disposition(info_result.data.file_format),
         "X-Content-Type-Options": "nosniff",
         "Cache-Control": "no-cache, no-store, must-revalidate",
         "Pragma": "no-cache",
