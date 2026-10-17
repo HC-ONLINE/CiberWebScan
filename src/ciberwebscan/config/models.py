@@ -327,6 +327,10 @@ class DownloadConfig(BaseModel):
     cleanup_interval_seconds: Annotated[int, Field(ge=60, le=3600)] = 300
     require_same_user: bool = True
     stream_chunk_size: Annotated[int, Field(ge=1024, le=10 * 1024 * 1024)] = 1024 * 1024
+    max_tokens: Annotated[int, Field(ge=1, le=10000)] = 100
+    max_total_bytes: Annotated[int, Field(ge=1_048_576, le=1_099_511_627_776)] = (
+        1_073_741_824
+    )
 
 
 # =============================================================================

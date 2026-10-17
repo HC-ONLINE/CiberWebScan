@@ -8,6 +8,7 @@ import asyncio
 import concurrent.futures
 import logging
 import tempfile
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
@@ -41,16 +42,18 @@ def test_file(tmp_path: Path) -> Path:
 
 @pytest.fixture(autouse=True)
 def clear_registry():
-    """Purge expired tokens before and after each test.
+    """Purge all tokens before and after each test.
 
-    This does NOT empty the registry: fresh tokens (default TTL 1800s)
-    created by a test survive into later tests. Tests must therefore only
-    assert on tokens they created themselves (unique UUIDs), never on the
-    registry being globally empty.
+    The registry now enforces ``download.max_tokens`` (default 100), so
+    fresh tokens (default TTL 1800s) surviving from earlier tests would
+    consume the shared budget and make later tests order-dependent (a
+    single test can create up to 100 tokens). Tests must therefore only
+    assert on tokens they created themselves (unique UUIDs); an empty
+    registry between tests is strictly stronger isolation.
     """
-    asyncio.run(_registry.cleanup_expired())
+    asyncio.run(_registry.clear())
     yield
-    asyncio.run(_registry.cleanup_expired())
+    asyncio.run(_registry.clear())
 
 
 @pytest.fixture(autouse=True)
@@ -813,3 +816,255 @@ class TestDownloadLogsAreMasked:
         assert "intruder" not in caplog.text
         assert "token owner apikey:" in caplog.text
         assert "requester apikey:" in caplog.text
+
+
+# =============================================================================
+# Test: Registry admission budget (BUG-011)
+# =============================================================================
+
+
+@contextmanager
+def _download_config(**overrides):
+    """Temporarily override download.* config values, restoring them after."""
+    config = get_config()
+    saved = {name: getattr(config.download, name) for name in overrides}
+    for name, value in overrides.items():
+        setattr(config.download, name, value)
+    try:
+        yield config
+    finally:
+        for name, value in saved.items():
+            setattr(config.download, name, value)
+
+
+class TestDownloadRegistryBudget:
+    """The registry enforces max_tokens/max_total_bytes before reading files.
+
+    Regression suite for BUG-011: unbounded in-memory token registry and
+    read_bytes() executed before any size/budget validation.
+    """
+
+    def test_disabled_downloads_generate_no_token(
+        self,
+        service: DownloadService,
+        test_file: Path,
+        caplog: pytest.LogCaptureFixture,
+    ):
+        """download.enabled=false never admits a token (single gate for all consumers)."""
+        with _download_config(enabled=False), caplog.at_level(logging.INFO):
+            result = service.generate_download_token(
+                file_path=test_file, user_id="test_user", file_format="json"
+            )
+
+        assert not result.success
+        assert "disabled" in result.error.lower()
+        assert _registry.stats["tokens"] == 0
+        # Expected state: logged at info, not as a warning.
+        assert "downloads are disabled" in caplog.text
+        assert "WARNING" not in [r.levelname for r in caplog.records]
+
+    def test_oversized_file_rejected_without_reading(
+        self, service: DownloadService, tmp_path: Path
+    ):
+        """stat() runs first: an over-limit file is never loaded into RAM."""
+        big_file = tmp_path / "big_export.json"
+        big_file.write_bytes(b"x" * (2 * 1024 * 1024))  # 2 MiB
+
+        with (
+            _download_config(max_file_size_mb=1),
+            patch.object(
+                Path, "read_bytes", side_effect=AssertionError("file must not be read")
+            ),
+        ):
+            result = service.generate_download_token(
+                file_path=big_file, user_id="test_user", file_format="json"
+            )
+
+        assert not result.success
+        assert "exceeds limit" in result.error
+        assert _registry.stats["tokens"] == 0
+
+    def test_token_budget_rejected_without_reading(
+        self, service: DownloadService, test_file: Path, tmp_path: Path
+    ):
+        """When max_tokens is exhausted, admission fails before read_bytes()."""
+        with _download_config(max_tokens=1):
+            first = service.generate_download_token(
+                file_path=test_file, user_id="test_user", file_format="json"
+            )
+            assert first.success, first.error
+
+            second_file = tmp_path / "second_export.json"
+            second_file.write_text('{"second": true}')
+
+            with patch.object(
+                Path,
+                "read_bytes",
+                side_effect=AssertionError("file must not be read"),
+            ):
+                second = service.generate_download_token(
+                    file_path=second_file, user_id="test_user", file_format="json"
+                )
+
+            assert not second.success
+            assert "quota" in second.error.lower()
+
+        stats = _registry.stats
+        assert stats["tokens"] == 1
+        assert stats["pending"] == 0
+        assert stats["reserved_bytes"] == 0
+
+    def test_token_budget_frees_after_delete(
+        self, service: DownloadService, test_file: Path
+    ):
+        """Deleting a token returns its slot to the budget immediately."""
+        with _download_config(max_tokens=2):
+            first = service.generate_download_token(
+                file_path=test_file, user_id="test_user", file_format="json"
+            )
+            second = service.generate_download_token(
+                file_path=test_file, user_id="test_user", file_format="json"
+            )
+            third = service.generate_download_token(
+                file_path=test_file, user_id="test_user", file_format="json"
+            )
+            assert first.success and second.success
+            assert not third.success
+            assert "quota" in third.error.lower()
+
+            assert service.delete_token(first.data.token).success
+
+            fourth = service.generate_download_token(
+                file_path=test_file, user_id="test_user", file_format="json"
+            )
+            assert fourth.success, fourth.error
+
+        assert _registry.stats["tokens"] == 2
+
+    def test_byte_budget_rejects_and_frees(
+        self, service: DownloadService, tmp_path: Path
+    ):
+        """max_total_bytes bounds committed bytes; delete releases them."""
+        file_a = tmp_path / "budget_a.json"
+        file_b = tmp_path / "budget_b.json"
+        file_a.write_bytes(b"a" * (600 * 1024))
+        file_b.write_bytes(b"b" * (600 * 1024))
+        chunk = 600 * 1024
+
+        # 1 MiB budget: 600 KiB + 600 KiB must not fit.
+        with _download_config(max_total_bytes=1_048_576):
+            first = service.generate_download_token(
+                file_path=file_a, user_id="test_user", file_format="json"
+            )
+            assert first.success, first.error
+            assert _registry.stats["total_bytes"] == chunk
+
+            second = service.generate_download_token(
+                file_path=file_b, user_id="test_user", file_format="json"
+            )
+            assert not second.success
+            assert "quota" in second.error.lower()
+            assert _registry.stats["total_bytes"] == chunk
+            assert _registry.stats["pending"] == 0
+
+            assert service.delete_token(first.data.token).success
+
+            retry = service.generate_download_token(
+                file_path=file_b, user_id="test_user", file_format="json"
+            )
+            assert retry.success, retry.error
+            assert _registry.stats["total_bytes"] == chunk
+
+    def test_failed_read_releases_reservation(
+        self, service: DownloadService, test_file: Path
+    ):
+        """A read failure after reserving never leaks budget."""
+        with _download_config(max_tokens=1):
+            with patch.object(Path, "read_bytes", side_effect=OSError("disk error")):
+                failed = service.generate_download_token(
+                    file_path=test_file, user_id="test_user", file_format="json"
+                )
+
+            assert not failed.success
+            assert _registry.stats["pending"] == 0
+            assert _registry.stats["reserved_bytes"] == 0
+
+            # A leaked reservation would keep max_tokens=1 unadmittable forever.
+            admitted = service.generate_download_token(
+                file_path=test_file, user_id="test_user", file_format="json"
+            )
+            assert admitted.success, admitted.error
+
+    def test_concurrent_admissions_never_exceed_token_budget(
+        self, service: DownloadService, test_file: Path
+    ):
+        """Atomic reserve-commit: 8 concurrent workers admit exactly max_tokens."""
+        import threading as _threading
+
+        max_tokens = 3
+        successes: list[str] = []
+        lock = _threading.Lock()
+
+        def worker() -> None:
+            result = service.generate_download_token(
+                file_path=test_file, user_id="test_user", file_format="json"
+            )
+            if result.success:
+                with lock:
+                    successes.append(result.data.token)
+
+        with (
+            _download_config(max_tokens=max_tokens),
+            concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool,
+        ):
+            futures = [pool.submit(worker) for _ in range(8)]
+            for future in concurrent.futures.as_completed(futures):
+                future.result()
+
+        stats = _registry.stats
+        assert len(successes) == max_tokens
+        assert stats["tokens"] == max_tokens
+        assert stats["pending"] == 0
+        assert stats["reserved_bytes"] == 0
+
+    def test_byte_counter_tracks_store_overwrite_and_delete(
+        self, service: DownloadService, test_file: Path
+    ):
+        """_total_bytes stays exact across store(), delete_token() and TTL cleanup."""
+        generated = service.generate_download_token(
+            file_path=test_file, user_id="test_user", file_format="json"
+        )
+        assert generated.success, generated.error
+        token = generated.data.token
+        assert _registry.stats["total_bytes"] == test_file.stat().st_size
+
+        # Direct store() overwrite must not double-count (test helper path).
+        info = asyncio.run(_registry.get_info(token))
+        asyncio.run(_registry.store(token, info, b"new"))
+        assert _registry.stats["total_bytes"] == 3
+
+        assert service.delete_token(token).success
+        assert _registry.stats["total_bytes"] == 0
+        assert _registry.stats["tokens"] == 0
+
+    def test_expired_cleanup_releases_byte_budget(
+        self, service: DownloadService, test_file: Path
+    ):
+        """TTL cleanup returns the token's bytes to the budget."""
+        generated = service.generate_download_token(
+            file_path=test_file, user_id="test_user", file_format="json"
+        )
+        assert generated.success, generated.error
+        token = generated.data.token
+        assert _registry.stats["total_bytes"] == test_file.stat().st_size
+
+        async def expire_token() -> None:
+            info = await _registry.get_info(token)
+            info.expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+
+        asyncio.run(expire_token())
+        assert service.cleanup_expired_tokens().data == 1
+
+        stats = _registry.stats
+        assert stats["tokens"] == 0
+        assert stats["total_bytes"] == 0

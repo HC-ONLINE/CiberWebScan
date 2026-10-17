@@ -25,12 +25,112 @@ from ciberwebscan.utils.path_security import (
 
 
 class _DownloadRegistry:
-    """In-memory registry for download tokens and file data."""
+    """In-memory registry for download tokens and file data.
+
+    The registry keeps a full in-memory copy of every exported file, so it
+    enforces a budget (``download.max_tokens`` / ``download.max_total_bytes``)
+    to bound total process memory. Admission uses an atomic reserve-commit
+    cycle: the byte reservation is taken *before* the file is read, so
+    concurrent admissions can never oversubscribe the budget.
+    """
 
     def __init__(self) -> None:
         self._tokens: dict[str, DownloadInfo] = {}
         self._file_data: dict[str, bytes] = {}
         self._lock = threading.Lock()
+        # Budget accounting (guarded by _lock):
+        # - _total_bytes: bytes held by committed tokens.
+        # - _reserved_bytes / _pending: bytes promised to in-flight
+        #   admissions that have reserved budget but not yet read their file.
+        self._total_bytes = 0
+        self._reserved_bytes = 0
+        self._pending = 0
+
+    @property
+    def stats(self) -> dict[str, int]:
+        """Snapshot of registry occupancy (tokens, bytes, in-flight work)."""
+        with self._lock:
+            return {
+                "tokens": len(self._tokens),
+                "total_bytes": self._total_bytes,
+                "reserved_bytes": self._reserved_bytes,
+                "pending": self._pending,
+            }
+
+    async def clear(self) -> None:
+        """Drop every token and reset budget counters.
+
+        Test-fixture support: production cleanup happens via
+        ``cleanup_expired`` and ``delete``. Guards below clamp counters
+        at zero, so a late release from an in-flight reservation is safe.
+        """
+        with self._lock:
+            self._tokens.clear()
+            self._file_data.clear()
+            self._total_bytes = 0
+            self._reserved_bytes = 0
+            self._pending = 0
+
+    async def reserve(
+        self,
+        size: int,
+        max_tokens: int,
+        max_total_bytes: int,
+    ) -> bool:
+        """Atomically reserve admission budget for a file of ``size`` bytes.
+
+        Returns False when either budget dimension is exhausted. The
+        reservation must be paired with ``commit`` (on success) or
+        ``release_reservation`` (on any failure path).
+        """
+        with self._lock:
+            if len(self._tokens) + self._pending >= max_tokens:
+                return False
+            if self._total_bytes + self._reserved_bytes + size > max_total_bytes:
+                return False
+            self._pending += 1
+            self._reserved_bytes += size
+            return True
+
+    async def release_reservation(self, size: int) -> None:
+        """Release an outstanding reservation after a failed admission."""
+        with self._lock:
+            self._pending = max(0, self._pending - 1)
+            self._reserved_bytes = max(0, self._reserved_bytes - size)
+
+    async def commit(
+        self,
+        token: str,
+        info: DownloadInfo,
+        file_data: bytes,
+        reserved_size: int,
+        max_total_bytes: int,
+    ) -> bool:
+        """Convert a reservation into a committed token entry.
+
+        Re-checks the byte budget under the lock because the file may have
+        grown between the ``stat()`` reservation and ``read_bytes()``; other
+        concurrent commits may also have consumed the reserved slack.
+        Returns False (caller must ``release_reservation``) when the budget
+        no longer fits.
+        """
+        with self._lock:
+            actual = len(file_data)
+            if self._total_bytes + actual > max_total_bytes:
+                return False
+            self._pending = max(0, self._pending - 1)
+            self._reserved_bytes = max(0, self._reserved_bytes - reserved_size)
+            self._insert_locked(token, info, file_data)
+            return True
+
+    def _insert_locked(self, token: str, info: DownloadInfo, file_data: bytes) -> None:
+        """Insert or overwrite a token, keeping ``_total_bytes`` exact."""
+        previous = self._file_data.get(token)
+        if previous is not None:
+            self._total_bytes -= len(previous)
+        self._tokens[token] = info
+        self._file_data[token] = file_data
+        self._total_bytes += len(file_data)
 
     async def store(
         self,
@@ -38,10 +138,9 @@ class _DownloadRegistry:
         info: DownloadInfo,
         file_data: bytes,
     ) -> None:
-        """Store token with metadata and file data."""
+        """Store token with metadata and file data (no budget enforcement)."""
         with self._lock:
-            self._tokens[token] = info
-            self._file_data[token] = file_data
+            self._insert_locked(token, info, file_data)
 
     async def get_info(self, token: str) -> DownloadInfo | None:
         """Retrieve token metadata."""
@@ -100,7 +199,9 @@ class _DownloadRegistry:
             if token not in self._tokens:
                 return False
             del self._tokens[token]
-            self._file_data.pop(token, None)
+            file_data = self._file_data.pop(token, None)
+            if file_data is not None:
+                self._total_bytes = max(0, self._total_bytes - len(file_data))
             return True
 
     async def cleanup_expired(self) -> int:
@@ -112,7 +213,9 @@ class _DownloadRegistry:
             ]
             for token in expired_tokens:
                 del self._tokens[token]
-                self._file_data.pop(token, None)
+                file_data = self._file_data.pop(token, None)
+                if file_data is not None:
+                    self._total_bytes = max(0, self._total_bytes - len(file_data))
             return len(expired_tokens)
 
     async def get_expired_count(self) -> int:
@@ -149,6 +252,18 @@ class DownloadService(BaseService):
         try:
             config = get_config()
 
+            # Single admission gate for every consumer (helper, scrape/batch,
+            # direct service use): no tokens may exist while downloads are off.
+            if not config.download.enabled:
+                self.logger.info(
+                    "Download token not generated: downloads are disabled "
+                    "(download.enabled=false)"
+                )
+                return ServiceResult(
+                    success=False,
+                    error="Download service is disabled",
+                )
+
             # Validate path to prevent traversal attacks
             output_base = Path(config.export.output_dir)
             if not output_base.is_absolute():
@@ -174,35 +289,102 @@ class DownloadService(BaseService):
 
             file_path = validated_path
 
-            # Read file data
-            file_data = file_path.read_bytes()
-            file_size_mb = len(file_data) / (1024 * 1024)
+            # Size check on metadata first: never load a file that is already
+            # known to exceed the per-file limit (read_bytes() would copy the
+            # whole file into RAM before the check could reject it).
+            try:
+                size_bytes = file_path.stat().st_size
+            except OSError as e:
+                self.logger.error(f"Unable to stat export file: {e}")
+                return ServiceResult(
+                    success=False,
+                    error=f"Unable to read file size: {file_path}",
+                )
 
-            # Validate size
+            file_size_mb = size_bytes / (1024 * 1024)
             if file_size_mb > config.download.max_file_size_mb:
                 return ServiceResult(
                     success=False,
                     error=f"File size {file_size_mb:.2f}MB exceeds limit of {config.download.max_file_size_mb}MB",
                 )
 
-            # Generate token
-            token = str(uuid.uuid4())
-            now = datetime.now(timezone.utc)
-            expires_at = now + timedelta(seconds=config.download.retention_seconds)
-
-            # Create metadata
-            info = DownloadInfo(
-                token=token,
-                user_id=user_id,
-                file_size_bytes=len(file_data),
-                created_at=now,
-                expires_at=expires_at,
-                attempts_remaining=config.download.max_retries,
-                file_format=file_format,
+            # Atomic budget reservation BEFORE reading: concurrent admissions
+            # (up to the server threadpool width) can never jointly hold more
+            # than the configured memory budget.
+            reserved = run_async(
+                _registry.reserve(
+                    size_bytes,
+                    config.download.max_tokens,
+                    config.download.max_total_bytes,
+                )
             )
+            if not reserved:
+                self.logger.warning(
+                    f"Download token not created for user "
+                    f"{mask_identifier(user_id)}: registry budget exhausted "
+                    f"(max_tokens={config.download.max_tokens}, "
+                    f"max_total_bytes={config.download.max_total_bytes})"
+                )
+                return ServiceResult(
+                    success=False,
+                    error="Download storage quota exceeded: token not created",
+                )
 
-            # Store token (async operation)
-            run_async(_registry.store(token, info, file_data))
+            committed = False
+            try:
+                # Read file data (reservation covers this allocation)
+                file_data = file_path.read_bytes()
+                file_size_mb = len(file_data) / (1024 * 1024)
+
+                # Defensive re-check: the file may have grown between stat()
+                # and read_bytes() (TOCTOU); commit re-checks the budget too.
+                if file_size_mb > config.download.max_file_size_mb:
+                    return ServiceResult(
+                        success=False,
+                        error=f"File size {file_size_mb:.2f}MB exceeds limit of {config.download.max_file_size_mb}MB",
+                    )
+
+                # Generate token
+                token = str(uuid.uuid4())
+                now = datetime.now(timezone.utc)
+                expires_at = now + timedelta(seconds=config.download.retention_seconds)
+
+                # Create metadata
+                info = DownloadInfo(
+                    token=token,
+                    user_id=user_id,
+                    file_size_bytes=len(file_data),
+                    created_at=now,
+                    expires_at=expires_at,
+                    attempts_remaining=config.download.max_retries,
+                    file_format=file_format,
+                )
+
+                # Commit the reservation (re-checks budget under the lock)
+                committed = run_async(
+                    _registry.commit(
+                        token,
+                        info,
+                        file_data,
+                        size_bytes,
+                        config.download.max_total_bytes,
+                    )
+                )
+                if not committed:
+                    self.logger.warning(
+                        f"Download token not created for user "
+                        f"{mask_identifier(user_id)}: file grew beyond the "
+                        f"reserved budget"
+                    )
+                    return ServiceResult(
+                        success=False,
+                        error="Download storage quota exceeded: token not created",
+                    )
+            finally:
+                if not committed:
+                    # Failure path (size re-check, read error, commit refusal):
+                    # hand the reservation back so the budget never leaks.
+                    run_async(_registry.release_reservation(size_bytes))
 
             response = DownloadTokenResponse(
                 token=token,

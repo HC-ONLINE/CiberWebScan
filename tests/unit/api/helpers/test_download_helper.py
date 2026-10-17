@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -20,6 +20,7 @@ from ciberwebscan.api.helpers.download_helper import (
     enrich_response_with_token,
 )
 from ciberwebscan.api.models.responses import DownloadTokenResponse
+from ciberwebscan.config.models import AppConfig
 from ciberwebscan.services.base import ServiceResult
 
 pytestmark = pytest.mark.unit
@@ -113,6 +114,33 @@ class TestEnrichResponseWithToken:
         data, token, url = enrich_response_with_token(
             result, "user-1", service, self._make_request()
         )
+
+        assert data == {"ok": True}
+        assert token is None
+        assert url is None
+        service.generate_download_token.assert_not_called()
+
+    def test_disabled_downloads_skip_token_generation(self):
+        """download.enabled=false short-circuits without warning per export.
+
+        The service is the authoritative gate; the helper skips the call so
+        an expected "disabled" state does not emit a warning on every export.
+        """
+        result: ServiceResult[dict] = ServiceResult.ok(
+            data={"ok": True}, export_path=Path("exports/report.csv")
+        )
+
+        service = self._make_service()
+        config = AppConfig()
+        config.download.enabled = False
+
+        with patch(
+            "ciberwebscan.api.helpers.download_helper.get_config",
+            return_value=config,
+        ):
+            data, token, url = enrich_response_with_token(
+                result, "user-1", service, self._make_request()
+            )
 
         assert data == {"ok": True}
         assert token is None

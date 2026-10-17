@@ -648,6 +648,13 @@ that issued it. The `401` case above (`token belongs to different user`) is cont
 share tokens across API keys, because `false` disables that access control entirely. See
 [CONFIGURATION.md — Download](CONFIGURATION.md#download).
 
+**When no token is issued:** export-enabled POST responses return `200` with
+`download_token: null` (and no `download_url`) while the export itself stays available on
+disk. This happens when downloads are disabled (`download.enabled=false`) or when the
+registry budget is exhausted (`download.max_tokens` / `download.max_total_bytes` — see
+[CONFIGURATION.md — Download](CONFIGURATION.md#download)). A `GET /api/download/{token}`
+against a disabled service returns `503`.
+
 **Example:**
 
 ```bash
@@ -1041,9 +1048,11 @@ CIBERWEBSCAN_API_CORS_EXPOSE_HEADERS="X-Custom-Header"
 
 # Downloads
 CIBERWEBSCAN_DOWNLOAD_ENABLED=true
-CIBERWEBSCAN_DOWNLOAD_TOKEN_EXPIRY_MINUTES=60
-CIBERWEBSCAN_DOWNLOAD_MAX_RETRY_ATTEMPTS=3
+CIBERWEBSCAN_DOWNLOAD_RETENTION_SECONDS=1800
+CIBERWEBSCAN_DOWNLOAD_MAX_RETRIES=3
 CIBERWEBSCAN_DOWNLOAD_REQUIRE_SAME_USER=true
+CIBERWEBSCAN_DOWNLOAD_MAX_TOKENS=100
+CIBERWEBSCAN_DOWNLOAD_MAX_TOTAL_BYTES=1073741824
 ```
 
 ### Rate Limiting
