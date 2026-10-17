@@ -25,6 +25,33 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Leading characters that spreadsheets may interpret as formulas (CWE-1236).
+FORMULA_PREFIXES: tuple[str, ...] = ("=", "+", "-", "@", "\t", "\r")
+
+
+def neutralize_formula(value: Any) -> Any:
+    """
+    Neutralize CSV formula injection (CWE-1236).
+
+    Prepends a single quote to string values starting with a character that
+    spreadsheets may interpret as the start of a formula. Non-string values
+    (numbers, bools, None) are returned unchanged: they are never formula
+    vectors when written by the csv module.
+
+    Note: the neutralized value keeps the original text after the apostrophe,
+    so consumers that strip a leading quote recover the raw value.
+
+    Args:
+        value: Cell value to check.
+
+    Returns:
+        The value, prefixed with an apostrophe if it starts with a character
+        in FORMULA_PREFIXES; otherwise the value unchanged.
+    """
+    if isinstance(value, str) and value[:1] in FORMULA_PREFIXES:
+        return f"'{value}"
+    return value
+
 
 def flatten_dict(
     data: dict[str, Any],
@@ -174,8 +201,18 @@ class CSVExporter(StreamingExporter):
 
         if self.columns:
             writer = self._get_writer()
-            writer.writeheader()
+            self._writeheader(writer)
             self._header_written = True
+
+    def _writeheader(self, writer: csv.DictWriter) -> None:
+        """
+        Write the header row, neutralizing formula-like column names.
+
+        Column names may embed third-party content (e.g. flattened HTTP
+        header names from a scanned target), so the header row is subject
+        to the same neutralization as data rows.
+        """
+        writer.writerow({col: neutralize_formula(col) for col in self.columns or []})
 
     def write_item(self, item: Any) -> None:
         """
@@ -200,6 +237,9 @@ class CSVExporter(StreamingExporter):
                     max_depth=self.max_flatten_depth,
                 )
 
+            # Neutralize CSV formula injection (CWE-1236)
+            data = {key: neutralize_formula(value) for key, value in data.items()}
+
             # Auto-detect columns from first item
             if self.columns is None:
                 self.columns = list(data.keys())
@@ -208,7 +248,7 @@ class CSVExporter(StreamingExporter):
             if not self._header_written:
                 self._started = True
                 writer = self._get_writer()
-                writer.writeheader()
+                self._writeheader(writer)
                 self._header_written = True
             else:
                 writer = self._get_writer()
