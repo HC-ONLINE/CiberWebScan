@@ -19,9 +19,13 @@ from ciberwebscan.export.csv import (
     csv_to_dicts,
     export_to_csv,
     flatten_dict,
+    neutralize_formula,
 )
 
 pytestmark = pytest.mark.unit
+
+# Leading characters spreadsheets may interpret as formulas (CWE-1236).
+DANGEROUS_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
 
 # =============================================================================
 # Test Fixtures
@@ -526,3 +530,239 @@ class TestCSVExporterFileOutput:
         reader = csv.DictReader(output.open())
         rows = list(reader)
         assert len(rows) == 1
+
+
+# =============================================================================
+# CSV Formula Injection Neutralization (CWE-1236 / BUG-008)
+# =============================================================================
+
+
+def _read_cells(stream: StringIO, column: str = "value") -> list[str]:
+    """Parse CSV output and return the values of *column* via csv.DictReader."""
+    stream.seek(0)
+    return [row[column] for row in csv.DictReader(stream)]
+
+
+class TestNeutralizeFormula:
+    """Tests for the neutralize_formula helper."""
+
+    @pytest.mark.parametrize("prefix", DANGEROUS_PREFIXES)
+    def test_dangerous_prefix_gets_apostrophe(self, prefix: str):
+        """Strings starting with a dangerous character are prefixed."""
+        assert neutralize_formula(f"{prefix}1+1") == f"'{prefix}1+1"
+
+    @pytest.mark.parametrize("value", ["normal", "hello world", "a=b", "x+y"])
+    def test_safe_strings_unchanged(self, value: str):
+        """Safe strings (dangerous chars in non-leading position) are untouched."""
+        assert neutralize_formula(value) == value
+
+    @pytest.mark.parametrize("value", ["+34 600", "- trailing"])
+    def test_leading_plus_or_minus_strings_neutralized(self, value: str):
+        """Strings starting with + or - are neutralized even if human-written.
+
+        Known trade-off of the OWASP recommendation: values such as phone
+        numbers starting with '+' lose their raw form in CSV output.
+        """
+        assert neutralize_formula(value) == f"'{value}"
+
+    @pytest.mark.parametrize("value", [42, -5, 3.14, True, None])
+    def test_non_strings_unchanged(self, value):
+        """Non-string values are never neutralized (numbers are not formulas)."""
+        assert neutralize_formula(value) is value
+
+    def test_empty_string_unchanged(self):
+        """Empty string is unchanged."""
+        assert neutralize_formula("") == ""
+
+
+class TestCSVFormulaNeutralization:
+    """Regression tests: cells must not retain unneutralized formula prefixes."""
+
+    @pytest.mark.parametrize("prefix", DANGEROUS_PREFIXES)
+    def test_six_dangerous_prefixes_neutralized(self, prefix: str):
+        """BUG-008: =, +, -, @, TAB and CR prefixed cells are neutralized in output."""
+        stream = StringIO()
+        raw = f"{prefix}1+1"
+
+        with CSVExporter(stream=stream, columns=["value"]) as exporter:
+            exporter.write_item({"value": raw})
+
+        (cell,) = _read_cells(stream)
+        assert not cell.startswith(DANGEROUS_PREFIXES)
+        assert cell == f"'{raw}"
+
+    def test_mixed_row_neutralizes_only_dangerous(self):
+        """Only dangerous cells are modified within a mixed row."""
+        stream = StringIO()
+        item = {
+            "eq": "=1+1",
+            "plus": "+1+1",
+            "minus": "-2+3",
+            "at": "@SUM(1+1)",
+            "tab": "\t=1+1",
+            "cr": "\r=1+1",
+            "normal": "safe text",
+            "number": -5,
+            "empty": "",
+        }
+
+        with CSVExporter(stream=stream) as exporter:
+            exporter.write_item(item)
+
+        stream.seek(0)
+        row = next(csv.DictReader(stream))
+        assert row["eq"] == "'=1+1"
+        assert row["plus"] == "'+1+1"
+        assert row["minus"] == "'-2+3"
+        assert row["at"] == "'@SUM(1+1)"
+        assert row["tab"] == "'\t=1+1"
+        assert row["cr"] == "'\r=1+1"
+        assert row["normal"] == "safe text"
+        assert row["number"] == "-5"
+        assert row["empty"] == ""
+
+    @pytest.mark.parametrize(
+        "value",
+        [
+            "plain text",
+            "line1\nline2",
+            "has, comma",
+            'has "quotes"',
+            "a=b internal",
+            "x+y internal",
+            "trailing minus -",
+            " leading space",
+        ],
+    )
+    def test_legitimate_values_preserved(self, value: str):
+        """Ordinary values (including internal dangerous chars) survive intact."""
+        stream = StringIO()
+
+        with CSVExporter(stream=stream, columns=["value"]) as exporter:
+            exporter.write_item({"value": value})
+
+        (cell,) = _read_cells(stream)
+        assert cell == value
+
+    def test_negative_numbers_as_numbers_preserved(self):
+        """Negative numbers written as numbers are not string-neutralized."""
+        stream = StringIO()
+
+        with CSVExporter(stream=stream, columns=["n"]) as exporter:
+            exporter.write_item({"n": -2})
+            exporter.write_item({"n": -2.5})
+
+        assert _read_cells(stream, "n") == ["-2", "-2.5"]
+
+    def test_nested_values_neutralized_after_flatten(self):
+        """Values under nested keys (e.g. scrape.title) are neutralized."""
+        stream = StringIO()
+        item = {
+            "url": "https://example.com",
+            "scrape": {
+                "title": '=HYPERLINK("http://evil","click")',
+                "headers": {"X-Test": "=1+1"},
+            },
+        }
+
+        with CSVExporter(stream=stream, flatten=True) as exporter:
+            exporter.write_item(item)
+
+        stream.seek(0)
+        row = next(csv.DictReader(stream))
+        assert row["scrape.title"] == '\'=HYPERLINK("http://evil","click")'
+        assert not row["scrape.headers.X-Test"].startswith("=")
+
+    def test_list_joined_values_neutralized(self):
+        """Joined list values starting with a dangerous prefix are neutralized."""
+        stream = StringIO()
+
+        with CSVExporter(stream=stream, columns=["tags"]) as exporter:
+            exporter.write_item({"tags": ["=1+1", "safe"]})
+
+        (cell,) = _read_cells(stream, "tags")
+        assert cell == "'=1+1; safe"
+
+    def test_no_flatten_still_neutralized(self):
+        """Neutralization does not depend on the flatten flag."""
+        stream = StringIO()
+
+        with CSVExporter(stream=stream, flatten=False, columns=["v"]) as exporter:
+            exporter.write_item({"v": "=1+1"})
+
+        (cell,) = _read_cells(stream, "v")
+        assert cell == "'=1+1"
+
+    def test_dangerous_column_names_neutralized(self):
+        """Header row cells with formula-like column names are neutralized."""
+        stream = StringIO()
+
+        with CSVExporter(stream=stream, columns=["=cmd", "safe"]) as exporter:
+            exporter.write_header()
+            exporter.write_item({"=cmd": "x", "safe": "y"})
+
+        stream.seek(0)
+        rows = list(csv.reader(stream))
+        assert rows[0][0] == "'=cmd"
+        assert rows[0][1] == "safe"
+        assert rows[1] == ["x", "y"]
+
+    def test_streaming_multiple_items(self, sample_items):
+        """Streaming writes neutralize every row, not only the first."""
+        stream = StringIO()
+        hostile_items = [
+            {**item, "title": f"=cmd|' /C calc'!A{i}"}
+            for i, item in enumerate(sample_items)
+        ]
+
+        with CSVExporter(stream=stream) as exporter:
+            for item in hostile_items:
+                exporter.write_item(item)
+            assert exporter._items_written == 3
+
+        stream.seek(0)
+        titles = [row["title"] for row in csv.DictReader(stream)]
+        assert len(titles) == 3
+        assert all(t.startswith("'=") for t in titles)
+
+    def test_export_to_csv_neutralizes(self, tmp_path: Path):
+        """The export_to_csv convenience wrapper also neutralizes."""
+        output = tmp_path / "out.csv"
+
+        export_to_csv([{"v": "@SUM(1+1)"}], output)
+
+        rows = list(csv.DictReader(output.open()))
+        assert rows[0]["v"] == "'@SUM(1+1)"
+
+    def test_export_report_server_neutralized(self, tmp_path: Path, mock_report):
+        """BUG-008 path: hostile Server header reaching the server column."""
+        mock_report.fingerprint.server = "=cmd|' /C calc'!A1"
+        output = tmp_path / "report.csv"
+
+        CSVExporter(output_path=output).export_report(mock_report)
+
+        rows = list(csv.DictReader(output.open()))
+        assert rows[0]["server"] == "'=cmd|' /C calc'!A1"
+        # Non-dangerous report fields are intact
+        assert rows[0]["target_url"] == "https://example.com"
+
+    def test_output_remains_valid_csv(self):
+        """Neutralization preserves CSV structure (quoting, delimiter, rows)."""
+        stream = StringIO()
+        items = [
+            {"v": "=1+1", "note": "has, comma"},
+            {"v": "'=1+1", "note": 'already "quoted" text'},
+            {"v": "\r=1+1", "note": "multi\nline"},
+        ]
+
+        with CSVExporter(stream=stream) as exporter:
+            for item in items:
+                exporter.write_item(item)
+
+        stream.seek(0)
+        rows = list(csv.DictReader(stream))
+        assert len(rows) == 3
+        assert rows[0]["note"] == "has, comma"
+        assert rows[1]["v"] == "'=1+1"  # apostrophe-leading value is not re-prefixed
+        assert rows[1]["note"] == 'already "quoted" text'
+        assert rows[2]["note"] == "multi\nline"
