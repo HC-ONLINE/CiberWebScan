@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.31.4](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.31.3...v2.31.4) (2026-10-17)
+
+
+### Bug Fixes
+
+* **download:** bound in-memory download registry and gate tokens when disabled ([370961c](https://github.com/HC-ONLINE/CiberWebScan/commit/370961cd2fdef9a022202497072efb655f038f44))
+* **download:** bound in-memory download registry and gate tokens when disabled ([c113d28](https://github.com/HC-ONLINE/CiberWebScan/commit/c113d28dd8e4ae266e04c549edcf0540b172fcb7))
+
 ## [2.31.3](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.31.2...v2.31.3) (2026-10-16)
 
 
