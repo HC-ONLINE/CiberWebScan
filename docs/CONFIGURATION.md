@@ -481,7 +481,9 @@ Configure the download tokens returned by export-enabled API requests (`download
   "download": {
     "enabled": true,
     "retention_seconds": 1800,
-    "require_same_user": true
+    "require_same_user": true,
+    "max_tokens": 100,
+    "max_total_bytes": 1073741824
   }
 }
 ```
@@ -505,17 +507,34 @@ The value is read from the configuration on every download request, so it applie
 
 The returned-attempt refund is capped: it can never push a token above `download.max_retries`, and it never recreates a deleted token. If you lower `max_retries` at runtime, refunds on tokens created under the previous (higher) value may be refused, leaving their counter unchanged — attempts are never inflated beyond the current configuration.
 
+#### Registry budget: `download.max_tokens` / `download.max_total_bytes`
+
+Each download token keeps a full in-memory copy of its export file, so total memory grows with every live token. Two budget keys bound that:
+
+- **`download.max_tokens`** (default `100`, range 1-10000) — maximum number of live tokens in the registry.
+- **`download.max_total_bytes`** (default `1073741824` = 1 GiB, range 1 MiB-1024 GiB) — maximum total bytes held by all live tokens.
+
+Admission is atomic and happens **before** the export file is read: a request whose token would exceed either limit is rejected without loading the file into memory. When a budget is exhausted:
+
+- The export itself still completes and is written to disk normally.
+- The response returns `200` with `download_token: null` (no token, no `download_url`).
+- Budget is freed when a token is downloaded (deleted), expires (`retention_seconds`), or is removed by the cleanup job — there is no eviction of live tokens.
+
+Raise these values only when the host has the RAM for them: `max_total_bytes` is a hard cap on cached-export memory across the whole process. The rejection is logged as a warning identifying the exhausted limit.
+
 #### Default values (quick reference)
 
-| Key                                 |   Default | Description                                             |
-| ----------------------------------- | --------: | ------------------------------------------------------- |
-| `download.enabled`                  |    `true` | Download service enabled (tokens + `GET /api/download`) |
-| `download.retention_seconds`        |    `1800` | Seconds before a download token expires (60-86400)      |
-| `download.max_file_size_mb`         |     `500` | Max export file size accepted for download (MB)         |
-| `download.max_retries`              |       `3` | Max download attempts per token (1-10)                  |
-| `download.cleanup_interval_seconds` |     `300` | Cleanup scheduler interval (requires restart)           |
-| `download.require_same_user`        |    `true` | Bind each download token to the API key that issued it  |
-| `download.stream_chunk_size`        | `1048576` | Streaming chunk size in bytes                           |
+| Key                                 |      Default | Description                                             |
+| ----------------------------------- | -----------: | ------------------------------------------------------- |
+| `download.enabled`                  |       `true` | Download service enabled (tokens + `GET /api/download`) |
+| `download.retention_seconds`        |       `1800` | Seconds before a download token expires (60-86400)      |
+| `download.max_file_size_mb`         |        `500` | Max export file size accepted for download (MB)         |
+| `download.max_retries`              |          `3` | Max download attempts per token (1-10)                  |
+| `download.cleanup_interval_seconds` |        `300` | Cleanup scheduler interval (requires restart)           |
+| `download.require_same_user`        |       `true` | Bind each download token to the API key that issued it  |
+| `download.stream_chunk_size`        |    `1048576` | Streaming chunk size in bytes                           |
+| `download.max_tokens`               |        `100` | Max live download tokens held in memory (1-10000)       |
+| `download.max_total_bytes`          | `1073741824` | Byte budget across all live tokens (1 MiB-1024 GiB)     |
 
 ### Cache
 

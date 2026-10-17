@@ -79,6 +79,8 @@ def in_process_client(tmp_path: Path):
         mock_dl_cfg.return_value.download.max_retries = 3
         mock_dl_cfg.return_value.download.stream_chunk_size = 1024 * 1024
         mock_dl_cfg.return_value.download.enabled = True
+        mock_dl_cfg.return_value.download.max_tokens = 100
+        mock_dl_cfg.return_value.download.max_total_bytes = 1_073_741_824
         with TestClient(app) as client:
             yield client, mock_dl_cfg
 
@@ -312,6 +314,9 @@ class TestTokenLifecycle:
             mock_cfg.return_value.export.output_dir = str(tmp_path)
             mock_cfg.return_value.download.max_file_size_mb = 10
             mock_cfg.return_value.download.retention_seconds = 3600
+            mock_cfg.return_value.download.enabled = True
+            mock_cfg.return_value.download.max_tokens = 100
+            mock_cfg.return_value.download.max_total_bytes = 1_073_741_824
             service = DownloadService()
 
             generate_result = service.generate_download_token(

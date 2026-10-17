@@ -56,6 +56,8 @@ def client(tmp_path: Path) -> TestClient:
             mock_cfg.return_value.download.max_retries = 3
             mock_cfg.return_value.download.stream_chunk_size = 1024 * 1024
             mock_cfg.return_value.download.enabled = True
+            mock_cfg.return_value.download.max_tokens = 100
+            mock_cfg.return_value.download.max_total_bytes = 1_073_741_824
         yield TestClient(app)
 
 

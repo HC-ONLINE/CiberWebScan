@@ -13,6 +13,7 @@ from urllib.parse import urlparse
 
 from fastapi import Request
 
+from ciberwebscan.config.loader import get_config
 from ciberwebscan.export import EXPORT_FORMATS
 from ciberwebscan.services.base import ServiceResult
 from ciberwebscan.services.download_service import DownloadService
@@ -68,6 +69,15 @@ def enrich_response_with_token(
     """
     # If no export_path, return data without token
     if result.export_path is None:
+        return result.data, None, None
+
+    # Downloads disabled is an expected state, not a failure: skip the
+    # service call so the (already gated) export does not emit a warning
+    # per request. The service remains the authoritative admission gate.
+    if not get_config().download.enabled:
+        download_service.logger.debug(
+            "Download token skipped: downloads are disabled (download.enabled=false)"
+        )
         return result.data, None, None
 
     # Generate token from the exported file with the real export format

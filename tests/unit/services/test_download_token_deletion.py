@@ -30,10 +30,16 @@ class TestTokenDeletion:
 
     @pytest.fixture(autouse=True)
     def clear_registry(self):
-        """Clear the registry before and after each test."""
-        asyncio.run(_registry.cleanup_expired())
+        """Clear the registry before and after each test.
+
+        Full purge (not just expired tokens): the registry enforces
+        ``download.max_tokens``, so tokens leaking from earlier tests
+        would consume the shared budget and make these tests fail for
+        reasons unrelated to deletion.
+        """
+        asyncio.run(_registry.clear())
         yield
-        asyncio.run(_registry.cleanup_expired())
+        asyncio.run(_registry.clear())
 
     @pytest.fixture(autouse=True)
     def mock_export_dir(self):

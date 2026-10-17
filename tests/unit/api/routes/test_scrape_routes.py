@@ -4,12 +4,14 @@ Unit tests for scraping API endpoints.
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
 from ciberwebscan.api.app import create_app
+from ciberwebscan.config.models import AppConfig
 from ciberwebscan.export.models import ScrapeResult
 
 pytestmark = pytest.mark.unit
@@ -160,6 +162,50 @@ class TestScrapeBatchEndpoint:
     def test_post_scrape_batch_empty_urls_returns_422(self, client: TestClient):
         response = client.post("/api/scrape/batch", json={"urls": []})
         assert response.status_code == 422
+
+    def test_post_scrape_batch_export_no_token_when_downloads_disabled(
+        self,
+        client: TestClient,
+        mock_scrape_result: ScrapeResult,
+        tmp_path: Path,
+    ):
+        """BUG-011: batch exports never mint tokens while downloads are off.
+
+        The batch route bypasses enrich_response_with_token, so the gate must
+        live in the service: the response stays 200 with download_token=None
+        and the export file itself is untouched.
+        """
+        export_file = tmp_path / "batch_export.json"
+        export_file.write_text('{"batch": true}')
+
+        config = AppConfig()
+        config.download.enabled = False
+        config.export.output_dir = str(tmp_path)
+
+        with (
+            patch("ciberwebscan.api.routes.scrape.ScrapeService") as mock_service_cls,
+            patch(
+                "ciberwebscan.services.download_service.get_config",
+                return_value=config,
+            ),
+        ):
+            mock_service = MagicMock()
+            mock_service_cls.return_value = mock_service
+            scrape_result = _make_service_result(data=[mock_scrape_result])
+            scrape_result.export_path = export_file
+            mock_service.scrape_multiple.return_value = scrape_result
+
+            response = client.post(
+                "/api/scrape/batch",
+                json={"urls": ["https://example.com"]},
+            )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["success"] is True
+        assert body["download_token"] is None
+        assert body["download_url"] is None
+        assert export_file.exists()
 
 
 def _mock_http_response(
