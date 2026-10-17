@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.31.5](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.31.4...v2.31.5) (2026-10-17)
+
+
+### Bug Fixes
+
+* **export:** neutralize formula-like cells in CSV output ([fa68d4d](https://github.com/HC-ONLINE/CiberWebScan/commit/fa68d4d9a5567a09dfbb910f6ee620f8fdbb8e18))
+* **export:** neutralize formula-like cells in CSV output ([0ea1408](https://github.com/HC-ONLINE/CiberWebScan/commit/0ea140836a33f9673af69a3c16fa227debef2d05))
+
 ## [2.31.4](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.31.3...v2.31.4) (2026-10-17)
 
 
