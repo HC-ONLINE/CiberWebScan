@@ -344,6 +344,17 @@ class TestRateLimitingEnforced:
             f"Rate limit not triggered after {success_count} requests"
         )
 
+    def test_rate_limiting_disabled_is_not_registered(self):
+        """api.rate_limit.enabled=False must not register the middleware."""
+        from ciberwebscan.api.app import create_app
+
+        config = AppConfig(api=APIConfig(rate_limit=APIRateLimitConfig(enabled=False)))
+        with patch("ciberwebscan.api.app.get_config", return_value=config):
+            app = create_app()
+
+        registered = [mw.cls for mw in app.user_middleware]
+        assert RateLimitingMiddleware not in registered
+
 
 class TestRateLimitingMiddlewareWindowRotation:
     """Tests for rate limiting window rotation behavior."""
