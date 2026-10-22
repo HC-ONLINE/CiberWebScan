@@ -34,6 +34,51 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# Configuration subtrees that only the local operator may change (config
+# file, environment variables or the local CLI). Remote updates via
+# PUT /config are rejected: API keys carry no administrative scope
+# distinction today, so no key can be trusted with security exceptions.
+_PROTECTED_CONFIG_PREFIXES: tuple[str, ...] = ("http.proxy",)
+_PROTECTED_CONFIG_SUFFIXES: tuple[str, ...] = (".allow_local",)
+
+
+def _is_protected_config_key(key: str) -> bool:
+    """Return True when *key* (dot-notation) is operator-only."""
+    normalized = key.strip().strip(".").lower()
+    if not normalized:
+        return False
+    if normalized == "allow_local":
+        return True
+    if any(
+        normalized == prefix or normalized.startswith(f"{prefix}.")
+        for prefix in _PROTECTED_CONFIG_PREFIXES
+    ):
+        return True
+    return any(normalized.endswith(suffix) for suffix in _PROTECTED_CONFIG_SUFFIXES)
+
+
+def config_update_touches_protected(path: str, value: Any) -> bool:
+    """Return True when a config update would modify a protected key.
+
+    Covers direct updates (``http.proxy.http``), section updates and batch
+    updates that smuggle protected keys inside a value mapping
+    (``http`` with ``{"proxy": {...}}``, or root with
+    ``{"analysis": {"allow_local": true}}``), case-insensitively.
+    """
+    base = (path or "").strip().strip(".").lower()
+    if _is_protected_config_key(base):
+        return True
+
+    def _walk(prefix: str, node: Any) -> bool:
+        if isinstance(node, dict):
+            for key, subvalue in node.items():
+                full = f"{prefix}.{key}" if prefix else str(key)
+                if _is_protected_config_key(full) or _walk(full, subvalue):
+                    return True
+        return False
+
+    return _walk(base, value)
+
 
 @router.get(
     "/config",
@@ -185,12 +230,31 @@ async def update_config(
     """
     Update a configuration value.
 
+    Security-sensitive keys (``http.proxy.*`` and any ``*.allow_local``
+    security exception) are operator-only: they cannot be modified
+    remotely through this endpoint.
+
     Args:
         request: Contains key path, new value, and optional save flag.
 
     Returns:
         Updated configuration value with metadata.
     """
+    if config_update_touches_protected(request.path, request.value):
+        logger.warning(
+            "Rejected remote modification of protected config key %r",
+            request.path,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                f"Configuration key '{request.path}' is protected: proxy "
+                "options and security exceptions (allow_local) can only be "
+                "changed by the local operator via the configuration file, "
+                "environment variables or the CLI."
+            ),
+        )
+
     try:
         service = ConfigService()
         result = service.set(request.path, request.value)
