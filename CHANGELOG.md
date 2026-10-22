@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.32.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.31.5...v2.32.0) (2026-10-22)
+
+
+### Features
+
+* **client:** support SOCKS5 proxies via httpx[socks] ([4b89dae](https://github.com/HC-ONLINE/CiberWebScan/commit/4b89daeb639d6c1387376c0277078bf512e1e2d1))
+
+
+### Bug Fixes
+
+* **api:** block remote updates of protected config keys ([4b1e5e8](https://github.com/HC-ONLINE/CiberWebScan/commit/4b1e5e8ac390d69ca9c3de63911178acce97b2ee))
+* **client:** enforce proxy policy at client and config boundaries ([0fe33e8](https://github.com/HC-ONLINE/CiberWebScan/commit/0fe33e8b439ba4f78640fc56dbc42e34e81de840))
+* **scraping:** validate Chromium proxy and guard WebSocket routes ([525e209](https://github.com/HC-ONLINE/CiberWebScan/commit/525e209e8cd7aff121d9cc8f629a455855ef3534))
+* **services:** report proxy SSRF blocks as validation errors ([a8b5ff6](https://github.com/HC-ONLINE/CiberWebScan/commit/a8b5ff6d557ed642df153dca583fc65a71ed3039))
+* **ssrf:** block proxy-based SSRF bypass at every network boundary ([9b6d32d](https://github.com/HC-ONLINE/CiberWebScan/commit/9b6d32da7c37a0d23fd45f6b0adfa752a867438c))
+* **ssrf:** classify proxy endpoints in the SSRF policy ([2f2026c](https://github.com/HC-ONLINE/CiberWebScan/commit/2f2026cb7f8b0f58d629e74b1ba663a4fd4901b3))
+
+
+### Documentation
+
+* document proxy SSRF policy and operator-only config ([1bc13eb](https://github.com/HC-ONLINE/CiberWebScan/commit/1bc13eb8096f09cc9931c7805491bc563047eb23))
+
 ## [2.31.5](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.31.4...v2.31.5) (2026-10-17)
 
 
