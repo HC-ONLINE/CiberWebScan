@@ -12,7 +12,7 @@ import ipaddress
 import logging
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, HttpUrl, field_validator
+from pydantic import BaseModel, Field, HttpUrl, field_validator, model_validator
 
 logger = logging.getLogger(__name__)
 
@@ -70,21 +70,90 @@ class ProxyConfig(BaseModel):
             "Accepts a list of strings or a single comma/newline-separated string."
         ),
     )
+    allow_local: bool = Field(
+        default=False,
+        description=(
+            "Permit loopback/RFC1918 proxy endpoints (e.g. Burp Suite or "
+            "mitmproxy on the operator workstation). Independent from the "
+            "per-module allow_local target opt-ins: neither authorizes the "
+            "other. Link-local/IMDS, CGNAT, multicast and reserved proxy "
+            "addresses stay blocked even when true."
+        ),
+    )
+    use_env: bool = Field(
+        default=False,
+        description=(
+            "Honour HTTP_PROXY/HTTPS_PROXY/ALL_PROXY environment "
+            "variables. Every environment proxy is validated against the "
+            "SSRF policy before use (fail-closed)."
+        ),
+    )
 
     @field_validator("proxy_list", mode="before")
     @classmethod
     def _normalize_proxy_list(cls, value: str | list[str] | None) -> list[str] | None:
-        """Normalize proxy_list: accept a string or list, always return list or None."""
+        """Normalize proxy_list: accept a string or list, always return list or None.
+
+        Purely syntactic (split on commas/newlines, default the scheme):
+        the SSRF policy is applied afterwards in the model validator,
+        where ``allow_local`` is already available, so string and list
+        forms are policed identically.
+        """
         if value is None:
             return None
         if isinstance(value, str):
-            from ciberwebscan.core.client.proxy import parse_proxy_list
-
-            parsed = parse_proxy_list(value)
-            return parsed if parsed else None
+            entries = [
+                chunk.strip()
+                for chunk in value.replace("\n", ",").split(",")
+                if chunk.strip()
+            ]
+            normalized = [
+                entry
+                if entry.startswith(("http://", "https://", "socks5://"))
+                else f"http://{entry}"
+                for entry in entries
+            ]
+            return normalized or None
         if isinstance(value, list):
             return [v for v in value if v] or None
         return value
+
+    @model_validator(mode="after")
+    def _validate_proxies_against_policy(self) -> ProxyConfig:
+        """Enforce the SSRF policy on every configured proxy at ingestion.
+
+        Strings and lists in ``proxy_list`` go through the same
+        classification as the individual fields, so a proxy that is
+        rejected as a string is equally rejected as a list entry. The
+        effective usage boundary in ``HTTPClient`` re-validates.
+        """
+        from ciberwebscan.core.client.ssrf import (
+            SSRFBlockedError,
+            check_proxy_url,
+        )
+
+        candidates: list[tuple[str, str]] = []
+        for field_name in ("http", "https"):
+            value = getattr(self, field_name)
+            if value is not None:
+                candidates.append((field_name, str(value)))
+        if self.socks5:
+            candidates.append(("socks5", self.socks5))
+        for entry in self.proxy_list or []:
+            candidates.append(("proxy_list", entry))
+
+        for source, url in candidates:
+            try:
+                check_proxy_url(url, allow_local=self.allow_local)
+            except SSRFBlockedError as exc:
+                hint = (
+                    " Set http.proxy.allow_local=true to permit local "
+                    "proxy endpoints (operator decision)."
+                    if not self.allow_local
+                    else ""
+                )
+                raise ValueError(f"http.proxy.{source}: {exc}.{hint}") from exc
+        return self
 
 
 class HTTPConfig(BaseModel):

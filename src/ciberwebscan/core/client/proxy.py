@@ -10,7 +10,6 @@ import logging
 import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
-from urllib.parse import urlparse
 
 if TYPE_CHECKING:
     from ciberwebscan.core.client.http_client import HTTPClient
@@ -107,19 +106,15 @@ def parse_proxy(
             "Expected: protocol://[user:pass@]host[:port]"
         )
 
-    parsed = urlparse(proxy_str)
-    host = parsed.hostname or ""
+    # Network policy: delegate to the central SSRF classification so
+    # parsing and the request boundary agree (covers DNS names,
+    # non-canonical IPv4 notations, link-local/IMDS, IPv6, etc.).
+    from ciberwebscan.core.client.ssrf import SSRFBlockedError, check_proxy_url
 
-    # Check for local/private addresses
-    if not allow_local and host in {"localhost", "127.0.0.1", "0.0.0.0", "::1"}:
-        raise ProxyValidationError(
-            "Local proxies are not allowed. Set allow_local=True to override."
-        )
-
-    if not allow_private and is_private_ip(host):
-        raise ProxyValidationError(
-            "Private network proxies are not allowed. Set allow_private=True to override."
-        )
+    try:
+        check_proxy_url(proxy_str, allow_local=allow_local or allow_private)
+    except SSRFBlockedError as exc:
+        raise ProxyValidationError(str(exc)) from exc
 
     return proxy_str
 
