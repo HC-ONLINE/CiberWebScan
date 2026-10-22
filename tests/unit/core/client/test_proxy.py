@@ -59,7 +59,8 @@ class TestParseProxy:
         """Local proxies should be blocked by default."""
         with pytest.raises(ProxyValidationError) as exc:
             parse_proxy("http://localhost:8080")
-        assert "Local proxies are not allowed" in str(exc.value)
+        assert "ssrf" in str(exc.value).lower()
+        assert "blocked" in str(exc.value).lower()
 
         with pytest.raises(ProxyValidationError):
             parse_proxy("http://127.0.0.1:8080")
@@ -81,7 +82,8 @@ class TestParseProxy:
         """Private IP proxies should be blocked by default."""
         with pytest.raises(ProxyValidationError) as exc:
             parse_proxy("http://192.168.1.1:8080")
-        assert "Private network proxies are not allowed" in str(exc.value)
+        assert "ssrf" in str(exc.value).lower()
+        assert "blocked" in str(exc.value).lower()
 
         with pytest.raises(ProxyValidationError):
             parse_proxy("http://10.0.0.1:8080")

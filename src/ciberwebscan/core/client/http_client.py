@@ -15,6 +15,7 @@ of a full compatibility layer while centralizing cross-cutting concerns.
 from __future__ import annotations
 
 import logging
+import os
 import random
 import threading
 import time
@@ -270,6 +271,8 @@ class HTTPClient:
         max_redirects: int | None = None,
         ssrf_guard: bool = False,
         allow_local: bool = False,
+        allow_local_proxy: bool | None = None,
+        use_env_proxies: bool | None = None,
     ):
         """
         Initialize the HTTP client.
@@ -298,6 +301,18 @@ class HTTPClient:
                 event hook). Raises SSRFBlockedError for forbidden targets.
             allow_local: Policy opt-in for ssrf_guard: only validate the URL
                 format and skip private/loopback classification.
+            allow_local_proxy: Permit loopback/RFC1918 proxy endpoints
+                (e.g. Burp Suite locally). Independent from ``allow_local``
+                (targets): neither authorizes the other. When None, falls
+                back to ``http.proxy.allow_local`` from config (default
+                False). Link-local/IMDS, CGNAT, multicast and reserved
+                proxy addresses stay blocked even when True.
+            use_env_proxies: Honour ``HTTP_PROXY``/``HTTPS_PROXY``/
+                ``ALL_PROXY`` environment variables (httpx ``trust_env``).
+                Defaults to False: environment proxies are ignored unless
+                explicitly enabled via this flag or ``http.proxy.use_env``.
+                When enabled, every environment proxy is validated against
+                the SSRF policy before the client is built (fail-closed).
         """
         config = get_config().http
 
@@ -346,6 +361,36 @@ class HTTPClient:
                 else config.proxy.socks5
             )
 
+        proxy_cfg = config.proxy
+        resolved_allow_local_proxy = (
+            allow_local_proxy
+            if allow_local_proxy is not None
+            else bool(proxy_cfg.allow_local if proxy_cfg else False)
+        )
+        resolved_use_env = (
+            use_env_proxies
+            if use_env_proxies is not None
+            else bool(proxy_cfg.use_env if proxy_cfg else False)
+        )
+
+        # SSRF policy on the proxy endpoint: the TCP connection is opened
+        # towards the proxy, so it is classified here — before any
+        # transport exists — for every source (CLI/API parameter, config
+        # fallback, rotation, helper clients). Environment proxies are
+        # only consulted when httpx would actually use them (no explicit
+        # or configured proxy) and each one is validated as well, so
+        # trust_env can never smuggle an unvalidated proxy into a
+        # transport. Validation failures raise SSRFBlockedError.
+        from ciberwebscan.core.client.ssrf import (
+            check_proxy_url as _check_proxy_url,
+        )
+
+        if resolved_proxy is not None:
+            _check_proxy_url(resolved_proxy, allow_local=resolved_allow_local_proxy)
+        elif resolved_use_env:
+            for env_proxy in _environment_proxies().values():
+                _check_proxy_url(env_proxy, allow_local=resolved_allow_local_proxy)
+
         self._proxy = resolved_proxy
         self._max_attempts = resolved_max_attempts
         self._backoff_factor = resolved_backoff_factor
@@ -387,7 +432,9 @@ class HTTPClient:
 
             event_hooks["request"] = [_validate_request_target]
 
-        # Build httpx client
+        # Build httpx client. trust_env is explicit: environment proxies
+        # (HTTP_PROXY & co.) are ignored unless use_env_proxies enabled
+        # them, and in that case every env proxy was validated above.
         self._client = httpx.Client(
             timeout=resolved_timeout,
             http2=resolved_http2,
@@ -398,6 +445,7 @@ class HTTPClient:
             cookies=cookies,
             proxy=resolved_proxy,
             event_hooks=event_hooks,
+            trust_env=resolved_use_env,
         )
 
     def request(
@@ -648,6 +696,32 @@ class HTTPClient:
 # Module-level convenience functions using a default client
 _default_client: HTTPClient | None = None
 _default_client_lock = threading.Lock()
+
+# Environment variables httpx may read proxies from under trust_env.
+_ENV_PROXY_VARS: tuple[str, ...] = (
+    "HTTP_PROXY",
+    "http_proxy",
+    "HTTPS_PROXY",
+    "https_proxy",
+    "ALL_PROXY",
+    "all_proxy",
+)
+
+
+def _environment_proxies() -> dict[str, str]:
+    """Return the proxy URLs declared in the process environment.
+
+    Mirrors the variables httpx honours under ``trust_env`` (both the
+    uppercase and lowercase spellings, plus ``ALL_PROXY``). ``NO_PROXY``
+    only narrows which destinations use a proxy and never introduces a
+    new endpoint, so it is intentionally not consulted for validation.
+    """
+    proxies: dict[str, str] = {}
+    for name in _ENV_PROXY_VARS:
+        value = os.environ.get(name)
+        if value and value.strip():
+            proxies[name] = value.strip()
+    return proxies
 
 
 def get_client() -> HTTPClient:

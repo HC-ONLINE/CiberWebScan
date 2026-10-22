@@ -18,7 +18,11 @@ from typing import TYPE_CHECKING, Any
 
 from bs4 import BeautifulSoup
 
-from ciberwebscan.core.client.ssrf import SSRFBlockedError, check_url
+from ciberwebscan.core.client.ssrf import (
+    SSRFBlockedError,
+    check_proxy_url,
+    check_url,
+)
 from ciberwebscan.core.scraping.extractor import DataExtractor
 from ciberwebscan.core.scraping.helpers import (
     check_robots_txt,
@@ -106,6 +110,13 @@ class DynamicScrapeConfig:
 
     allow_local: bool = False
     """Whether to allow scraping local/private IPs."""
+
+    allow_local_proxy: bool = False
+    """Whether to allow local/private proxy endpoints for Chromium.
+
+    Independent from ``allow_local`` (targets): neither authorizes the
+    other. Link-local/IMDS, CGNAT, multicast and reserved proxy
+    addresses stay blocked even when True."""
 
     attributes: list[str] | None = None
     """Specific attributes to extract from elements."""
@@ -513,9 +524,12 @@ class DynamicScraper:
         if user_agent:
             context_options["user_agent"] = user_agent
 
-        # Set proxy
+        # Set proxy — validated against the SSRF policy before it is
+        # handed to Chromium: the browser opens its own connection,
+        # outside HTTPClient, so this is a second enforcement boundary.
         proxy = config.proxy or self._get_proxy()
         if proxy:
+            check_proxy_url(proxy, allow_local=config.allow_local_proxy)
             context_options["proxy"] = {"server": proxy}
 
         assert self._browser is not None  # Ensured by caller
@@ -569,9 +583,14 @@ class DynamicScraper:
         """Set up page request interception.
 
         A guard route is always registered: every http(s) subresource is
-        validated against the SSRF policy before it is sent. Redirect hops
-        are not intercepted by Playwright routing, so the final ``page.url``
-        is re-validated after navigation (see :meth:`scrape`).
+        validated against the SSRF policy before it is sent. Per the
+        Playwright docs, a request and its redirects are treated as a
+        single unit — the route handler runs once for the original
+        request and the browser follows redirects on its own — so
+        intermediate redirect hops are NOT re-validated here; only the
+        final ``page.url`` is re-checked after navigation (see
+        :meth:`scrape`). WebSocket handshakes are separately routed and
+        validated via :meth:`_handle_websocket_route`.
         """
         block_list = config.block_resources or []  # Capture for closure
         allow_local = config.allow_local
@@ -580,6 +599,43 @@ class DynamicScraper:
             await self._handle_route(route, block_list, allow_local=allow_local)
 
         await page.route("**/*", _route_handler)
+
+        async def _websocket_handler(ws) -> None:
+            await self._handle_websocket_route(ws, allow_local=allow_local)
+
+        await page.route_web_socket("**/*", _websocket_handler)
+
+    async def _handle_websocket_route(
+        self,
+        ws,
+        *,
+        allow_local: bool = False,
+    ) -> None:
+        """Validate a routed WebSocket endpoint, then relay or block it.
+
+        ``page.route`` does not intercept WebSocket handshakes;
+        ``route_web_socket`` does, and a routed socket is not connected
+        until :meth:`~playwright.async_api.WebSocketRoute.connect_to_server`
+        is called, so a blocked endpoint never reaches the network.
+
+        Args:
+            ws: Playwright WebSocketRoute for the pending handshake.
+            allow_local: Whether localhost/private *destinations* are
+                permitted for this scrape (target opt-in, not proxy).
+        """
+        url = ws.url
+        target = url
+        if url.startswith("ws://"):
+            target = f"http://{url[len('ws://') :]}"
+        elif url.startswith("wss://"):
+            target = f"https://{url[len('wss://') :]}"
+        try:
+            check_url(target, allow_local=allow_local)
+        except SSRFBlockedError:
+            logger.warning("SSRF policy blocked WebSocket to %s", url)
+            await ws.close(code=1008, reason="Blocked by SSRF policy")
+            return
+        await ws.connect_to_server()
 
     async def _handle_route(
         self,

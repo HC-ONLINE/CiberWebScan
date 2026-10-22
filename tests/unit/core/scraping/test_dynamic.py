@@ -13,6 +13,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from bs4 import BeautifulSoup
 
+from ciberwebscan.core.client.ssrf import SSRFBlockedError
 from ciberwebscan.core.scraping.dynamic import (
     BrowserType,
     DynamicScrapeConfig,
@@ -1016,3 +1017,130 @@ class TestDynamicSSRFGuard:
 
         result = asyncio.run(run_test())
         assert result.success is True
+
+
+class TestDynamicScraperProxyPolicy:
+    """Playwright proxy-boundary tests (BUG-014, scenarios 24-26).
+
+    Chromium opens its own connection outside ``HTTPClient``, so the
+    scraper classifies the proxy before creating the browser context.
+    """
+
+    def test_private_proxy_blocked_before_context_creation(self):
+        mock_pw, mock_browser, mock_context, _ = _create_mock_playwright(
+            "<html></html>"
+        )
+        scraper = _create_scraper_with_mocked_browser(mock_pw)
+        config = DynamicScrapeConfig(selector="body", proxy="http://169.254.169.254:80")
+
+        with pytest.raises(SSRFBlockedError):
+            asyncio.run(scraper._create_context(config))
+        mock_browser.new_context.assert_not_called()
+
+    def test_loopback_proxy_blocked_without_opt_in(self):
+        mock_pw, mock_browser, _, _ = _create_mock_playwright("<html></html>")
+        scraper = _create_scraper_with_mocked_browser(mock_pw)
+        scraper._browser = mock_browser
+        config = DynamicScrapeConfig(selector="body", proxy="http://127.0.0.1:8080")
+
+        with pytest.raises(SSRFBlockedError):
+            asyncio.run(scraper._create_context(config))
+        mock_browser.new_context.assert_not_called()
+
+    def test_local_proxy_allowed_with_opt_in(self):
+        mock_pw, mock_browser, mock_context, _ = _create_mock_playwright(
+            "<html></html>"
+        )
+        scraper = _create_scraper_with_mocked_browser(mock_pw)
+        scraper._browser = mock_browser
+        config = DynamicScrapeConfig(
+            selector="body",
+            proxy="http://127.0.0.1:8080",
+            allow_local_proxy=True,
+        )
+
+        asyncio.run(scraper._create_context(config))
+        _, kwargs = mock_browser.new_context.call_args
+        assert kwargs["proxy"] == {"server": "http://127.0.0.1:8080"}
+
+    def test_imds_stays_blocked_with_opt_in(self):
+        mock_pw, mock_browser, _, _ = _create_mock_playwright("<html></html>")
+        scraper = _create_scraper_with_mocked_browser(mock_pw)
+        scraper._browser = mock_browser
+        config = DynamicScrapeConfig(
+            selector="body",
+            proxy="http://169.254.169.254:80",
+            allow_local_proxy=True,
+        )
+
+        with pytest.raises(SSRFBlockedError):
+            asyncio.run(scraper._create_context(config))
+        mock_browser.new_context.assert_not_called()
+
+    def test_target_allow_local_does_not_permit_local_proxy(self):
+        mock_pw, mock_browser, _, _ = _create_mock_playwright("<html></html>")
+        scraper = _create_scraper_with_mocked_browser(mock_pw)
+        scraper._browser = mock_browser
+        config = DynamicScrapeConfig(
+            selector="body", proxy="http://10.0.0.5:3128", allow_local=True
+        )
+
+        with pytest.raises(SSRFBlockedError):
+            asyncio.run(scraper._create_context(config))
+        mock_browser.new_context.assert_not_called()
+
+    def test_setup_page_registers_http_and_websocket_guards(self):
+        mock_pw, _, _, mock_page = _create_mock_playwright("<html></html>")
+        scraper = _create_scraper_with_mocked_browser(mock_pw)
+        config = DynamicScrapeConfig(selector="body")
+
+        asyncio.run(scraper._setup_page(mock_page, config))
+        mock_page.route.assert_awaited_once()
+        mock_page.route_web_socket.assert_awaited_once()
+
+
+class TestDynamicScraperWebsocketGuard:
+    """Routed WebSockets are validated before connect_to_server() (BUG-014).
+
+    Playwright's ``route_web_socket`` keeps a routed socket unconnected
+    until ``connect_to_server`` is called, so a blocked endpoint never
+    reaches the network. These tests drive the guard handler directly
+    with mock WebSocketRoute objects.
+    """
+
+    def _run_handler(self, ws, *, allow_local: bool = False):
+        scraper = DynamicScraper()
+        asyncio.run(scraper._handle_websocket_route(ws, allow_local=allow_local))
+
+    def test_private_websocket_blocked(self):
+        ws = AsyncMock()
+        ws.url = "ws://169.254.169.254/socket"
+
+        self._run_handler(ws)
+        ws.close.assert_awaited_once()
+        assert ws.close.call_args.kwargs["code"] == 1008
+        ws.connect_to_server.assert_not_awaited()
+
+    def test_loopback_websocket_blocked_by_default(self):
+        ws = AsyncMock()
+        ws.url = "ws://localhost:8000/socket"
+
+        self._run_handler(ws)
+        ws.close.assert_awaited_once()
+        ws.connect_to_server.assert_not_awaited()
+
+    def test_public_websocket_connected(self):
+        ws = AsyncMock()
+        ws.url = "wss://public.example.com/socket"
+
+        self._run_handler(ws)
+        ws.connect_to_server.assert_awaited_once()
+        ws.close.assert_not_awaited()
+
+    def test_loopback_websocket_allowed_with_target_opt_in(self):
+        ws = AsyncMock()
+        ws.url = "ws://127.0.0.1:8000/socket"
+
+        self._run_handler(ws, allow_local=True)
+        ws.connect_to_server.assert_awaited_once()
+        ws.close.assert_not_awaited()

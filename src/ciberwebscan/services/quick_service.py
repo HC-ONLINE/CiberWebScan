@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from ciberwebscan.config.loader import get_config
+from ciberwebscan.core.client.ssrf import SSRFBlockedError, check_proxy_url
 from ciberwebscan.export.models import AnalysisReport, ExportMeta
 from ciberwebscan.services.analyze_service import AnalyzeOptions, AnalyzeService
 from ciberwebscan.services.attack_service import AttackOptions, AttackService
@@ -166,6 +167,16 @@ class QuickService(BaseService):
             )
             self._check_target_url(url, allow_local=allow_local)
 
+            # SSRF protection on the request proxy: rejected early so a
+            # forbidden proxy cannot silently degrade the scan into a
+            # partial result. The phase boundaries re-validate too.
+            if options.proxy:
+                proxy_cfg = cfg.http.proxy
+                check_proxy_url(
+                    options.proxy,
+                    allow_local=proxy_cfg.allow_local if proxy_cfg else False,
+                )
+
             # Validate preset
             preset = options.preset.lower()
             if preset not in PRESETS:
@@ -220,6 +231,9 @@ class QuickService(BaseService):
 
         except ValidationError:
             raise
+        except SSRFBlockedError as e:
+            # Proxy/transport blocked by the SSRF policy
+            raise ValidationError(str(e), details={"url": options.url}) from e
         except Exception as e:
             result.error = str(e)
             result.error_code = "QUICK_SCAN_ERROR"

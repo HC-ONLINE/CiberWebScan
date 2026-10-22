@@ -819,6 +819,33 @@ Update a single configuration value.
 }
 ```
 
+**Protected (operator-only) keys — HTTP 403:**
+
+Security-sensitive configuration cannot be modified through this
+endpoint, regardless of the API key used (keys carry no administrative
+scope distinction, so no key is trusted with security exceptions):
+
+- `http.proxy.*` — every proxy option (`http`, `https`, `socks5`,
+  `rotate`, `rotation_interval`, `proxy_list`, `allow_local`, `use_env`)
+- Any `*.allow_local` security exception (`analysis.allow_local`,
+  `scraping.allow_local`, `attack.allow_local`)
+
+The check is case-insensitive and also covers section/batch updates that
+embed protected keys inside the `value` object (e.g. `path: "http"` with
+`{"proxy": {"allow_local": true}}`). Rejected requests return
+`403 Forbidden` and change nothing. The local operator can still change
+these settings through the configuration file, environment variables or
+the CLI (`ciberwebscan config set ...`), which do not pass through this
+endpoint. `POST /api/config/reset` remains allowed because it restores
+the safe defaults.
+
+Additionally, every `proxy` field accepted by the scan endpoints
+(`/api/analyze`, `/api/attack`, `/api/scrape`, `/api/quick`) is
+validated against the SSRF proxy policy before any connection: local,
+private, link-local (IMDS) and other forbidden proxy endpoints are
+rejected with a validation-class error (`VALIDATION_ERROR`), never
+silently ignored.
+
 #### POST /api/config/export
 
 Export the current configuration to a file inside the configuration base

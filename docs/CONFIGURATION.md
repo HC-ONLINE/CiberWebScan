@@ -71,6 +71,8 @@ Examples that work out of the box:
 - `CIBERWEBSCAN_ATTACK_ALLOW_LOCAL` → `attack.allow_local`
 - `CIBERWEBSCAN_ANALYSIS_ALLOW_LOCAL` → `analysis.allow_local`
 - `CIBERWEBSCAN_SCRAPING_ALLOW_LOCAL` → `scraping.allow_local`
+- `CIBERWEBSCAN_HTTP_PROXY_ALLOW_LOCAL` → `http.proxy.allow_local`
+- `CIBERWEBSCAN_HTTP_PROXY_USE_ENV` → `http.proxy.use_env`
 - `CIBERWEBSCAN_ATTACK_USER_CONSENT` → `attack.user_consent`
 - `CIBERWEBSCAN_USER_AGENT_MODE` / `CIBERWEBSCAN_USER_AGENT_AGENTS` → `user_agent.*`
 - `CIBERWEBSCAN_EXPORT_INCLUDE_SCREENSHOTS` → `export.include_screenshots`
@@ -87,9 +89,9 @@ Examples that work out of the box:
 
 Not supported (and why):
 
-- **Whole sections** cannot be set from a single variable — only leaf fields. For example `CIBERWEBSCAN_HTTP_PROXY` targets the nested `http.proxy` model and is ignored with a debug log; set `CIBERWEBSCAN_HTTP_PROXY_HTTP` (→ `http.proxy.http`) or use the standard `HTTP_PROXY`/`HTTPS_PROXY` variables instead.
+- **Whole sections** cannot be set from a single variable — only leaf fields. For example `CIBERWEBSCAN_HTTP_PROXY` targets the nested `http.proxy` model and is ignored with a debug log; set `CIBERWEBSCAN_HTTP_PROXY_HTTP` (→ `http.proxy.http`). The standard `HTTP_PROXY`/`HTTPS_PROXY` variables are ignored unless `http.proxy.use_env` is enabled (and are SSRF-validated when honoured).
 - Unknown variables are ignored with a debug log; they never break configuration loading.
-- Invalid values on a valid key log the validation error and the loader falls back to defaults (see `Invalid configuration` error in the logs).
+- Invalid values on a valid key log the validation error and the loader falls back to defaults (see `Invalid configuration` error in the logs). This includes proxies that violate the SSRF policy — the effective configuration is the safe default (no proxy), never an unvalidated one.
 
 **Note**: Command-line options are specific to individual commands and do not override global configuration. They are used to customize behavior for that particular command execution.
 
@@ -186,7 +188,9 @@ Configure HTTP request behavior.
       "socks5": null,
       "rotate": false,
       "rotation_interval": 10,
-      "proxy_list": null
+      "proxy_list": null,
+      "allow_local": false,
+      "use_env": false
     },
     "http2": true,
     "follow_redirects": true,
@@ -216,6 +220,8 @@ Configure HTTP request behavior.
 | `http.rate_limit.latency_window`       |    `10` | Sliding window size for latency measurements  |
 | `http.proxy.rotate`                    | `false` | Proxy rotation disabled by default            |
 | `http.proxy.rotation_interval`         |    `10` | Requests per proxy when rotating              |
+| `http.proxy.allow_local`               | `false` | Permit loopback/RFC1918 proxy endpoints       |
+| `http.proxy.use_env`                   | `false` | Honour `HTTP_PROXY`/`HTTPS_PROXY`/`ALL_PROXY` |
 | `http.http2`                           |  `true` | Enable HTTP/2 by default                      |
 | `http.follow_redirects`                |  `true` | Follow redirects                              |
 | `http.max_redirects`                   |    `10` | Max redirects to follow                       |
@@ -259,6 +265,63 @@ Example with rotation enabled:
   }
 }
 ```
+
+#### Proxy SSRF Policy
+
+Every proxy — regardless of its source (CLI/API parameter, config file,
+environment, rotation list or helper client) — is classified against the
+central SSRF policy (`ciberwebscan.core.client.ssrf.check_proxy_url`)
+**before any connection is opened**:
+
+- Accepted schemes: `http`, `https` and `socks5` (SOCKS5 is really
+  supported via `httpx[socks]`/`socksio`, not just accepted syntactically).
+- Loopback, RFC1918/ULA, link-local (incl. cloud IMDS `169.254.169.254`),
+  CGNAT, multicast, reserved and unspecified addresses are blocked **by
+  default**, including non-canonical IPv4 notations (`2130706433`,
+  `0x7f000001`, `127.1`, …) and IPv4-mapped IPv6.
+- Hostnames are resolved and every resulting address is classified;
+  resolution failures are treated as blocks (fail-closed).
+- Credentials (`http://user:pass@host:port`) are accepted but never
+  echoed in logs or error messages.
+
+**`http.proxy.allow_local`** (default `false`) permits loopback and
+RFC1918/ULA proxy endpoints, e.g. Burp Suite or mitmproxy on the
+operator workstation. It is fully independent from the per-module
+`allow_local` target opt-ins (`analysis`/`scraping`/`attack`): neither
+authorizes the other. Link-local/IMDS, CGNAT, multicast, reserved and
+unspecified proxy addresses **stay blocked even when this flag is
+enabled**.
+
+```bash
+# Local Burp proxy through the CLI config (operator-only setting)
+ciberwebscan config set http.proxy.allow_local true
+ciberwebscan config set http.proxy.http http://127.0.0.1:8080
+```
+
+**`http.proxy.use_env`** (default `false`): when `false`, the standard
+`HTTP_PROXY`/`HTTPS_PROXY`/`ALL_PROXY` environment variables (and their
+lowercase variants) are **ignored** — HTTP clients run with
+`trust_env=False`. When `true`, every environment proxy is validated
+against the same policy before the client is built; a single forbidden
+value fails the client construction (fail-closed) instead of silently
+bypassing the policy.
+
+**Operator-only settings**: `http.proxy.*` (including `allow_local` and
+`use_env`) and every `*.allow_local` security exception cannot be
+modified through `PUT /api/config` (HTTP 403). Change them through the
+configuration file, environment variables or the local CLI.
+
+**Known residual limits** (not fully closable without custom transports):
+
+- _DNS rebinding_: the validated hostname is resolved again by the HTTP
+  library when the connection is opened, so a hostile authoritative DNS
+  could answer differently between validation and connection. The same
+  limitation applies to request targets since BUG-004.
+- _Playwright redirects_: Chromium follows redirect hops on its own —
+  Playwright routing treats a request plus its redirects as a single
+  unit — so intermediate hops are not re-validated; only the final
+  `page.url` is re-checked. WebSocket handshakes are routed and validated
+  separately (`route_web_socket`).
 
 ### User Agent
 
