@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.32.1](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.32.0...v2.32.1) (2026-10-22)
+
+
+### Bug Fixes
+
+* **deps:** bump certifi, packaging and virtualenv to resolve Dependabot CVEs ([c29b611](https://github.com/HC-ONLINE/CiberWebScan/commit/c29b61130c7738273a24a8687db7512c6e5c24f5))
+* **deps:** bump certifi, packaging and virtualenv to resolve Dependabot CVEs ([4fa4090](https://github.com/HC-ONLINE/CiberWebScan/commit/4fa4090867b64ec56ed625dc9aeb649ceb119f88))
+
 ## [2.32.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.31.5...v2.32.0) (2026-10-22)
 
 
