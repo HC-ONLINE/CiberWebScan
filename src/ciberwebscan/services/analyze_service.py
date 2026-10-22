@@ -23,6 +23,7 @@ from ciberwebscan.core.analyzers.cve import (
     CVEAggregator,
     CVESource,
 )
+from ciberwebscan.core.client.ssrf import SSRFBlockedError
 from ciberwebscan.export.models import (
     AnalysisReport,
     ConfidenceLevel,
@@ -324,6 +325,11 @@ class AnalyzeService(BaseService):
             result.error = str(e)
             result.error_code = e.code
             self.logger.error(f"Validation error: {e}")
+        except SSRFBlockedError as e:
+            # Proxy/transport blocked by the SSRF policy
+            result.error = str(e)
+            result.error_code = "VALIDATION_ERROR"
+            self.logger.error(f"SSRF policy blocked the analysis: {e}")
         except ExecutionError as e:
             result.error = str(e)
             result.error_code = e.code
@@ -565,6 +571,10 @@ class AnalyzeService(BaseService):
                 score=overall_score,
             )
 
+        except SSRFBlockedError:
+            # Forbidden proxy/transport: propagate so the caller reports
+            # a security decision instead of a partial success.
+            raise
         except Exception as e:
             self.logger.warning(f"Headers analysis failed: {e}")
             return None
@@ -642,6 +652,10 @@ class AnalyzeService(BaseService):
                 waf=fp_result.get("waf"),
             )
 
+        except SSRFBlockedError:
+            # Forbidden proxy/transport: propagate so the caller reports
+            # a security decision instead of a partial success.
+            raise
         except Exception as e:
             self.logger.warning(f"Fingerprinting failed: {e}")
             return None

@@ -15,6 +15,7 @@ from bs4 import BeautifulSoup
 
 from ciberwebscan.config.loader import get_config
 from ciberwebscan.config.models import ScrapingConfig
+from ciberwebscan.core.client.ssrf import SSRFBlockedError
 from ciberwebscan.core.scraping import (
     DataExtractor,
     ScrapeConfig,
@@ -299,6 +300,11 @@ class ScrapeService(BaseService):
             result.error = str(e)
             result.error_code = e.code
             self.logger.error(f"Validation error: {e}")
+        except SSRFBlockedError as e:
+            # Proxy/transport blocked by the SSRF policy
+            result.error = str(e)
+            result.error_code = "VALIDATION_ERROR"
+            self.logger.error(f"SSRF policy blocked the scrape: {e}")
         except ExecutionError as e:
             result.error = str(e)
             result.error_code = e.code
@@ -457,6 +463,10 @@ class ScrapeService(BaseService):
 
         except ExecutionError:
             raise
+        except SSRFBlockedError:
+            # Forbidden proxy/transport: propagate to the service boundary
+            # as a security decision, not a wrapped execution failure.
+            raise
         except Exception as e:
             raise ExecutionError(f"Static scraping failed: {e}") from e
 
@@ -466,6 +476,7 @@ class ScrapeService(BaseService):
             from ciberwebscan.core.scraping import BrowserType, DynamicScrapeConfig
 
             dyn_cfg = self.config.dynamic
+            proxy_cfg = self.app_config.http.proxy
             config = DynamicScrapeConfig(
                 selector=options.selector or "body",
                 wait_selector=options.wait_for or dyn_cfg.wait_selector,
@@ -475,6 +486,7 @@ class ScrapeService(BaseService):
                 schema=options.schema,
                 extract_forms=options.extract_forms,
                 allow_local=self.config.allow_local,
+                allow_local_proxy=bool(proxy_cfg.allow_local if proxy_cfg else False),
             )
 
             # Run the async scrape method safely from sync context
@@ -539,6 +551,10 @@ class ScrapeService(BaseService):
             )
 
         except ExecutionError:
+            raise
+        except SSRFBlockedError:
+            # Forbidden proxy/transport (e.g. Chromium context proxy):
+            # propagate to the service boundary as a security decision.
             raise
         except Exception as e:
             raise ExecutionError(f"Dynamic scraping failed: {e}") from e

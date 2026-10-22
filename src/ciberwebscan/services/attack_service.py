@@ -30,6 +30,7 @@ from ciberwebscan.core.attacks import (
 )
 from ciberwebscan.core.attacks.base import AttackIntensity
 from ciberwebscan.core.client import HTTPClient
+from ciberwebscan.core.client.ssrf import SSRFBlockedError
 from ciberwebscan.export.models import (
     AttackResult,
     ExportMeta,
@@ -495,6 +496,9 @@ class AttackService(BaseService):
             raise
         except ExecutionError:
             raise
+        except SSRFBlockedError as e:
+            # Proxy/transport blocked by the SSRF policy
+            raise ValidationError(str(e), details={"url": options.url}) from e
         except Exception as e:
             self.logger.exception("Unexpected error during attack simulation")
             raise ExecutionError(
