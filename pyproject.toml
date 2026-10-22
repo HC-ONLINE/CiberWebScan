@@ -45,7 +45,7 @@ dependencies = [
     "pyyaml==6.0.3",
     "pydantic==2.13.4",
     "orjson==3.11.9",
-    "packaging==24.0",
+    "packaging==26.3",
 ]
 
 [project.optional-dependencies]
