@@ -706,3 +706,99 @@ class TestScrapeFailurePropagation:
         assert result.error_code == "SCRAPE_ERROR"
         assert "404" in (result.error or "")
         assert len(result.warnings) == 2
+
+
+class TestScrapeContentPolicy:
+    """``raw_html`` must not leave the service unless the policy allows it.
+
+    ``export.include_raw_html`` (default false) already governed exported
+    files; this covers the data returned by the service, which
+    feeds API responses (``/api/scrape``, batch, quick) and CLI output.
+    """
+
+    MARKER_HTML = (
+        "<html><head><title>t</title></head><body><p>FAKE_MARKER_HTML</p></body></html>"
+    )
+
+    def test_scrape_strips_raw_html_by_default(self):
+        """Default policy (include_raw_html=false) clears raw_html."""
+        with patch("ciberwebscan.core.client.HTTPClient") as mock_http_cls:
+            mock_http_cls.return_value.get.return_value = _mock_http_response(
+                200, self.MARKER_HTML
+            )
+            service = ScrapeService()
+            result = service.scrape(
+                ScrapeOptions(url="https://example.com", check_robots=False)
+            )
+            service.close()
+
+        assert result.success is True
+        assert isinstance(result.data, ScrapeResult)
+        assert result.data.raw_html is None
+
+    def test_scrape_keeps_raw_html_when_policy_enabled(self):
+        """include_raw_html=true keeps the raw body in service output."""
+        from ciberwebscan.config.models import AppConfig
+
+        cfg = AppConfig()
+        cfg.export.include_raw_html = True
+        with (
+            patch("ciberwebscan.core.client.HTTPClient") as mock_http_cls,
+            patch(
+                "ciberwebscan.services.scrape_service.get_config",
+                return_value=cfg,
+            ),
+        ):
+            mock_http_cls.return_value.get.return_value = _mock_http_response(
+                200, self.MARKER_HTML
+            )
+            service = ScrapeService()
+            result = service.scrape(
+                ScrapeOptions(url="https://example.com", check_robots=False)
+            )
+            service.close()
+
+        assert result.success is True
+        assert result.data.raw_html == self.MARKER_HTML
+
+    def test_scrape_multiple_strips_raw_html_per_item(self):
+        """Batch output is cleaned item by item (via the single path)."""
+        with patch("ciberwebscan.core.client.HTTPClient") as mock_http_cls:
+            mock_http_cls.return_value.get.return_value = _mock_http_response(
+                200, self.MARKER_HTML
+            )
+            service = ScrapeService()
+            result = service.scrape_multiple(
+                [
+                    "https://example.com/a",
+                    "https://example.com/b",
+                ],
+                ScrapeOptions(url="https://example.com", check_robots=False),
+            )
+            service.close()
+
+        assert result.success is True
+        assert len(result.data) == 2
+        assert all(item.raw_html is None for item in result.data)
+
+    def test_selector_extraction_is_untouched(self):
+        """Selector mode returns extracted dicts — policy is a no-op."""
+        with patch("ciberwebscan.core.client.HTTPClient") as mock_http_cls:
+            mock_http_cls.return_value.get.return_value = _mock_http_response(200)
+            service = ScrapeService()
+            with patch.object(
+                service,
+                "_extract_data",
+                return_value=[{"text": "Hello"}],
+            ):
+                result = service.scrape(
+                    ScrapeOptions(
+                        url="https://example.com",
+                        selector="p",
+                        check_robots=False,
+                    )
+                )
+            service.close()
+
+        assert result.success is True
+        assert result.data == [{"text": "Hello"}]

@@ -410,3 +410,43 @@ class TestRunScrapeFailureHandling:
         assert any("Scrape failed" in message for message in log_messages)
         assert any("HTTP 404" in message for message in log_messages)
         assert not any("Scrape failed: None" in message for message in log_messages)
+
+
+class TestRunScrapeContentPolicy:
+    """The quick report embeds scrape data already stripped of raw_html.
+
+    ``quick_service`` inherits the service-level policy: ``_run_scrape``
+    embeds the result of ``ScrapeService.scrape``, which clears
+    ``raw_html`` unless ``export.include_raw_html`` is set.
+    """
+
+    MARKER_HTML = (
+        "<html><head><title>t</title></head><body><p>FAKE_MARKER_HTML</p></body></html>"
+    )
+
+    def test_quick_report_scrape_has_no_raw_html(self, quick_service: QuickService):
+        """A successful quick scrape never embeds raw_html in the report."""
+        from ciberwebscan.services.scrape_service import ScrapeService
+
+        response = MagicMock()
+        response.status_code = 200
+        response.headers = {"content-type": "text/html"}
+        response.text = self.MARKER_HTML
+        response.cookies.items.return_value = {}
+
+        with patch("ciberwebscan.core.client.HTTPClient") as mock_http_cls:
+            mock_http_cls.return_value.get.return_value = response
+            service = ScrapeService()
+            quick_service._scrape_service = service
+            report = AnalysisReport(meta=ExportMeta(target_url="https://example.com"))
+
+            quick_service._run_scrape(
+                "https://example.com",
+                QuickOptions(url="https://example.com"),
+                {"scrape": {"dynamic": False}},
+                report,
+            )
+            service.close()
+
+        assert report.scrape is not None
+        assert report.scrape.raw_html is None

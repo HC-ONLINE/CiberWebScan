@@ -314,7 +314,39 @@ class ScrapeService(BaseService):
             result.error_code = "UNEXPECTED_ERROR"
             self.logger.exception(f"Unexpected error during scrape: {e}")
 
+        # Content policy: applied after the export block so the exporter
+        # still receives the original object.
+        if result.data is not None:
+            result.data = self._apply_content_policy(result.data)
+
         return result.finalize()
+
+    def _apply_content_policy(self, data: Any) -> Any:
+        """Strip ``raw_html`` unless ``export.include_raw_html`` is set.
+
+        ``raw_html`` can contain full page bodies (possibly authenticated
+        or internal content captured during the scrape). The export layer
+        already strips it from files when the flag is off; this
+        applies the same policy to the data returned by the service, which
+        feeds API responses (``/api/scrape``, ``/api/scrape/batch``,
+        ``/api/quick``) and CLI output. ``quick_service`` inherits the
+        fix because it embeds the result of :meth:`scrape`.
+
+        Args:
+            data: Service payload — a ``ScrapeResult``, or a list of
+                extracted dicts (selector mode, which never carries
+                ``raw_html``).
+
+        Returns:
+            A copy with ``raw_html`` cleared when the policy is off, or the
+            original data when the policy allows it. The input is never
+            mutated.
+        """
+        if get_config().export.include_raw_html:
+            return data
+        if isinstance(data, ScrapeResult):
+            return data.model_copy(update={"raw_html": None})
+        return data
 
     def scrape_multiple(
         self,

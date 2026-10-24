@@ -290,3 +290,72 @@ class TestScrapeFailurePropagation:
         detail = response.json()["detail"]
         assert "404" in detail
         assert "Batch scraping failed: 500" not in detail
+
+
+class TestScrapeResponseContentPolicy:
+    """``raw_html`` must not leak in HTTP responses unless allowed.
+
+    ``export.include_raw_html`` (default false) already governed exported
+    files; the response payload carried the raw body anyway.
+    These tests run the real ``ScrapeService`` (only the HTTP client is
+    mocked) to regression-test the fix end to end through the API layer.
+    """
+
+    MARKER_HTML = (
+        "<html><head><title>t</title></head><body><p>FAKE_MARKER_HTML</p></body></html>"
+    )
+
+    def test_scrape_response_strips_raw_html_by_default(self, client: TestClient):
+        with patch("ciberwebscan.core.client.HTTPClient") as mock_http_cls:
+            mock_http_cls.return_value.get.return_value = _mock_http_response(
+                200, self.MARKER_HTML
+            )
+            response = client.post(
+                "/api/scrape",
+                json={"url": "https://example.com", "check_robots": False},
+            )
+
+        assert response.status_code == 200
+        data = response.json()["data"]
+        assert data["raw_html"] is None
+
+    def test_scrape_response_keeps_raw_html_when_policy_enabled(
+        self, client: TestClient
+    ):
+        cfg = AppConfig()
+        cfg.export.include_raw_html = True
+        with (
+            patch("ciberwebscan.core.client.HTTPClient") as mock_http_cls,
+            patch(
+                "ciberwebscan.services.scrape_service.get_config",
+                return_value=cfg,
+            ),
+        ):
+            mock_http_cls.return_value.get.return_value = _mock_http_response(
+                200, self.MARKER_HTML
+            )
+            response = client.post(
+                "/api/scrape",
+                json={"url": "https://example.com", "check_robots": False},
+            )
+
+        assert response.status_code == 200
+        data = response.json()["data"]
+        assert data["raw_html"] == self.MARKER_HTML
+
+    def test_batch_response_strips_raw_html_per_item(self, client: TestClient):
+        with patch("ciberwebscan.core.client.HTTPClient") as mock_http_cls:
+            mock_http_cls.return_value.get.return_value = _mock_http_response(
+                200, self.MARKER_HTML
+            )
+            response = client.post(
+                "/api/scrape/batch",
+                json={
+                    "urls": ["https://example.com/a", "https://example.com/b"],
+                },
+            )
+
+        assert response.status_code == 200
+        results = response.json()["data"]["results"]
+        assert len(results) == 2
+        assert all(item["raw_html"] is None for item in results)
