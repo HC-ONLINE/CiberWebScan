@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.32.2](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.32.1...v2.32.2) (2026-10-24)
+
+
+### Bug Fixes
+
+* **scrape:** implement content policy to strip raw_html from results ([086f515](https://github.com/HC-ONLINE/CiberWebScan/commit/086f515e66886702d43d43c4034757ad5970038b))
+
 ## [2.32.1](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.32.0...v2.32.1) (2026-10-22)
 
 
