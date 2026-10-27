@@ -449,7 +449,6 @@ def test_analyze_route(mock_service_class):
 | URL validators      | `src/ciberwebscan/utils/validators.py`                                                                         |
 | Cleanup scheduler   | `src/ciberwebscan/services/cleanup_scheduler.py`                                                               |
 | Example profiles    | `examples/profiles/` (bugbounty, pentest, recon, stealth)                                                      |
-| Manual API tests    | `scripts/apiManualTest/`                                                                                       |
 | Unit tests          | `tests/unit/`                                                                                                  |
 | Integration tests   | `tests/integration/`                                                                                           |
 | Shared fixtures     | `tests/conftest.py`                                                                                            |
