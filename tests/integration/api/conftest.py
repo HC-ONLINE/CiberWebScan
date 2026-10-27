@@ -25,6 +25,12 @@ os.environ.setdefault(
 os.environ.setdefault("CIBERWEBSCAN_ATTACK_ENABLED", "true")
 os.environ.setdefault("CIBERWEBSCAN_ATTACK_ALLOW_LOCAL", "true")
 
+# Rate limiting is behaviour under test (test_api_robustness.py): pin it
+# enabled so a local ~/.ciberwebscan/config.yaml cannot silently remove
+# the middleware from this environment. The limit VALUE is left to the
+# effective test configuration and read dynamically by the test.
+os.environ.setdefault("CIBERWEBSCAN_API_RATE_LIMIT_ENABLED", "true")
+
 # Force config reload so env vars take effect
 from ciberwebscan.config.loader import reset_config
 
