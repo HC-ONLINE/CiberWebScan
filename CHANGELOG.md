@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.32.3](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.32.2...v2.32.3) (2026-10-27)
+
+
+### Documentation
+
+* remove obsolete manual API test reference ([1a14c75](https://github.com/HC-ONLINE/CiberWebScan/commit/1a14c7595c6fe76c90c069ed89abe5d84a339954))
+
 ## [2.32.2](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.32.1...v2.32.2) (2026-10-24)
 
 
