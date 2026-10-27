@@ -14,40 +14,61 @@ import time
 import httpx
 import pytest
 
+from ciberwebscan.config.loader import reset_config
+
 pytest.importorskip("fastapi")
 pytest.importorskip("uvicorn")
 pytest.importorskip("python_multipart")
 
-# Ensure API key auth is configured before any config is loaded
-os.environ.setdefault(
-    "CIBERWEBSCAN_API_AUTH_API_KEYS", "test-api-key-cwscan-integration"
-)
-os.environ.setdefault("CIBERWEBSCAN_ATTACK_ENABLED", "true")
-os.environ.setdefault("CIBERWEBSCAN_ATTACK_ALLOW_LOCAL", "true")
-
-# Quick/analysis/scrape integration tests scan a controlled loopback
-# target (test_api_quick.py): opt local targets in per module so the
-# SSRF policy still applies everywhere else. Mirrors ATTACK_ALLOW_LOCAL.
-os.environ.setdefault("CIBERWEBSCAN_ANALYSIS_ALLOW_LOCAL", "true")
-os.environ.setdefault("CIBERWEBSCAN_SCRAPING_ALLOW_LOCAL", "true")
-
-# Rate limiting is behaviour under test (test_api_robustness.py): pin it
-# enabled so a local ~/.ciberwebscan/config.yaml cannot silently remove
-# the middleware from this environment. The limit VALUE is left to the
-# effective test configuration and read dynamically by the test.
-os.environ.setdefault("CIBERWEBSCAN_API_RATE_LIMIT_ENABLED", "true")
-
-# Force config reload so env vars take effect
-from ciberwebscan.config.loader import reset_config
-
-reset_config()
+# Test-relevant environment for this suite, applied by the module-scoped
+# integration_env fixture below instead of at import time: pytest
+# collects the whole tree even when integration tests are deselected
+# (CI runs -m "not integration"), so import-time pins would leak into
+# unit tests sharing the process — e.g. scraping allow_local would make
+# the SSRF unit tests attempt real connections instead of validating.
+_INTEGRATION_ENV: dict[str, str] = {
+    "CIBERWEBSCAN_API_AUTH_API_KEYS": "test-api-key-cwscan-integration",
+    "CIBERWEBSCAN_ATTACK_ENABLED": "true",
+    "CIBERWEBSCAN_ATTACK_ALLOW_LOCAL": "true",
+    # Quick/analysis/scrape integration tests scan a controlled loopback
+    # target (test_api_quick.py): opt local targets in per module so the
+    # SSRF policy still applies everywhere else.
+    "CIBERWEBSCAN_ANALYSIS_ALLOW_LOCAL": "true",
+    "CIBERWEBSCAN_SCRAPING_ALLOW_LOCAL": "true",
+    # Rate limiting is behaviour under test (test_api_robustness.py):
+    # pin it enabled so a local ~/.ciberwebscan/config.yaml cannot
+    # silently remove the middleware. The limit VALUE is left to the
+    # effective test configuration and read dynamically by the test.
+    "CIBERWEBSCAN_API_RATE_LIMIT_ENABLED": "true",
+}
 
 API_SERVER_PORT = 5556
 API_SERVER_URL = f"http://127.0.0.1:{API_SERVER_PORT}"
 
 
+@pytest.fixture(scope="module", autouse=True)
+def integration_env():
+    """Pin test-relevant environment variables for one integration module.
+
+    Restores the previous values and reloads the config on teardown so
+    the pins cannot bleed into other suites running in the same pytest
+    process.
+    """
+    saved = {key: os.environ.get(key) for key in _INTEGRATION_ENV}
+    for key, value in _INTEGRATION_ENV.items():
+        os.environ.setdefault(key, value)
+    reset_config()
+    yield
+    for key, value in saved.items():
+        if value is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = value
+    reset_config()
+
+
 @pytest.fixture(scope="module")
-def api_server():
+def api_server(integration_env):
     """Start CiberWebScan API server for integration tests."""
     cmd = [
         sys.executable,
@@ -96,7 +117,7 @@ def api_client(api_server: str) -> httpx.Client:
 
 
 @pytest.fixture(scope="module")
-def auth_headers() -> dict[str, str]:
+def auth_headers(integration_env) -> dict[str, str]:
     """Get auth headers using the first configured API key."""
     from ciberwebscan.config.loader import get_config
 
