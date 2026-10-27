@@ -25,6 +25,12 @@ os.environ.setdefault(
 os.environ.setdefault("CIBERWEBSCAN_ATTACK_ENABLED", "true")
 os.environ.setdefault("CIBERWEBSCAN_ATTACK_ALLOW_LOCAL", "true")
 
+# Quick/analysis/scrape integration tests scan a controlled loopback
+# target (test_api_quick.py): opt local targets in per module so the
+# SSRF policy still applies everywhere else. Mirrors ATTACK_ALLOW_LOCAL.
+os.environ.setdefault("CIBERWEBSCAN_ANALYSIS_ALLOW_LOCAL", "true")
+os.environ.setdefault("CIBERWEBSCAN_SCRAPING_ALLOW_LOCAL", "true")
+
 # Rate limiting is behaviour under test (test_api_robustness.py): pin it
 # enabled so a local ~/.ciberwebscan/config.yaml cannot silently remove
 # the middleware from this environment. The limit VALUE is left to the
