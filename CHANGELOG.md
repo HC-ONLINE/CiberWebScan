@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.33.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.32.3...v2.33.0) (2026-10-30)
+
+
+### Features
+
+* **cli:** display extracted forms ([8f29bbb](https://github.com/HC-ONLINE/CiberWebScan/commit/8f29bbb44eb8cb8c1dee7601a00f12a813e86ac6))
+* **scraping:** enrich form extraction metadata ([01e3fd9](https://github.com/HC-ONLINE/CiberWebScan/commit/01e3fd9ee2ef1aeac686030a2cf854d6166b9c67))
+* **scraping:** enrich form extraction metadata and display forms in CLI ([4a41ac7](https://github.com/HC-ONLINE/CiberWebScan/commit/4a41ac7e27447319ef9c6a396b2cff4405bbef3c))
+
 ## [2.32.3](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.32.2...v2.32.3) (2026-10-27)
 
 
