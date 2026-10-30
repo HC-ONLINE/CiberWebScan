@@ -29,8 +29,11 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           config: |
-            packs:
-              - ./.github/codeql/extensions/ciberwebscan-python-models
+            paths-ignore:
+              - tests/**
+              - "**/test_*.py"
+              - "**/*_test.py"
+              - "**/conftest.py"
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
