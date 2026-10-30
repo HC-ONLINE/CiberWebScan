@@ -119,6 +119,54 @@ def format_size(bytes_count: int | float) -> str:
 # ============================================================================
 
 
+def _get(obj: Any, key: str, default: Any = None) -> Any:
+    """Read a field from a form/field that may be a dict or an attribute object."""
+    if isinstance(obj, dict):
+        return obj.get(key, default)
+    return getattr(obj, key, default)
+
+
+def _format_form_line(form: Any, index: int) -> str:
+    """Format a single extracted form for CLI display.
+
+    Renders the form's action and method, then one line per field showing
+    type, label, and brief markers for required/readonly/hidden/CSRF state.
+    Sensitive field values (e.g. tokens) are intentionally not printed.
+    """
+    method = _get(form, "method", "GET") or "GET"
+    action = _get(form, "action", "") or ""
+    name = _get(form, "name", "") or ""
+    label = f"  [{index}] {method} {action}"
+    if name:
+        label += f' (name="{name}")'
+
+    lines = [label]
+    for field in _get(form, "fields", []) or []:
+        if not isinstance(field, dict):
+            continue
+        fname = field.get("name", "") or "?"
+        ftype = field.get("type", "text")
+        markers = []
+        if field.get("required"):
+            markers.append("*")
+        if field.get("readonly"):
+            markers.append("RO")
+        if field.get("is_hidden"):
+            markers.append("HIDDEN")
+        if field.get("is_csrf_token"):
+            markers.append("CSRF")
+        marker_str = f" [{' '.join(markers)}]" if markers else ""
+        field_line = f"      - {fname} ({ftype}){marker_str}"
+        flabel = field.get("label")
+        if flabel:
+            field_line += f' "{flabel}"'
+        options = field.get("options")
+        if options:
+            field_line += f" options={list(options)}"
+        lines.append(field_line)
+    return "\n".join(lines)
+
+
 def format_scrape_result(result: Any) -> None:
     """Format and print scrape result."""
     if hasattr(result, "url"):
@@ -134,6 +182,13 @@ def format_scrape_result(result: Any) -> None:
             if len(result.text_content) > 200:
                 preview += "..."
             print_key_value("Content Preview", preview)
+
+        # Forms (only when extraction was requested and forms were found)
+        forms = getattr(result, "forms", None)
+        if forms:
+            print_subheader(f"Forms ({len(forms)})")
+            for i, form in enumerate(forms, 1):
+                print(_format_form_line(form, i))
     elif isinstance(result, list):
         print_header(f"Extracted Data ({len(result)} items)")
         for i, item in enumerate(result[:10], 1):

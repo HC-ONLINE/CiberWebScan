@@ -405,6 +405,7 @@ def extract_images(
 def extract_forms(
     soup: BeautifulSoup,
     *,
+    base_url: str | None = None,
     selector: str = "form",
 ) -> list[dict[str, Any]]:
     """
@@ -412,21 +413,35 @@ def extract_forms(
 
     Args:
         soup: BeautifulSoup object.
+        base_url: Base URL for resolving relative form actions.
         selector: CSS selector for form elements.
 
     Returns:
         List of form dictionaries with 'action', 'method', 'fields', etc.
 
     Examples:
-        >>> forms = extract_forms(soup)
+        >>> forms = extract_forms(soup, base_url='https://example.com')
         >>> forms[0]
-        {'action': '/login', 'method': 'POST', 'fields': [...]}
+        {'action': 'https://example.com/login', 'method': 'POST', 'fields': [...]}
     """
+    # Imported lazily to avoid coupling core.scraping to the attacks subsystem
+    # (core.attacks.__init__ eagerly loads every attacker + PayloadLoader).
+    from urllib.parse import urljoin
+
+    from ciberwebscan.core.attacks.csrf import CSRF_TOKEN_NAMES
+
     forms = []
 
     for form in soup.select(selector):
+        # Resolve relative action URLs against the base URL, mirroring
+        # extract_links()/extract_images(). A missing action resolves to the
+        # page URL (per HTML spec) only when a base_url is provided.
+        action = str(form.get("action", "") or "")
+        if base_url:
+            action = urljoin(base_url, action)
+
         form_data: dict[str, Any] = {
-            "action": form.get("action", ""),
+            "action": action,
             "method": str(form.get("method", "GET")).upper(),
             "enctype": form.get("enctype", ""),
             "id": form.get("id", ""),
@@ -440,9 +455,13 @@ def extract_forms(
             if inp.name == "button" and not inp.get("name"):
                 continue
 
+            # Preserve the raw type value (case included) to avoid changing
+            # existing observable data; lowercase only for the hidden check.
+            field_type = inp.get("type", "text") if inp.name == "input" else inp.name
+
             field_data: dict[str, Any] = {
                 "tag": inp.name,
-                "type": inp.get("type", "text") if inp.name == "input" else inp.name,
+                "type": field_type,
                 "name": inp.get("name", ""),
                 "value": inp.get("value", ""),
                 "id": inp.get("id", ""),
@@ -459,6 +478,16 @@ def extract_forms(
             field_data["minlength"] = inp.get("minlength", "")
             field_data["readonly"] = inp.has_attr("readonly")
             field_data["disabled"] = inp.has_attr("disabled")
+
+            # Security metadata: a hidden field is any <input type="hidden">
+            # (case-insensitive per HTML spec). is_csrf_token is a name-based
+            # heuristic (single source: core.attacks.csrf.CSRF_TOKEN_NAMES) and
+            # does NOT prove the token is valid or protects the form.
+            is_hidden = str(field_type).lower() == "hidden"
+            field_data["is_hidden"] = is_hidden
+            field_data["is_csrf_token"] = is_hidden and (
+                str(inp.get("name", "")).lower() in CSRF_TOKEN_NAMES
+            )
 
             # Extract select options
             if inp.name == "select":

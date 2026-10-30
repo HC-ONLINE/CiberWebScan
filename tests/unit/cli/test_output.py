@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from datetime import datetime
+from types import SimpleNamespace
 
 import pytest
 
 from ciberwebscan.cli.output import (
     format_duration,
+    format_scrape_result,
     format_size,
     format_timestamp,
     print_dict,
@@ -19,6 +21,7 @@ from ciberwebscan.cli.output import (
     print_success,
     print_warning,
 )
+from ciberwebscan.export.models import FormInfo
 
 pytestmark = pytest.mark.unit
 
@@ -131,3 +134,126 @@ class TestFormatFunctions:
     def test_format_size_megabytes(self):
         """Test size formatting in MB."""
         assert format_size(1048576) == "1.0 MB"
+
+
+class TestFormatScrapeResultForms:
+    """Tests for displaying extracted forms in scrape output."""
+
+    def _result(self, forms):
+        """Build a minimal object exposing the scrape-result attributes used."""
+        return SimpleNamespace(
+            url="https://example.com",
+            status_code=200,
+            title="Page",
+            elapsed_ms=12.0,
+            text_content="body",
+            forms=forms,
+        )
+
+    def test_forms_section_displayed(self, capsys):
+        """Forms are shown with action and method."""
+        forms = [{"action": "/login", "method": "POST", "fields": []}]
+        format_scrape_result(self._result(forms))
+        out = capsys.readouterr().out
+        assert "Forms (1)" in out
+        assert "POST /login" in out
+
+    def test_field_markers_displayed(self, capsys):
+        """Required, readonly, hidden and CSRF markers are shown."""
+        forms = [
+            {
+                "action": "/x",
+                "method": "POST",
+                "name": "f",
+                "fields": [
+                    {"name": "user", "type": "text", "required": True},
+                    {"name": "code", "type": "text", "readonly": True},
+                    {
+                        "name": "csrfmiddlewaretoken",
+                        "type": "hidden",
+                        "is_hidden": True,
+                        "is_csrf_token": True,
+                    },
+                ],
+            }
+        ]
+        format_scrape_result(self._result(forms))
+        out = capsys.readouterr().out
+        assert "user (text) [*]" in out
+        assert "code (text) [RO]" in out
+        assert "csrfmiddlewaretoken (hidden) [HIDDEN CSRF]" in out
+
+    def test_label_and_options_displayed(self, capsys):
+        """Labels and select options are rendered when present."""
+        forms = [
+            {
+                "action": "/x",
+                "method": "GET",
+                "fields": [
+                    {
+                        "name": "plan",
+                        "type": "select",
+                        "label": "Plan",
+                        "options": ["free", "pro"],
+                    }
+                ],
+            }
+        ]
+        format_scrape_result(self._result(forms))
+        out = capsys.readouterr().out
+        assert '"Plan"' in out
+        assert "options=['free', 'pro']" in out
+
+    def test_token_value_not_printed(self, capsys):
+        """Sensitive token values are not echoed by default."""
+        forms = [
+            {
+                "action": "/x",
+                "method": "POST",
+                "fields": [
+                    {
+                        "name": "csrf_token",
+                        "type": "hidden",
+                        "value": "SUPERSECRET",
+                        "is_hidden": True,
+                        "is_csrf_token": True,
+                    }
+                ],
+            }
+        ]
+        format_scrape_result(self._result(forms))
+        assert "SUPERSECRET" not in capsys.readouterr().out
+
+    def test_empty_forms_list_no_section(self, capsys):
+        """An empty forms list renders no Forms section."""
+        format_scrape_result(self._result([]))
+        out = capsys.readouterr().out
+        assert "Forms" not in out
+
+    def test_missing_forms_attribute_no_crash(self, capsys):
+        """An object without a forms attribute renders without crashing."""
+        result = SimpleNamespace(
+            url="https://example.com",
+            status_code=200,
+            title="Page",
+            elapsed_ms=1.0,
+            text_content="body",
+        )
+        format_scrape_result(result)
+        out = capsys.readouterr().out
+        assert "Scrape Result" in out
+        assert "Forms" not in out
+
+    def test_forminfo_objects_displayed(self, capsys):
+        """FormInfo model instances (attribute access) render correctly."""
+        form = FormInfo(
+            action="/login",
+            method="POST",
+            name="login",
+            fields=[{"name": "user", "type": "text", "required": True}],
+        )
+        format_scrape_result(self._result([form]))
+        out = capsys.readouterr().out
+        assert "POST /login" in out
+        assert '(name="login")' in out
+        assert "user (text) [*]" in out
