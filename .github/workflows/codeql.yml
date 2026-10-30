@@ -29,8 +29,6 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           config: |
-            packs:
-              - ./.github/codeql/extensions/ciberwebscan-python-models
             paths-ignore:
               - tests/**
               - "**/test_*.py"
