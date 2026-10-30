@@ -186,7 +186,7 @@ wheels = [
 
 [[package]]
 name = "ciberwebscan"
-version = "2.32.3"
+version = "2.33.0"
 source = { editable = "." }
 dependencies = [
     { name = "beautifulsoup4" },
