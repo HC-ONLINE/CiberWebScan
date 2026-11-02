@@ -21,7 +21,7 @@ A clear and concise description of what you expected to happen.
 **Environment (please complete the following information):**
 
 - OS: [e.g. Ubuntu 22.04, Windows 11]
-- Python Version: [e.g. 3.10.12]
+- Python Version: [e.g. 3.11.17]
 - CiberWebScan Version: [e.g. 1.2.0]
 
 **Additional context**
