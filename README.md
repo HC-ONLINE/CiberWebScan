@@ -1,6 +1,6 @@
 # CiberWebScan
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Version 2.4.0](https://img.shields.io/badge/version-2.4.0-blue.svg)](https://github.com/HC-ONLINE/CiberWebScan)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Beta](https://img.shields.io/badge/status-beta-orange.svg)](https://github.com/HC-ONLINE/CiberWebScan)

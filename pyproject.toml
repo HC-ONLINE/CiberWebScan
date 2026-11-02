@@ -17,7 +17,6 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -26,7 +25,7 @@ classifiers = [
     "Topic :: Security",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 
 # core/CLI dependencies – these are pulled in when a user
 # runs ``uv pip install ciberwebscan``. the command-line interface
@@ -158,5 +157,5 @@ include = ["src/ciberwebscan"]
 exclude = ["**/__pycache__", "**/tests/**", "**/node_modules/**", "**/.venv/**", "**/.*", "**/build/**", "**/dist/**","**/*.egg-info"]
 venvPath = "."
 venv = ".venv"
-pythonVersion = "3.10"
+pythonVersion = "3.11"
 typeCheckingMode = "basic"

@@ -4,7 +4,7 @@
 
 CiberWebScan is a hybrid web security scanner combining passive reconnaissance, attack surface analysis, structured extraction, and security assessment of web applications. Version **2.4.0** (beta), licensed under Apache 2.0.
 
-- **Python**: >= 3.10 (supports 3.10, 3.11, 3.12, 3.13, 3.14)
+- **Python**: >= 3.11 (supports 3.11, 3.12, 3.13, 3.14)
 - **Package**: `ciberwebscan` (src layout: `src/ciberwebscan/`)
 - **Entry point**: `ciberwebscan` CLI → `ciberwebscan.cli.app:main`
 - **License**: Apache 2.0
@@ -470,7 +470,7 @@ docker run -p 8000:8000 ciberwebscan  # Starts API on port 8000
 
 ### GitHub Actions
 
-- **ci.yml**: Runs on push/PR to `main` and `CI-testing` — lint, type check, test (Python 3.10, 3.11, 3.12, 3.13, 3.14 matrix)
+- **ci.yml**: Runs on push/PR to `main` and `CI-testing` - lint, type check, test (Python 3.11, 3.12, 3.13, 3.14 matrix)
 - **docker.yml**: Builds and pushes to GHCR (`ghcr.io`) on push to `main`
 
 ## Pre-commit Hooks
@@ -492,11 +492,11 @@ Configured in `.pre-commit-config.yaml` with `fail_fast: true`:
 
 ## Code Style
 
-- Python 3.10+ features allowed (type unions `X | Y`, pattern matching)
+- Python 3.11+ features allowed (type unions `X | Y`, pattern matching)
 - **Every file** must start with `from __future__ import annotations`
 - Double quotes for strings, 88 char line limit (Ruff)
 - Pydantic v2 for all data models
 - Type hints required on all public functions
 - Ruff rules: E, W, F, I, N, UP, B, C4, SIM (ignores E501)
 - Pyright mode: `basic` (not strict)
-- Target Python version: 3.10
+- Target Python version: 3.11
