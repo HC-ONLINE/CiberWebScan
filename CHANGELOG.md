@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.34.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.33.0...v2.34.0) (2026-11-02)
+
+
+### Features
+
+* drop Python 3.10 support and bump filelock to 4.2.7 ([73988e4](https://github.com/HC-ONLINE/CiberWebScan/commit/73988e4c440e19d6c651d477da6f6bb26c6ec9e5))
+* drop Python 3.10 support and bump filelock to 4.2.7 ([070f6e8](https://github.com/HC-ONLINE/CiberWebScan/commit/070f6e8ec342603e766daa9b322749eb9133832f))
+
 ## [2.33.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.32.3...v2.33.0) (2026-10-30)
 
 
