@@ -11,6 +11,8 @@ import asyncio
 import logging
 from typing import Any
 
+from starlette.concurrency import run_in_threadpool
+
 from ciberwebscan.config.loader import get_config
 from ciberwebscan.services.download_service import DownloadService
 
@@ -58,8 +60,10 @@ class DownloadCleanupScheduler:
                 if not self._running:
                     break
 
-                # Run cleanup
-                result = self._service.cleanup_expired_tokens()
+                # Run cleanup off the event loop: the service bridges sync
+                # registry code via run_async(), which would otherwise block
+                # the loop (and every pending request) for the whole sweep.
+                result = await run_in_threadpool(self._service.cleanup_expired_tokens)
 
                 if result.success:
                     count = result.data or 0
