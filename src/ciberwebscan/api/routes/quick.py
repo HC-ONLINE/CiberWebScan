@@ -7,11 +7,13 @@ Provides endpoints for combined analysis + attacks + scraping using presets.
 from __future__ import annotations
 
 import logging
+from functools import partial
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ciberwebscan.api.auth import AuthenticatedUser, get_current_user
+from ciberwebscan.api.concurrency import run_scan
 from ciberwebscan.api.helpers.download_helper import enrich_response_with_token
 from ciberwebscan.api.models.requests import QuickScanRequest
 from ciberwebscan.api.models.responses import ErrorResponse, QuickScanResponse
@@ -32,7 +34,10 @@ router = APIRouter()
         "- **low**: SSL, fingerprint, headers (no attacks, no CVEs)\n"
         "- **medium**: Analysis + moderate attacks (XSS, SQLi) - requires consent\n"
         "- **high**: Full analysis + all attacks + CVEs - requires consent\n\n"
-        "Scraping is enabled when `selector` or `dynamic` is provided."
+        "Scraping is enabled when `selector` or `dynamic` is provided.\n\n"
+        "Runs under the API's scan admission control: at most "
+        "`api.max_concurrent_scans` scans execute at once per process; "
+        "excess requests receive 429 instead of queueing indefinitely."
     ),
     responses={
         401: {
@@ -40,10 +45,22 @@ router = APIRouter()
             "description": "Unauthorized (missing/invalid API key)",
         },
         400: {"model": ErrorResponse, "description": "Validation error"},
+        429: {
+            "description": (
+                "Too many concurrent scans (api.max_concurrent_scans); "
+                "retry after the advertised Retry-After seconds"
+            )
+        },
         500: {"model": ErrorResponse, "description": "Internal server error"},
+        504: {
+            "description": (
+                "Scan exceeded api.scan_timeout_seconds; the blocking work "
+                "may still be running server-side"
+            )
+        },
     },
 )
-def quick_scan(
+async def quick_scan(
     request: QuickScanRequest,
     http_request: Request,
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],
@@ -58,6 +75,15 @@ def quick_scan(
 
     Scraping runs when selector or dynamic is provided.
     """
+    return await run_scan(partial(_quick_scan_sync, request, http_request, user))
+
+
+def _quick_scan_sync(
+    request: QuickScanRequest,
+    http_request: Request,
+    user: AuthenticatedUser,
+) -> QuickScanResponse:
+    """Blocking quick scan implementation (runs in a worker thread)."""
     try:
         # Validate consent for medium/high
         preset = request.preset.lower()

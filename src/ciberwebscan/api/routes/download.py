@@ -13,6 +13,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
+from starlette.concurrency import run_in_threadpool
 
 from ciberwebscan.api.auth import AuthenticatedUser, get_current_user
 from ciberwebscan.config.loader import get_config
@@ -202,8 +203,12 @@ async def download_file(
     # Log-safe caller identity: never write raw API key material to logs.
     log_user = mask_identifier(user.identifier)
 
-    # Validate token
-    validation_result = download_service.validate_download_request(
+    # The DownloadService bridges sync registry code via run_async(); when
+    # called directly on the event loop that blocks it for the duration
+    # (BUG-013). Every blocking service call below is offloaded to the
+    # threadpool instead.
+    validation_result = await run_in_threadpool(
+        download_service.validate_download_request,
         token=token,
         user_id=user.identifier,
     )
@@ -229,9 +234,11 @@ async def download_file(
     reservation = _AttemptReservation(download_service, token)
 
     # Get file stream
-    stream_result = download_service.get_file_stream(token=token)
+    stream_result = await run_in_threadpool(
+        download_service.get_file_stream, token=token
+    )
     if not stream_result.success:
-        reservation.refund_once()
+        await run_in_threadpool(reservation.refund_once)
         logger.error(f"Failed to get file stream: {stream_result.error}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -240,7 +247,7 @@ async def download_file(
 
     # Validate data is not None before announcing the stream
     if stream_result.data is None:
-        reservation.refund_once()
+        await run_in_threadpool(reservation.refund_once)
         logger.error("Stream result data is None despite success status")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -248,9 +255,9 @@ async def download_file(
         )
 
     # Token metadata: the stored export format drives the download filename
-    info_result = download_service.get_info(token=token)
+    info_result = await run_in_threadpool(download_service.get_info, token=token)
     if not info_result.success or info_result.data is None:
-        reservation.refund_once()
+        await run_in_threadpool(reservation.refund_once)
         logger.error(f"Failed to get download metadata: {info_result.error}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

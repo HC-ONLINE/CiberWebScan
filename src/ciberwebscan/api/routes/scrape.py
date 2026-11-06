@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from functools import partial
 from typing import Annotated, Any
 from urllib.parse import urlparse
 
@@ -13,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import ValidationError
 
 from ciberwebscan.api.auth import AuthenticatedUser, get_current_user
+from ciberwebscan.api.concurrency import run_scan
 from ciberwebscan.api.helpers.download_helper import enrich_response_with_token
 from ciberwebscan.api.models.requests import ScrapeBatchRequest, ScrapeRequest
 from ciberwebscan.api.models.responses import (
@@ -27,9 +29,28 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+_SCAN_RESPONSES: dict[int | str, dict[str, Any]] = {
+    429: {
+        "description": (
+            "Too many concurrent scans (api.max_concurrent_scans); "
+            "retry after the advertised Retry-After seconds"
+        )
+    },
+    504: {
+        "description": (
+            "Scan exceeded api.scan_timeout_seconds; the blocking work "
+            "may still be running server-side"
+        )
+    },
+}
 
-@router.post("/scrape", response_model=APIResponse[ScrapeResult | list[dict[str, Any]]])
-def scrape_url(
+
+@router.post(
+    "/scrape",
+    response_model=APIResponse[ScrapeResult | list[dict[str, Any]]],
+    responses=_SCAN_RESPONSES,
+)
+async def scrape_url(
     request: ScrapeRequest,
     http_request: Request,
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],
@@ -37,7 +58,20 @@ def scrape_url(
     """
     Scrape a single URL and return structured data.
     Supports both static (BeautifulSoup) and dynamic (Playwright) scraping.
+
+    Runs under the API's scan admission control: at most
+    ``api.max_concurrent_scans`` scans execute at once per process; excess
+    requests receive 429 instead of queueing indefinitely.
     """
+    return await run_scan(partial(_scrape_sync, request, http_request, user))
+
+
+def _scrape_sync(
+    request: ScrapeRequest,
+    http_request: Request,
+    user: AuthenticatedUser,
+) -> APIResponse[ScrapeResult | list[dict[str, Any]]]:
+    """Blocking scrape implementation (runs in a worker thread)."""
     try:
         # Convert request to service options
         options = ScrapeOptions(
@@ -105,15 +139,32 @@ def scrape_url(
         ) from e
 
 
-@router.post("/scrape/batch", response_model=APIResponse[ScrapeBatchResultResponse])
-def scrape_batch(
+@router.post(
+    "/scrape/batch",
+    response_model=APIResponse[ScrapeBatchResultResponse],
+    responses=_SCAN_RESPONSES,
+)
+async def scrape_batch(
     request: ScrapeBatchRequest,
     http_request: Request,
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],
 ) -> APIResponse[ScrapeBatchResultResponse]:
     """
     Scrape multiple URLs in batch.
+
+    Runs under the API's scan admission control: the whole batch holds one
+    admission slot; a configured ``api.scan_timeout_seconds`` deadline
+    covers the entire batch.
     """
+    return await run_scan(partial(_scrape_batch_sync, request, http_request, user))
+
+
+def _scrape_batch_sync(
+    request: ScrapeBatchRequest,
+    http_request: Request,
+    user: AuthenticatedUser,
+) -> APIResponse[ScrapeBatchResultResponse]:
+    """Blocking batch scrape implementation (runs in a worker thread)."""
     try:
         urls = [str(url) for url in request.urls]
         options = ScrapeOptions(

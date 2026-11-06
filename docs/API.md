@@ -1033,16 +1033,17 @@ All error responses include standardized error information:
 
 ### Common HTTP Status Codes
 
-| Status | Meaning                                |
-| ------ | -------------------------------------- |
-| 200    | Success                                |
-| 400    | Bad request (validation error)         |
-| 401    | Unauthorized (missing/invalid API key) |
-| 403    | Forbidden (insufficient permissions)   |
-| 404    | Not found                              |
-| 429    | Too many requests (rate limited)       |
-| 500    | Internal server error                  |
-| 503    | Service unavailable                    |
+| Status | Meaning                                                     |
+| ------ | ----------------------------------------------------------- |
+| 200    | Success                                                     |
+| 400    | Bad request (validation error)                              |
+| 401    | Unauthorized (missing/invalid API key)                      |
+| 403    | Forbidden (insufficient permissions)                        |
+| 404    | Not found                                                   |
+| 429    | Too many requests (rate limited) or scan capacity exhausted |
+| 500    | Internal server error                                       |
+| 503    | Service unavailable                                         |
+| 504    | Scan exceeded `api.scan_timeout_seconds` (deadline)         |
 
 ## Configuration
 
@@ -1062,6 +1063,11 @@ CIBERWEBSCAN_API_AUTH_SERVER_SECRET=""
 # Rate Limiting
 CIBERWEBSCAN_API_RATE_LIMIT_ENABLED=true
 CIBERWEBSCAN_API_RATE_LIMIT_REQUESTS_PER_MINUTE=60
+
+# Scan concurrency (admission, deadline, threadpool sizing)
+CIBERWEBSCAN_API_MAX_CONCURRENT_SCANS=32
+CIBERWEBSCAN_API_SCAN_TIMEOUT_SECONDS=300
+CIBERWEBSCAN_API_SYNC_THREADPOOL_TOKENS=40
 
 # Client identification (reverse proxies allowed to set X-Forwarded-For)
 CIBERWEBSCAN_API_TRUSTED_PROXIES="127.0.0.1"
@@ -1092,6 +1098,32 @@ The API includes rate limiting to prevent abuse:
 - **Retry-After header** included in rate limit responses
 - **Per-client counter**: each client identity has its own bucket (see
   [Client identification](#client-identification-and-trusted-proxies) below)
+
+### Scan concurrency
+
+Scan endpoints (`POST /api/analyze`, `/api/attack`, `/api/scrape`,
+`/api/scrape/batch`, `/api/quick`) are long, blocking operations. They run
+under a separate, per-process admission control that is distinct from the
+per-client rate limiter:
+
+- **Admission limit**: at most `api.max_concurrent_scans` scans execute at
+  once per API process. Excess requests are rejected immediately with
+  **429** and a `Retry-After` header instead of queueing indefinitely. The
+  limit is per process — with `--workers N` the effective capacity is
+  `N × max_concurrent_scans`.
+- **Deadline** (`api.scan_timeout_seconds`, default `null` = no deadline):
+  when set, the client is answered with **504** once the deadline elapses.
+  The blocking work cannot be cancelled mid-flight; it keeps running server
+  side until its own bounded end, and the admission slot stays held until
+  the worker thread truly finishes (capacity tracks real resource usage,
+  not the client's willingness to wait). Scans therefore never accumulate
+  unbounded behind a dead request.
+- **Sizing**: scan work runs on a dedicated thread pool
+  (`api.sync_threadpool_tokens`) so scans cannot crowd out synchronous
+  dependencies (like auth) or streaming responses on the shared AnyIO
+  threadpool.
+
+See [CONFIGURATION.md](CONFIGURATION.md) for the full option reference.
 
 ### Client identification and trusted proxies
 
