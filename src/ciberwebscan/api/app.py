@@ -10,12 +10,14 @@ import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
+import anyio.to_thread
 from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from ciberwebscan import __description__, __version__
+from ciberwebscan.api.concurrency import configure as configure_scan_concurrency
 from ciberwebscan.api.middleware import (
     add_rate_limiting_middleware,
     add_request_logging_middleware,
@@ -44,8 +46,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Handle application startup and shutdown."""
     logger.info("Starting CiberWebScan API")
 
-    # Start cleanup scheduler
+    # Explicit sizing of the shared AnyIO threadpool (BUG-013): the
+    # framework default of 40 tokens becomes configuration, and the scan
+    # admission controller/limiter are built from the current config so
+    # the effective limits are fixed and logged at startup.
     app_config = get_config()
+    anyio.to_thread.current_default_thread_limiter().total_tokens = (
+        app_config.api.sync_threadpool_tokens
+    )
+    configure_scan_concurrency()
+
+    # Start cleanup scheduler
     if app_config.download.enabled:
         scheduler = get_scheduler()
         scheduler.start()

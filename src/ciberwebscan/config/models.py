@@ -448,6 +448,36 @@ class APIConfig(BaseModel):
     port: Annotated[int, Field(ge=1, le=65535)] = 8000
     auth: APIAuthConfig = Field(default_factory=lambda: APIAuthConfig())
     rate_limit: APIRateLimitConfig = Field(default_factory=lambda: APIRateLimitConfig())
+    max_concurrent_scans: Annotated[int, Field(ge=1, le=256)] = Field(
+        default=32,
+        description=(
+            "Maximum number of scan operations (analyze, attack, scrape, "
+            "scrape batch, quick scan) allowed in flight per API process. "
+            "Requests beyond this limit are rejected immediately with 429 "
+            "instead of queueing indefinitely. The limit is per process: "
+            "running multiple workers multiplies the effective capacity."
+        ),
+    )
+    scan_timeout_seconds: Annotated[float | None, Field(ge=1.0, le=3600.0)] = Field(
+        default=None,
+        description=(
+            "Optional deadline for a whole scan request. When exceeded, the "
+            "client receives 504 and the admission slot is kept until the "
+            "underlying (non-cancellable) work finishes, so capacity is never "
+            "released while resources are still in use. None (default) = no "
+            "deadline. For batch scans the deadline covers the entire batch."
+        ),
+    )
+    sync_threadpool_tokens: Annotated[int, Field(ge=1, le=512)] = Field(
+        default=40,
+        description=(
+            "Size of the shared AnyIO threadpool (used by synchronous "
+            "dependencies and streaming responses). Explicit so the default "
+            "of 40 threads is configuration, not a framework magic number. "
+            "Scan endpoints do not use this pool; they have their own limit "
+            "(api.max_concurrent_scans)."
+        ),
+    )
     trusted_proxies: list[str] = Field(
         default=[],
         description=(
