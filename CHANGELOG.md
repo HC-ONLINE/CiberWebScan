@@ -1,5 +1,29 @@
 # Changelog
 
+## [2.35.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.34.0...v2.35.0) (2026-11-06)
+
+
+### Features
+
+* **api:** add scan admission control, deadlines and dedicated scan threadpool ([9c1b9d0](https://github.com/HC-ONLINE/CiberWebScan/commit/9c1b9d07075d21cb3dc5268e4108aff9285774c4))
+
+
+### Bug Fixes
+
+* **api:** keep download and cleanup scheduler work off the event loop ([efd45c7](https://github.com/HC-ONLINE/CiberWebScan/commit/efd45c71595320eca659d6e7993a1cb7ef5e8624))
+* **api:** run scan routes through admission control instead of the shared threadpool ([8095fb8](https://github.com/HC-ONLINE/CiberWebScan/commit/8095fb8b3d6fdf962c633ab4c6bab8df432f01cb))
+* **api:** stop blocking the event loop and bound scan concurrency (BUG-013) ([fb17699](https://github.com/HC-ONLINE/CiberWebScan/commit/fb17699432c45431f2290857e4a8044006afec01))
+
+
+### Performance Improvements
+
+* **client:** cache the shared SSL context to avoid repeated TLS setup ([f53e34b](https://github.com/HC-ONLINE/CiberWebScan/commit/f53e34ba291d86ed56c29ad085614e715bc898b0))
+
+
+### Documentation
+
+* **api:** document scan concurrency limits, 429/504 semantics and config fields ([01ee55f](https://github.com/HC-ONLINE/CiberWebScan/commit/01ee55ffe570dcc1af4883b888d04c5916f1011b))
+
 ## [2.34.0](https://github.com/HC-ONLINE/CiberWebScan/compare/v2.33.0...v2.34.0) (2026-11-02)
 
 
