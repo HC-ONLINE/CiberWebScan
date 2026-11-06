@@ -79,6 +79,9 @@ Examples that work out of the box:
 - `CIBERWEBSCAN_ANALYSIS_CVE_NVD_API_KEY` → `analysis.cve.nvd_api_key`
 - `CIBERWEBSCAN_CACHE_MAX_SIZE_MB` → `cache.max_size_mb`
 - `CIBERWEBSCAN_API_RATE_LIMIT_REQUESTS_PER_MINUTE` → `api.rate_limit.requests_per_minute`
+- `CIBERWEBSCAN_API_MAX_CONCURRENT_SCANS` → `api.max_concurrent_scans` (scan admission limit per process)
+- `CIBERWEBSCAN_API_SCAN_TIMEOUT_SECONDS` → `api.scan_timeout_seconds` (scan deadline; must be >= 1 when set)
+- `CIBERWEBSCAN_API_SYNC_THREADPOOL_TOKENS` → `api.sync_threadpool_tokens`
 - `CIBERWEBSCAN_API_TRUSTED_PROXIES` → `api.trusted_proxies` (comma-separated IPs/CIDRs)
 - `CIBERWEBSCAN_API_CORS_ORIGINS` → `api.cors_origins`
 - `CIBERWEBSCAN_API_CORS_ALLOW_CREDENTIALS` → `api.cors_allow_credentials`
@@ -632,6 +635,9 @@ Configure the FastAPI server, authentication, and CORS settings.
   "api": {
     "host": "0.0.0.0",
     "port": 8000,
+    "max_concurrent_scans": 32,
+    "scan_timeout_seconds": null,
+    "sync_threadpool_tokens": 40,
     "auth": {
       "api_keys": ["your-api-key-1", "your-api-key-2"]
     },
@@ -655,6 +661,9 @@ Configure the FastAPI server, authentication, and CORS settings.
 | ------------------------------------ | --------: | ------------------------------------------------ |
 | `api.host`                           | `0.0.0.0` | API server bind address                          |
 | `api.port`                           |    `8000` | API server port (1-65535)                        |
+| `api.max_concurrent_scans`           |      `32` | Max scans in flight per process (1-256)          |
+| `api.scan_timeout_seconds`           |    `null` | Scan deadline in seconds (1-3600, `null` = off)  |
+| `api.sync_threadpool_tokens`         |      `40` | Dedicated scan threadpool size (1-512)           |
 | `api.auth.api_keys`                  |      `[]` | List of valid API keys for authentication        |
 | `api.auth.server_secret`             |      `""` | Secret for HMAC log obfuscation only (see below) |
 | `api.rate_limit.enabled`             |    `true` | Rate limiting enabled by default                 |
@@ -736,6 +745,41 @@ api:
 ```
 
 See also: [API.md — Authentication](API.md#authentication-1).
+
+#### Scan concurrency
+
+The scan endpoints (`/api/analyze`, `/api/attack`, `/api/scrape`,
+`/api/scrape/batch`, `/api/quick`) run blocking, non-cancellable work. Three
+fields control how much of it a single API process will accept:
+
+- **`api.max_concurrent_scans`** (default `32`, range 1-256): admission limit
+  for in-flight scans. When the limit is reached, new scan requests are
+  rejected immediately with **429** and a `Retry-After` header instead of
+  queueing behind an unbounded backlog. The limit is **per process** — with
+  `--workers N` the effective capacity is `N × max_concurrent_scans`.
+  Changing it requires a restart (the controller is built at startup).
+- **`api.scan_timeout_seconds`** (default `null` = no deadline, range
+  1-3600): when set, a scan that exceeds the deadline is answered with
+  **504** while the blocking work keeps running server side until its own
+  bounded end (it cannot be cancelled mid-flight). The admission slot is
+  held until the worker thread truly finishes, so abandoned scans cannot
+  accumulate and free capacity they still consume. Read per request —
+  changes apply without a restart.
+- **`api.sync_threadpool_tokens`** (default `40`, range 1-512): size of the
+  dedicated thread pool for scan work, so scans cannot crowd out synchronous
+  dependencies (like authentication) or streaming responses on the shared
+  AnyIO threadpool. Applied at startup.
+
+```yaml
+api:
+  max_concurrent_scans: 32
+  scan_timeout_seconds: 300 # optional deadline; omit (null) to disable
+  sync_threadpool_tokens: 40
+```
+
+These limits are independent of the per-client HTTP rate limiter
+(`api.rate_limit.*`): the rate limiter bounds request frequency per client,
+while admission control bounds concurrent scan work per process.
 
 #### CORS Security
 
@@ -1014,10 +1058,13 @@ configuration object in place, so every `get_config()` consumer sees them immedi
 - **Applied at next use (no restart):** `api.auth.api_keys` (API authentication is checked per
   request), `api.auth.server_secret` (log obfuscation only, read per request — the auto-generated
   default stays stable until the process restarts), `api.trusted_proxies` (client identity for
-  rate limiting and auth logs is resolved per request), and `download.require_same_user` (checked on
+  rate limiting and auth logs is resolved per request), `api.scan_timeout_seconds` (scan deadline
+  is read per request), and `download.require_same_user` (checked on
   every `GET /api/download/{token}`), HTTP client settings used when a client is created for a new
   operation, and scraping/analysis/attack defaults read per scan.
-- **Require a restart:** `api.cors.*`, `api.rate_limit.*`, `download.cleanup_interval_seconds`,
+- **Require a restart:** `api.cors.*`, `api.rate_limit.*`, `api.max_concurrent_scans` and
+  `api.sync_threadpool_tokens` (the admission controller and the scan threadpool are sized at
+  startup), `download.cleanup_interval_seconds`,
   `logging.*` handler configuration, and the API server `host`/`port` — these are captured once at
   startup (app creation, scheduler start, logging setup, server launch).
 
