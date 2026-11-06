@@ -8,12 +8,14 @@ to test. Unauthorized security testing is illegal and unethical.
 from __future__ import annotations
 
 import logging
+from functools import partial
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import ValidationError
 
 from ciberwebscan.api.auth import AuthenticatedUser, get_current_user
+from ciberwebscan.api.concurrency import run_scan
 from ciberwebscan.api.helpers.download_helper import enrich_response_with_token
 from ciberwebscan.api.models.requests import AttackRequest
 from ciberwebscan.api.models.responses import APIResponse
@@ -27,8 +29,25 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.post("/attack", response_model=APIResponse[AttackResult])
-def attack_target(
+@router.post(
+    "/attack",
+    response_model=APIResponse[AttackResult],
+    responses={
+        429: {
+            "description": (
+                "Too many concurrent scans (api.max_concurrent_scans); "
+                "retry after the advertised Retry-After seconds"
+            )
+        },
+        504: {
+            "description": (
+                "Scan exceeded api.scan_timeout_seconds; the blocking work "
+                "may still be running server-side"
+            )
+        },
+    },
+)
+async def attack_target(
     request: AttackRequest,
     http_request: Request,
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],
@@ -40,7 +59,20 @@ def attack_target(
 
     **IMPORTANT**: Only test systems you own or have explicit written permission to test.
     Setting `user_consent=true` confirms that you have that permission.
+
+    Runs under the API's scan admission control: at most
+    ``api.max_concurrent_scans`` scans execute at once per process; excess
+    requests receive 429 instead of queueing indefinitely.
     """
+    return await run_scan(partial(_attack_sync, request, http_request, user))
+
+
+def _attack_sync(
+    request: AttackRequest,
+    http_request: Request,
+    user: AuthenticatedUser,
+) -> APIResponse[AttackResult]:
+    """Blocking attack implementation (runs in a worker thread)."""
     try:
         from ciberwebscan.config.loader import get_config as get_app_config
 
