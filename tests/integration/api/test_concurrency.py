@@ -9,6 +9,7 @@ allowing independent requests to continue responding.
 from __future__ import annotations
 
 import asyncio
+import os
 import socket
 import threading
 import time
@@ -249,4 +250,122 @@ async def test_multiple_endpoints_concurrent(concurrency_server: str):
     assert max_health < 0.5, (
         f"Health checks blocked: max {max_health:.3f}s "
         f"({', '.join(f'{latency:.3f}' for latency in health_latencies)})"
+    )
+
+
+@pytest.fixture(scope="module")
+def deadline_server():
+    """API server with a 1s scan deadline and a blocking analyze backend.
+
+    The blocking backend never returns before the client releases it (up to
+    10s), so the client receives 504 at ~1s while the worker keeps running.
+    This exercises the real ASGI request lifecycle under uvicorn (no
+    TestClient task-group teardown).
+    """
+    from ciberwebscan.api import concurrency
+    from ciberwebscan.api.app import create_app
+    from ciberwebscan.api.auth import AuthenticatedUser, get_current_user
+    from ciberwebscan.config.loader import reset_config
+
+    # The deadline is read per request via get_config(), and the autouse
+    # isolate_global_config fixture resets the config singleton before each
+    # test (this module-scoped fixture runs only once). An env var survives
+    # that reset because the loader re-reads env vars on every load, so the
+    # server keeps seeing the 1s deadline regardless of test ordering.
+    # The model requires scan_timeout_seconds >= 1.0.
+    os.environ["CIBERWEBSCAN_API_SCAN_TIMEOUT_SECONDS"] = "1"
+    reset_config()
+    concurrency.reset()
+
+    app = create_app()
+
+    def mock_user() -> AuthenticatedUser:
+        return AuthenticatedUser(
+            identifier="test-user", auth_method="api_key", scopes=["read"]
+        )
+
+    app.dependency_overrides[get_current_user] = mock_user
+
+    release = threading.Event()
+
+    def blocking_analyze(self, options):
+        # Hold the worker well past the 0.5s deadline so the 504 fires while
+        # the thread is still running, then raise a sentinel the client
+        # never sees (the request was already abandoned at the deadline).
+        release.wait(timeout=10)
+        raise RuntimeError("worker released after deadline (sentinel)")
+
+    patcher = patch(
+        "ciberwebscan.api.routes.analyze.AnalyzeService.analyze", blocking_analyze
+    )
+    patcher.start()
+
+    port = _free_port()
+    base = f"http://127.0.0.1:{port}"
+    config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="error")
+    server = uvicorn.Server(config)
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+
+    for _ in range(100):
+        if server.started:
+            break
+        time.sleep(0.05)
+    else:
+        patcher.stop()
+        pytest.fail("Deadline test server failed to start within 5s")
+
+    try:
+        yield base, release
+    finally:
+        release.set()
+        server.should_exit = True
+        thread.join(timeout=5)
+        patcher.stop()
+        os.environ.pop("CIBERWEBSCAN_API_SCAN_TIMEOUT_SECONDS", None)
+        reset_config()
+        concurrency.reset()
+
+
+@pytest.mark.network
+@pytest.mark.asyncio
+async def test_deadline_answers_504_and_slot_held_until_work_ends(
+    deadline_server: tuple[str, threading.Event],
+):
+    """Under a real server: the 504 is answered at the deadline, but the
+    admission slot is NOT freed until the blocking worker thread truly ends
+    (honest accounting)."""
+    from ciberwebscan.api import concurrency
+
+    base, release = deadline_server
+    controller = concurrency.get_controller()
+
+    async with httpx.AsyncClient(base_url=base, timeout=10.0) as client:
+        start = time.perf_counter()
+        response = await client.post(
+            "/api/analyze", json={"url": "https://example.com", "ssl": True}
+        )
+        elapsed = time.perf_counter() - start
+
+    assert response.status_code == 504, (
+        f"expected 504 at the 1s deadline, got {response.status_code}"
+    )
+    # The 504 must come from the deadline (~1s), not from the worker's own
+    # bounded end (10s); leave headroom for request/CI latency.
+    assert elapsed < 2.5, f"504 was not answered at the deadline: {elapsed:.2f}s"
+
+    # The worker is still blocked on `release`; immediately after the 504 the
+    # slot must still be held (no premature release).
+    assert controller.in_flight == 1, (
+        f"slot was freed before the worker ended: in_flight={controller.in_flight}"
+    )
+
+    # Free the worker thread; the slot must be released once it truly ends.
+    release.set()
+    deadline = time.monotonic() + 4.0
+    while time.monotonic() < deadline and controller.in_flight != 0:
+        await asyncio.sleep(0.1)
+
+    assert controller.in_flight == 0, (
+        f"slot never released after worker ended: in_flight={controller.in_flight}"
     )
