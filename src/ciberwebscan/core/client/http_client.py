@@ -17,6 +17,7 @@ from __future__ import annotations
 import logging
 import os
 import random
+import ssl
 import threading
 import time
 from collections import deque
@@ -231,6 +232,68 @@ class RateLimiter:
         return self._max_rate
 
 
+# Process-wide TLS contexts for verify=True clients, keyed by every input
+# that changes how httpx would build its default context.
+_ssl_context_cache: dict[tuple[bool, str | None, str | None], ssl.SSLContext] = {}
+_ssl_context_lock = threading.Lock()
+
+
+def _shared_ssl_context(http2: bool, trust_env: bool) -> ssl.SSLContext | None:
+    """Return a reusable TLS context for ``verify=True`` clients.
+
+    Building httpx's default verification context re-reads the whole CA
+    bundle (certifi) on every construction — hundreds of milliseconds per
+    ``httpx.Client`` (measured: ~420 ms for the context alone, up to
+    ~1.3 s for the first full client), amplified by the GIL when many
+    scans construct clients concurrently (BUG-013). ``ssl.SSLContext`` is
+    safe to share between threads and httpx accepts it directly via
+    ``verify=``, so one context per shape is built and reused.
+
+    The cache key covers every input that changes httpx's own default
+    context:
+
+    - ``http2``: httpcore sets the ALPN protocols *on the context object*
+      for every new connection, so contexts must never be shared between
+      HTTP/2 and HTTP/1.1-only clients.
+    - ``trust_env`` plus the resolved ``SSL_CERT_FILE``/``SSL_CERT_DIR``
+      values: httpx only honours those environment variables under
+      ``trust_env``; including the values keeps a runtime change from
+      silently reusing a stale bundle.
+
+    Returns:
+        A reusable context, or None when it cannot be built (e.g. certifi
+        unavailable) — the caller then falls back to httpx's own
+        uncached construction.
+    """
+    try:
+        import certifi
+    except ImportError:  # pragma: no cover - certifi ships with httpx
+        return None
+
+    ssl_cert_file = os.environ.get("SSL_CERT_FILE") if trust_env else None
+    ssl_cert_dir = os.environ.get("SSL_CERT_DIR") if trust_env else None
+    key = (http2, ssl_cert_file, ssl_cert_dir)
+
+    context = _ssl_context_cache.get(key)
+    if context is not None:
+        return context
+
+    with _ssl_context_lock:
+        context = _ssl_context_cache.get(key)
+        if context is None:
+            # Same construction httpx performs for verify=True
+            # (httpx._config.create_ssl_context), replicated here once
+            # instead of per client.
+            if ssl_cert_file:
+                context = ssl.create_default_context(cafile=ssl_cert_file)
+            elif ssl_cert_dir:
+                context = ssl.create_default_context(capath=ssl_cert_dir)
+            else:
+                context = ssl.create_default_context(cafile=certifi.where())
+            _ssl_context_cache[key] = context
+    return context
+
+
 class HTTPClient:
     """
     HTTP client with automatic retry, rate limiting, and logging.
@@ -435,10 +498,19 @@ class HTTPClient:
         # Build httpx client. trust_env is explicit: environment proxies
         # (HTTP_PROXY & co.) are ignored unless use_env_proxies enabled
         # them, and in that case every env proxy was validated above.
+        # verify=True reuses a process-wide TLS context built with the
+        # same construction httpx would perform, minus the per-client CA
+        # bundle reload (see _shared_ssl_context).
+        verify_for_client: bool | ssl.SSLContext = resolved_verify
+        if resolved_verify is True:
+            shared_context = _shared_ssl_context(resolved_http2, resolved_use_env)
+            if shared_context is not None:
+                verify_for_client = shared_context
+
         self._client = httpx.Client(
             timeout=resolved_timeout,
             http2=resolved_http2,
-            verify=resolved_verify,
+            verify=verify_for_client,
             follow_redirects=resolved_follow_redirects,
             max_redirects=resolved_max_redirects,
             headers=default_headers,
