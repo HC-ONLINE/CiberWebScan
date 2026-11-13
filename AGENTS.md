@@ -4,7 +4,7 @@
 
 CiberWebScan is a hybrid web security scanner combining passive reconnaissance, attack surface analysis, structured extraction, and security assessment of web applications. Version **2.4.0** (beta), licensed under Apache 2.0.
 
-- **Python**: >= 3.11 (supports 3.11, 3.12, 3.13, 3.14)
+- **Python**: >= 3.11.5 (supports 3.11, 3.12, 3.13, 3.14)
 - **Package**: `ciberwebscan` (src layout: `src/ciberwebscan/`)
 - **Entry point**: `ciberwebscan` CLI → `ciberwebscan.cli.app:main`
 - **License**: Apache 2.0

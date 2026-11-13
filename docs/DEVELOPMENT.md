@@ -6,7 +6,7 @@ This guide covers development, testing, and contribution guidelines for CiberWeb
 
 ### Prerequisites
 
-- Python 3.11 or higher
+- Python 3.11.5 or higher
 - Git
 - Virtual environment (recommended)
 

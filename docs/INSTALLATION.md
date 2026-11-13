@@ -4,7 +4,7 @@ This guide covers the installation and setup of CiberWebScan.
 
 ## Prerequisites
 
-- Python 3.11 or higher
+- Python 3.11.5 or higher
 - [uv](https://docs.astral.sh/uv/getting-started/installation/) (Python package and environment manager)
 - Git (for cloning the repository)
 
@@ -76,7 +76,7 @@ The command will print post-installation instructions specific to your shell. Se
 
 ### Common Issues
 
-1. **ImportError**: Ensure you're using Python 3.11+ and have installed the package correctly.
+1. **ImportError**: Ensure you're using Python 3.11.5+ and have installed the package correctly.
 
 2. **Playwright errors**: Make sure to run `uv run playwright install` after installation.
 
